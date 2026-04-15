@@ -18,7 +18,7 @@
 const{useState,useRef}=React;
 const BX="https://mavisgroup.bitrix24.by/rest/2110/ie4502ilh74981qr";
 const FROM_EMAIL="mavis.group@mail.ru";
-const INIT_MGRS=[{id:1,name:"Роман Авсеенко",phone:"80 (44) 721 42 15"},{id:2,name:"Екатерина Халько",phone:"80 (44) 721 42 15"},{id:3,name:"Ирина Богомольцева",phone:"80 (44) 721 42 15"}];const COMPANY_ADDR="г. Минск, ул. Домбровская 9, офис 12.2.2";
+const INIT_MGRS=[{id:1,name:"Роман Авсеенко",phone:"80 (44) 721 42 15"},{id:2,name:"Екатерина Халько",phone:"80 (44) 721 42 15"},{id:3,name:"Ирина Богомольцева",phone:"80 (44) 721 42 15"}];const COMPANY_PHONE="80 (44) 721 42 15";const COMPANY_ADDR="г. Минск, ул. Домбровская 9, офис 12.2.2";
 const CAT=[
 {c:"Строительство",i:"🏗",s:[{id:"spk",n:"СПК (свидетельство о подтв. компетентности)"},{id:"attest",n:"Аттестация в строительстве"},{id:"attest_gen",n:"Аттестация подряд + ген.подряд"},{id:"attest_proj",n:"Аттестация проектирование + ген.проект"},{id:"attest_confirm",n:"Подтверждение аттестации"},{id:"spec_find",n:"Подбор аттестованного специалиста"},{id:"spec_find_part",n:"Подбор совместителя"},{id:"spec_find_narrow",n:"Подбор узкого специалиста"},{id:"spec_attest",n:"Аттестация специалиста"},{id:"period_spk",n:"Периодика СПК"},{id:"period_iso",n:"Периодика ISO 9001"},{id:"period_iso_suot",n:"Периодика ISO + СУОТ"},{id:"period_cert",n:"Периодика Сертификаты"}]},
 {c:"Системы менеджмента",i:"📋",s:[{id:"iso9001_rb",n:"ISO 9001 (РБ)"},{id:"iso9001_int",n:"ISO 9001 (международный)"},{id:"iso45001",n:"СУОТ ISO 45001"},{id:"iso9001_45001",n:"ISO 9001 + СУОТ ISO 45001 (комплекс)"},{id:"iso27001_rb",n:"ISO 27001 (РБ)"},{id:"iso27001_int",n:"ISO 27001 (международный)"},{id:"iso9001_27001_int",n:"ISO 9001 + ISO 27001 (международный)"},{id:"ohrana_truda",n:"Разработка документов по охране труда"}]},
@@ -68,7 +68,7 @@ function App(){
   const tP=sv.reduce((a,s)=>a+(+s.prep||0),0),tF=sv.reduce((a,s)=>a+(+s.fee||0),0),tE=sv.reduce((a,s)=>a+(+s.extra||0),0),tT=tP+tF+tE;
 
   // History
-  const save=()=>{const k={id:Date.now(),kn,date:kpDate,co:{...co},sv:[...sv],ttl,mgr:selMgr,mgrName:curMgr?curMgr.name:'',tP,tF,tE,tT,mgr:mgrData?.name||""};setHi(p=>[k,...p]);fl("КП сохранено")};
+  const save=()=>{const k={id:Date.now(),kn,date:kpDate,co:{...co},sv:[...sv],ttl,tP,tF,tE,tT,mgr:mgrData?.name||""};setHi(p=>[k,...p]);fl("КП сохранено")};
   const nw=()=>{setSt(1);setCo({name:"",dir:"",email:"",phone:"",bx:""});setSv([]);setTtl("");setKpDate(td());setKn(mkn());setPg("create")};
   const ld=k=>{setCo(k.co);setSv(k.sv);setTtl(k.ttl);if(k.date)setKpDate(k.date);setKn(k.kn);setSt(3);setPg("create")};
 
@@ -76,18 +76,107 @@ function App(){
   const mgrSig=()=>"<div style='border-top:2px solid #ddd;padding-top:16px;margin-top:16px;'><p style='font-size:18px;font-weight:bold;color:#222;margin:0 0 4px;'>"+(mgrData?.name||"MAVIS GROUP")+"</p><p style='font-size:13px;color:#333;margin:0 0 4px;'><strong>MAVIS GROUP</strong> | Специалист отдела продаж</p>"+(mgrData?.phone?"<p style='font-size:13px;color:#555;margin:0 0 2px;'><span style='color:#e67e22;'>Телефон:</span> "+mgrData.phone+"</p>":"")+"<p style='font-size:13px;color:#555;margin:0;'><span style='color:#e67e22;'>Адрес:</span> "+COMPANY_ADDR+"</p></div>";
 
   // Email body
-  const eB=()=>{const rows=sv.map((s,i)=>"<tr><td style='padding:8px 12px;border-bottom:1px solid #eee;color:#555;'>"+(i+1)+"</td><td style='padding:8px 12px;border-bottom:1px solid #eee;'>"+(s.cn||s.n)+"</td><td style='padding:8px 12px;border-bottom:1px solid #eee;text-align:right;'>"+fm(s.prep)+"</td><td style='padding:8px 12px;border-bottom:1px solid #eee;text-align:right;'>"+fm(s.fee)+"</td><td style='padding:8px 12px;border-bottom:1px solid #eee;text-align:right;'>"+fm(s.extra)+(s.ec?"<br><small style='color:#888;'>"+s.ec+"</small>":"")+"</td></tr>").join("");return "<div style='font-family:Arial,sans-serif;max-width:700px;margin:0 auto;'><div style='background:#2a2d38;color:#fff;padding:32px 28px;border-radius:8px 8px 0 0;'><h1 style='margin:0;font-size:22px;letter-spacing:2px;'>КОММЕРЧЕСКОЕ ПРЕДЛОЖЕНИЕ</h1><p style='margin:4px 0 0;opacity:0.6;font-size:13px;'>MAVIS GROUP &middot; "+kpDate+"</p></div><div style='padding:24px 28px;border:1px solid #e5e5e5;border-top:none;'><p style='font-size:15px;margin:0 0 20px;'><strong>"+co.name+"</strong>"+(co.dir?"<br><span style='color:#666;'>"+co.dir+"</span>":"")+"</p>"+(ttl?"<h2 style='font-size:16px;margin:0 0 16px;color:#333;'>"+ttl+"</h2>":"")+"<table style='width:100%;border-collapse:collapse;margin-bottom:20px;'><thead><tr style='background:#f5f5f5;'><th style='padding:10px 12px;text-align:left;font-size:12px;color:#888;'>No</th><th style='padding:10px 12px;text-align:left;font-size:12px;color:#888;'>Услуга</th><th style='padding:10px 12px;text-align:right;font-size:12px;color:#888;'>Подготовка</th><th style='padding:10px 12px;text-align:right;font-size:12px;color:#888;'>Пошлины</th><th style='padding:10px 12px;text-align:right;font-size:12px;color:#888;'>Доп.</th></tr></thead><tbody>"+rows+"<tr style='font-weight:bold;border-top:2px solid #333;'><td></td><td style='padding:10px 12px;'>Итого:</td><td style='padding:10px 12px;text-align:right;'>"+fm(tP)+"</td><td style='padding:10px 12px;text-align:right;'>"+fm(tF)+"</td><td style='padding:10px 12px;text-align:right;'>"+fm(tE)+"</td></tr><tr style='font-weight:bold;font-size:16px;color:#4f7df5;'><td></td><td style='padding:12px;'>ОБЩАЯ СУММА:</td><td colspan='3' style='padding:12px;text-align:right;'>"+fm(tT)+"</td></tr></tbody></table><div style='font-size:13px;color:#555;line-height:1.8;margin-bottom:20px;'><strong>Условия:</strong><br>— 100% предоплата.<br>— Гос. пошлина по мере направления документов.</div><p style='font-size:12px;color:#999;'>"+mgrSig()+"</div></div>"};
+  const genPdfBlob=async()=>{
+    const clone=kpRef.current.cloneNode(true);
+    const wrap=document.createElement("div");
+    wrap.style.cssText="position:fixed;left:-9999px;top:0;width:794px;z-index:-1;";
+    clone.style.cssText="width:794px;max-width:794px;border-radius:0;padding:56px 48px 40px;margin:0;background:#2a2d38;color:#fff;font-family:Manrope,sans-serif;";
+    clone.querySelectorAll("*").forEach(el=>{el.style.transition="none";el.style.animation="none"});
+    wrap.appendChild(clone);document.body.appendChild(wrap);
+    await new Promise(r=>setTimeout(r,600));
+    const canvas=await html2canvas(clone,{scale:3,useCORS:true,backgroundColor:"#2a2d38",logging:false,width:794});
+    document.body.removeChild(wrap);
+    const{jsPDF}=window.jspdf;
+    const pxW=canvas.width,pxH=canvas.height,pageW=210,pageH=297,ratio=pageW/pxW,pagePxH=Math.floor(pageH/ratio);
+    const totalMmH=pxH*ratio;
+    const pdf=new jsPDF("p","mm","a4");
+    pdf.setFillColor(42,45,56);pdf.rect(0,0,pageW,pageH,"F");
+    if(totalMmH<=pageH*1.3){
+      const fitH=Math.min(totalMmH,pageH);const fitW=(fitH/totalMmH)*pageW;const offsetX=(pageW-fitW)/2;
+      pdf.addImage(canvas.toDataURL("image/png"),"PNG",offsetX,0,fitW,fitH);
+    }else{
+      let page=0,srcY=0;
+      while(srcY<pxH&&page<10){
+        if(page>0){pdf.addPage();pdf.setFillColor(42,45,56);pdf.rect(0,0,pageW,pageH,"F");}
+        const sliceH=Math.min(pagePxH,pxH-srcY);const pc=document.createElement("canvas");
+        pc.width=pxW;pc.height=sliceH;pc.getContext("2d").drawImage(canvas,0,srcY,pxW,sliceH,0,0,pxW,sliceH);
+        pdf.addImage(pc.toDataURL("image/png"),"PNG",0,0,pageW,sliceH*ratio);
+        srcY+=pagePxH;page++;if(pxH-srcY<pagePxH*0.15)break;
+      }
+    }
+    return pdf.output("datauristring").split(",")[1];
+  };
 
-  // Send email
-  const sEm=async()=>{if(!co.email){fl("Email не указан","error");return}setSn(true);try{const subj="Коммерческое предложение"+(ttl?" — "+ttl:"")+" | MAVIS GROUP";const r=await fetch(BX+"/crm.activity.add.json",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({fields:{OWNER_TYPE_ID:4,OWNER_ID:co.bx||0,TYPE_ID:4,SUBJECT:subj,DESCRIPTION:eB(),DESCRIPTION_TYPE:2,DIRECTION:2,COMPLETED:"Y",SETTINGS:{MESSAGE_FROM:FROM_EMAIL},COMMUNICATIONS:[{VALUE:co.email,ENTITY_ID:co.bx||0,ENTITY_TYPE_ID:4,TYPE:"EMAIL"}]}})});const d=await r.json();if(d.result){fl("Отправлено на "+co.email);save()}else fl("Ошибка: "+(d.error_description||""),"error")}catch(e){fl("Ошибка: "+e.message,"error")}setSn(false)};
+  const sEm=async()=>{
+    if(!co.email){fl("Email не указан","error");return}
+    if(!mgrData){fl("Выберите менеджера","error");return}
+    if(!kpRef.current){fl("Сначала перейдите на предпросмотр","error");return}
+    setSn(true);
+    fl("Генерация PDF и отправка...","warn");
+    try{
+      // 1. Generate PDF as base64
+      const clone=kpRef.current.cloneNode(true);
+      const wrap=document.createElement("div");
+      wrap.style.cssText="position:fixed;left:-9999px;top:0;width:794px;z-index:-1;";
+      clone.style.cssText="width:794px;max-width:794px;border-radius:0;padding:56px 48px 40px;margin:0;background:#2a2d38;color:#fff;font-family:Manrope,sans-serif;";
+      clone.querySelectorAll("*").forEach(el=>{el.style.transition="none";el.style.animation="none"});
+      wrap.appendChild(clone);document.body.appendChild(wrap);
+      await new Promise(r=>setTimeout(r,600));
+      const canvas=await html2canvas(clone,{scale:3,useCORS:true,backgroundColor:"#2a2d38",logging:false,width:794});
+      document.body.removeChild(wrap);
+      const{jsPDF}=window.jspdf;
+      const pxW=canvas.width,pxH=canvas.height,pageW=210,pageH=297,ratio=pageW/pxW,pagePxH=Math.floor(pageH/ratio);
+      const totalMmH=pxH*ratio;
+      const pdf=new jsPDF("p","mm","a4");
+      pdf.setFillColor(42,45,56);pdf.rect(0,0,pageW,pageH,"F");
+      if(totalMmH<=pageH*1.3){
+        const fitH=Math.min(totalMmH,pageH);const fitW=(fitH/totalMmH)*pageW;const offsetX=(pageW-fitW)/2;
+        pdf.addImage(canvas.toDataURL("image/png"),"PNG",offsetX,0,fitW,fitH);
+      }else{
+        let page=0,srcY=0;
+        while(srcY<pxH&&page<10){
+          if(page>0){pdf.addPage();pdf.setFillColor(42,45,56);pdf.rect(0,0,pageW,pageH,"F")}
+          const sliceH=Math.min(pagePxH,pxH-srcY);const pc=document.createElement("canvas");
+          pc.width=pxW;pc.height=sliceH;pc.getContext("2d").drawImage(canvas,0,srcY,pxW,sliceH,0,0,pxW,sliceH);
+          pdf.addImage(pc.toDataURL("image/png"),"PNG",0,0,pageW,sliceH*ratio);
+          srcY+=pagePxH;page++;if(pxH-srcY<pagePxH*0.15)break;
+        }
+      }
+      const pdfBase64=pdf.output("datauristring").split(",")[1];
+      const pdfName=("Коммерческое предложение "+co.name).replace(/[^a-zA-Zа-яА-ЯёЁ0-9 _-]/g,"_").substring(0,80)+".pdf";
 
-  // PDF
-  const dlPdf=async()=>{if(!kpRef.current)return;setPdfing(true);fl("PDF...","warn");try{const clone=kpRef.current.cloneNode(true);const wrap=document.createElement("div");wrap.style.cssText="position:fixed;left:-9999px;top:0;width:794px;z-index:-1;";clone.style.cssText="width:794px;max-width:794px;border-radius:0;padding:56px 48px 40px;margin:0;background:#2a2d38;color:#fff;font-family:Manrope,sans-serif;";clone.querySelectorAll("*").forEach(el=>{el.style.transition="none";el.style.animation="none"});wrap.appendChild(clone);document.body.appendChild(wrap);await new Promise(r=>setTimeout(r,600));const canvas=await html2canvas(clone,{scale:3,useCORS:true,backgroundColor:"#2a2d38",logging:false,width:794});document.body.removeChild(wrap);const{jsPDF}=window.jspdf;const pxW=canvas.width,pxH=canvas.height,pageW=210,pageH=297,ratio=pageW/pxW,pagePxH=Math.floor(pageH/ratio);const pdf=new jsPDF("p","mm","a4");let page=0,srcY=0;while(srcY<pxH){if(page>0)pdf.addPage();pdf.setFillColor(42,45,56);pdf.rect(0,0,pageW,pageH,"F");const sliceH=Math.min(pagePxH,pxH-srcY);const pc=document.createElement("canvas");pc.width=pxW;pc.height=sliceH;pc.getContext("2d").drawImage(canvas,0,srcY,pxW,sliceH,0,0,pxW,sliceH);pdf.addImage(pc.toDataURL("image/png"),"PNG",0,0,pageW,sliceH*ratio);srcY+=pagePxH;page++;if(pxH-srcY<50)break}pdf.save(("Коммерческое предложение "+co.name).replace(/[^a-zA-Zа-яА-ЯёЁ0-9 _-]/g,"_").substring(0,80)+".pdf");fl("PDF сохранён!");save()}catch(e){fl("Ошибка PDF: "+e.message,"error");console.error(e)}setPdfing(false)};
+      // 2. Send email via Bitrix24 with PDF attachment
+      const subj="Коммерческое предложение"+(ttl?" — "+ttl:"")+" | MAVIS GROUP";
+      const body="Добрый день!\n\nНаправляем Вам коммерческое предложение"+(ttl?" — "+ttl:"")+" от компании MAVIS GROUP.\nПодробности в прикреплённом файле.\n\n--\n"+mgrData.name+"\nMAVIS GROUP | Специалист отдела продаж\nТелефон: "+COMPANY_PHONE+"\nАдрес: "+COMPANY_ADDR+"\nEmail: "+FROM_EMAIL;
+
+      const r=await fetch(BX+"/crm.activity.add.json",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({fields:{
+          OWNER_TYPE_ID:4,
+          OWNER_ID:co.bx||0,
+          TYPE_ID:4,
+          SUBJECT:subj,
+          DESCRIPTION:body,
+          DESCRIPTION_TYPE:1,
+          DIRECTION:2,
+          COMPLETED:"Y",
+          SETTINGS:{MESSAGE_FROM:FROM_EMAIL},
+          FILES:[{fileData:[pdfName,pdfBase64]}],
+          COMMUNICATIONS:[{VALUE:co.email,ENTITY_ID:co.bx||0,ENTITY_TYPE_ID:4,TYPE:"EMAIL"}]
+        }})
+      });
+      const d=await r.json();
+      if(d.result){fl("КП отправлено на "+co.email+" с PDF");save()}
+      else fl("Ошибка: "+(d.error_description||JSON.stringify(d)),"error");
+    }catch(e){fl("Ошибка: "+e.message,"error");console.error(e)}
+    setSn(false);
+  }
 
   const CSS=`@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&family=Playfair+Display:wght@400;500;600;700&display=swap');*{margin:0;padding:0;box-sizing:border-box}:root{--bg:#0f1117;--sf:#1a1d27;--s2:#232734;--bd:#2d3143;--tx:#e4e6ef;--t2:#8b90a5;--ac:#4f7df5;--a2:#3d6ae0;--gn:#34c77b;--rd:#f5574f;--or:#f5a623}body{font-family:'Manrope',sans-serif;background:var(--bg);color:var(--tx)}.A{display:flex;height:100vh;overflow:hidden}.SB{width:260px;min-width:260px;background:var(--sf);border-right:1px solid var(--bd);display:flex;flex-direction:column}.SL{padding:24px 20px 20px;border-bottom:1px solid var(--bd)}.SL h1{font-family:'Playfair Display',serif;font-size:22px;font-weight:700;color:#fff}.SL>span{font-size:11px;color:var(--t2);letter-spacing:2px;text-transform:uppercase;display:block;margin-top:2px}.SN{flex:1;padding:12px 10px}.NI{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:10px;cursor:pointer;font-size:14px;font-weight:500;color:var(--t2);transition:all .2s;margin-bottom:2px}.NI:hover{background:var(--s2);color:var(--tx)}.NI.on{background:var(--ac);color:#fff}.NI .ic{font-size:18px;width:24px;text-align:center}.NI .badge{margin-left:auto;background:var(--ac);color:#fff;font-size:11px;padding:2px 8px;border-radius:10px;font-weight:700}.NI.on .badge{background:rgba(255,255,255,.25)}.MN{flex:1;overflow-y:auto}.MH{position:sticky;top:0;z-index:10;background:rgba(15,17,23,.85);backdrop-filter:blur(20px);border-bottom:1px solid var(--bd);padding:18px 32px;display:flex;align-items:center;justify-content:space-between}.MH h2{font-size:18px;font-weight:700}.MC{padding:28px 32px;max-width:1100px}.STP{display:flex;margin-bottom:28px}.SI{display:flex;align-items:center;gap:10px;padding:10px 20px;background:var(--sf);border:1px solid var(--bd);font-size:13px;font-weight:600;color:var(--t2);cursor:pointer;transition:all .2s}.SI:first-child{border-radius:10px 0 0 10px}.SI:last-child{border-radius:0 10px 10px 0}.SI.on{background:var(--ac);border-color:var(--ac);color:#fff}.SI.ok{background:var(--s2);border-color:var(--gn);color:var(--gn)}.SNM{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;background:var(--s2);color:var(--t2)}.SI.on .SNM{background:rgba(255,255,255,.2);color:#fff}.SI.ok .SNM{background:var(--gn);color:#fff}.CD{background:var(--sf);border:1px solid var(--bd);border-radius:12px;padding:24px;margin-bottom:20px}.CT{font-size:15px;font-weight:700;margin-bottom:16px;display:flex;align-items:center;gap:8px}.FG{display:grid;grid-template-columns:1fr 1fr;gap:16px}.FGR{display:flex;flex-direction:column;gap:6px}.FGR.fu{grid-column:1/-1}.FL{font-size:12px;font-weight:600;color:var(--t2);text-transform:uppercase;letter-spacing:.5px}.FI{background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:10px 14px;font-size:14px;color:var(--tx);outline:none;font-family:'Manrope',sans-serif;transition:border-color .2s}.FI:focus{border-color:var(--ac)}.FI::placeholder{color:var(--t2);opacity:.6}.B{padding:10px 20px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:none;display:inline-flex;align-items:center;gap:8px;transition:all .2s;font-family:'Manrope',sans-serif}.BP{background:var(--ac);color:#fff}.BP:hover{background:var(--a2);transform:translateY(-1px)}.BS{background:var(--s2);color:var(--tx);border:1px solid var(--bd)}.BS:hover{border-color:var(--t2)}.BG{background:var(--gn);color:#fff}.BG:hover{opacity:.9}.BR{background:var(--rd);color:#fff}.Bsm{padding:6px 12px;font-size:12px}.Blg{padding:14px 28px;font-size:15px}.B:disabled{opacity:.5;cursor:not-allowed;transform:none!important}.SR{display:flex;gap:10px;margin-bottom:16px}.SR .FI{flex:1}.BXR{background:var(--s2);border:1px solid var(--bd);border-radius:8px;margin-bottom:16px;overflow:hidden}.BXI{padding:12px 16px;cursor:pointer;border-bottom:1px solid var(--bd);transition:background .15s;display:flex;justify-content:space-between;align-items:center}.BXI:last-child{border-bottom:none}.BXI:hover{background:var(--ac)}.CG{margin-bottom:12px}.CH{display:flex;align-items:center;gap:10px;padding:14px 18px;background:var(--s2);border-radius:10px;cursor:pointer;font-weight:700;font-size:14px;border:1px solid transparent}.CH:hover{border-color:var(--bd)}.CH.op{border-color:var(--ac);border-radius:10px 10px 0 0}.CH .aw{margin-left:auto;transition:transform .2s;color:var(--t2)}.CH.op .aw{transform:rotate(90deg)}.CS{border:1px solid var(--bd);border-top:none;border-radius:0 0 10px 10px;overflow:hidden}.SVI{display:flex;align-items:center;gap:12px;padding:12px 18px;border-bottom:1px solid var(--bd);font-size:13px}.SVI:last-child{border-bottom:none}.SVI:hover{background:var(--s2)}.SVN{flex:1}.SVA{color:var(--gn);font-size:12px;font-weight:600}.TBL{width:100%;border-collapse:collapse}.TBL th{text-align:left;font-size:11px;font-weight:700;color:var(--t2);text-transform:uppercase;padding:10px 12px;border-bottom:2px solid var(--bd)}.TBL td{padding:12px;border-bottom:1px solid var(--bd);font-size:13px;vertical-align:top}.NI2{width:100px;background:var(--bg);border:1px solid var(--bd);border-radius:6px;padding:6px 10px;color:var(--tx);font-size:13px;font-family:'Manrope',sans-serif;text-align:right;outline:none}.NI2:focus{border-color:var(--ac)}.CIp{width:120px;margin-top:4px;font-size:11px;padding:4px 8px;background:var(--bg);border:1px solid var(--bd);border-radius:6px;color:var(--t2);font-family:'Manrope',sans-serif;outline:none}.CIp:focus{border-color:var(--ac)}.TR td{font-weight:700;font-size:14px;border-top:2px solid var(--ac)}.GR td{font-weight:800;font-size:16px;color:var(--ac)}.KP{background:linear-gradient(135deg,#3a3d4a,#2a2d38 40%,#1e2028);border-radius:8px;padding:48px 40px;color:#fff;position:relative;overflow:hidden;font-family:'Manrope',sans-serif}.KY{position:absolute;top:32px;left:32px;font-size:64px;font-weight:800;writing-mode:vertical-rl;color:rgba(255,255,255,.15);letter-spacing:8px;font-family:'Playfair Display',serif}.KH{margin-left:60px;margin-bottom:36px}.KH h1{font-size:28px;font-weight:800;letter-spacing:6px;font-family:'Playfair Display',serif}.KH h2{font-size:16px;font-weight:300;letter-spacing:12px;color:rgba(255,255,255,.7)}.KH .br2{font-size:13px;font-weight:600;letter-spacing:3px;color:rgba(255,255,255,.5);margin-top:4px}.KD{font-size:13px;color:rgba(255,255,255,.5);margin-left:60px;margin-bottom:8px}.KC{margin-left:60px;margin-bottom:32px;padding:18px 24px;background:rgba(255,255,255,.06);border-radius:10px;border-left:3px solid var(--ac)}.KC h3{font-size:20px;font-weight:700}.KC p{font-size:13px;color:rgba(255,255,255,.6)}.KS{margin-left:60px;font-size:16px;font-weight:700;margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid rgba(255,255,255,.1);font-family:'Playfair Display',serif}.KT{margin-left:60px;width:calc(100% - 60px);border-collapse:collapse;margin-bottom:32px}.KT th{text-align:left;font-size:11px;font-weight:700;text-transform:uppercase;color:rgba(255,255,255,.5);padding:10px 14px;border-bottom:1px solid rgba(255,255,255,.15)}.KT td{padding:12px 14px;font-size:13px;border-bottom:1px solid rgba(255,255,255,.06)}.KT .TT td{font-weight:700;border-top:2px solid rgba(255,255,255,.2);border-bottom:none}.KT .TG td{font-weight:800;font-size:16px;color:var(--ac);padding-top:16px}.KCN{margin-left:60px;font-size:13px;color:rgba(255,255,255,.7);line-height:1.8;margin-bottom:32px}.KA{margin-left:60px}.KAI{margin-bottom:16px}.KAI h4{font-size:14px;font-weight:700;display:flex;align-items:center;gap:8px}.KAI p{font-size:12px;color:rgba(255,255,255,.6);line-height:1.5}.KCL{margin-left:60px;display:flex;gap:12px;flex-wrap:wrap;margin-top:24px}.KCLT{padding:6px 16px;border:1px solid rgba(255,255,255,.2);border-radius:20px;font-size:12px;font-weight:600;color:rgba(255,255,255,.7)}.HC{background:var(--sf);border:1px solid var(--bd);border-radius:12px;padding:18px 22px;cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:16px;margin-bottom:12px}.HC:hover{border-color:var(--ac);transform:translateY(-2px)}.AB{display:flex;gap:10px;flex-wrap:wrap;margin-top:24px;padding-top:20px;border-top:1px solid var(--bd)}.NF{position:fixed;top:20px;right:20px;z-index:1000;padding:14px 24px;border-radius:10px;font-size:14px;font-weight:600;animation:sIn .3s ease;box-shadow:0 8px 24px rgba(0,0,0,.3)}.NF.success{background:var(--gn);color:#fff}.NF.error{background:var(--rd);color:#fff}.NF.warn{background:var(--or);color:#fff}@keyframes sIn{from{transform:translateX(100px);opacity:0}to{transform:translateX(0);opacity:1}}.ES{text-align:center;padding:60px 20px;color:var(--t2)}.TG2{display:inline-block;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700;background:rgba(79,125,245,.15);color:var(--ac)}::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--bd);border-radius:3px}`;
 
   // MANAGER SELECTION SCREEN
-  if(curMgr<0){
+  if(!mgrData){
     const filled=mgrs.filter(m=>m.name.trim());
     return(<><style>{CSS}</style>
       <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100vh",background:"var(--bg)",fontFamily:"'Manrope',sans-serif"}}>
