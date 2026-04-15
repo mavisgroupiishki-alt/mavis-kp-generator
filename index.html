@@ -10,6 +10,8 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body>
 <div id="root"></div>
@@ -99,6 +101,8 @@ function App() {
   const [nf, setNf] = useState(null);
   const [cn, setCn] = useState("");
   const ci = useRef(1);
+  const kpRef = useRef(null);
+  const [pdfing, setPdfing] = useState(false);
   const fl = (m,t="success") => { setNf({m,t}); setTimeout(()=>setNf(null),3500); };
 
   const sBx = async () => {
@@ -142,6 +146,28 @@ function App() {
       const d=await r.json();
       if(d.result){fl("КП отправлено на "+co.email);save();}else fl("Ошибка: "+(d.error_description||"неизвестная"),"error");
     } catch(e){fl("Ошибка сети: "+e.message,"error");} setSn(false);
+  };
+
+  const dlPdf = async () => {
+    if(!kpRef.current) return;
+    setPdfing(true);
+    fl("Генерация PDF...","warn");
+    try {
+      const el = kpRef.current;
+      const canvas = await html2canvas(el, { scale: 2, useCORS: true, backgroundColor: "#2a2d38", logging: false });
+      const imgData = canvas.toDataURL("image/png");
+      const { jsPDF } = window.jspdf;
+      const pxW = canvas.width, pxH = canvas.height;
+      const pdfW = 210;
+      const pdfH = (pxH * pdfW) / pxW;
+      const pdf = new jsPDF({ orientation: pdfH > 297 ? "p" : "p", unit: "mm", format: [pdfW, Math.max(pdfH, 297)] });
+      pdf.addImage(imgData, "PNG", 0, 0, pdfW, pdfH);
+      const fname = kn.replace(/[^a-zA-Zа-яА-Я0-9-]/g,"_") + "_" + co.name.replace(/[^a-zA-Zа-яА-Я0-9]/g,"_").substring(0,30) + ".pdf";
+      pdf.save(fname);
+      fl("PDF сохранён!");
+      save();
+    } catch(e) { fl("Ошибка PDF: "+e.message,"error"); }
+    setPdfing(false);
   };
 
   const CSS = `
@@ -248,7 +274,7 @@ function App() {
               <div style={{display:"flex",justifyContent:"space-between"}}><button className="B BS Blg" onClick={()=>setSt(1)}>← Компания</button><button className="B BP Blg" onClick={()=>{if(!sv.length){fl("Добавьте услугу","error");return;}setSt(3);}}>Предпросмотр →</button></div>
             </>)}
             {st===3&&(<>
-              <div className="KP">
+              <div className="KP" ref={kpRef}>
                 <div className="KY">2026</div>
                 <div className="KH"><h1>КОММЕРЧЕСКОЕ</h1><h2>ПРЕДЛОЖЕНИЕ</h2><div className="br2">MAVIS GROUP</div></div>
                 <div className="KD">Предложение о сотрудничестве от {td()}</div>
@@ -268,7 +294,7 @@ function App() {
                 <button className="B BS Blg" onClick={()=>setSt(2)}>← Редактировать</button>
                 <button className="B BG Blg" onClick={save}>💾 Сохранить</button>
                 <button className="B BP Blg" onClick={sEm} disabled={sn}>{sn?"⏳ Отправка...":"✉ Отправить на "+(co.email||"email")}</button>
-                <button className="B BS Blg" onClick={()=>fl("PDF — следующее обновление","warn")}>📄 Скачать PDF</button>
+                <button className="B BS Blg" onClick={dlPdf} disabled={pdfing}>{pdfing?"⏳ Генерация...":"📄 Скачать PDF"}</button>
               </div>
             </>)}
           </div>
