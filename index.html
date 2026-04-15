@@ -126,65 +126,80 @@ function App(){
     const sEm=async()=>{
     if(!co.email){fl("Email не указан","error");return}
     if(!mgrData){fl("Выберите менеджера","error");return}
-    if(!kpRef.current){fl("Сначала перейдите на предпросмотр","error");return}
-    setSn(true);
-    fl("Генерация PDF и отправка...","warn");
+    if(!kpRef.current){fl("Откройте предпросмотр","error");return}
+    setSn(true);fl("Генерация PDF...","warn");
     try{
-      // 1. Generate PDF as base64
+      // 1. Generate small PDF
       const clone=kpRef.current.cloneNode(true);
       const wrap=document.createElement("div");
       wrap.style.cssText="position:fixed;left:-9999px;top:0;width:794px;z-index:-1;";
       clone.style.cssText="width:794px;max-width:794px;border-radius:0;padding:56px 48px 40px;margin:0;background:#2a2d38;color:#fff;font-family:Manrope,sans-serif;";
       clone.querySelectorAll("*").forEach(el=>{el.style.transition="none";el.style.animation="none"});
       wrap.appendChild(clone);document.body.appendChild(wrap);
-      await new Promise(r=>setTimeout(r,600));
-      const canvas=await html2canvas(clone,{scale:3,useCORS:true,backgroundColor:"#2a2d38",logging:false,width:794});
+      await new Promise(r=>setTimeout(r,500));
+      const canvas=await html2canvas(clone,{scale:1.2,useCORS:true,backgroundColor:"#2a2d38",logging:false,width:794});
       document.body.removeChild(wrap);
       const{jsPDF}=window.jspdf;
-      const pxW=canvas.width,pxH=canvas.height,pageW=210,pageH=297,ratio=pageW/pxW,pagePxH=Math.floor(pageH/ratio);
+      const pxW=canvas.width,pxH=canvas.height,pageW=210,pageH=297,ratio=pageW/pxW;
       const totalMmH=pxH*ratio;
       const pdf=new jsPDF("p","mm","a4");
       pdf.setFillColor(42,45,56);pdf.rect(0,0,pageW,pageH,"F");
       if(totalMmH<=pageH*1.3){
-        const fitH=Math.min(totalMmH,pageH);const fitW=(fitH/totalMmH)*pageW;const offsetX=(pageW-fitW)/2;
-        pdf.addImage(canvas.toDataURL("image/png"),"PNG",offsetX,0,fitW,fitH);
+        const fitH=Math.min(totalMmH,pageH);const fitW=(fitH/totalMmH)*pageW;
+        pdf.addImage(canvas.toDataURL("image/jpeg",0.6),"JPEG",(pageW-fitW)/2,0,fitW,fitH);
       }else{
-        let page=0,srcY=0;
-        while(srcY<pxH&&page<10){
-          if(page>0){pdf.addPage();pdf.setFillColor(42,45,56);pdf.rect(0,0,pageW,pageH,"F")}
-          const sliceH=Math.min(pagePxH,pxH-srcY);const pc=document.createElement("canvas");
-          pc.width=pxW;pc.height=sliceH;pc.getContext("2d").drawImage(canvas,0,srcY,pxW,sliceH,0,0,pxW,sliceH);
-          pdf.addImage(pc.toDataURL("image/png"),"PNG",0,0,pageW,sliceH*ratio);
-          srcY+=pagePxH;page++;if(pxH-srcY<pagePxH*0.15)break;
+        const pagePxH=Math.floor(pageH/ratio);let pg=0,srcY=0;
+        while(srcY<pxH&&pg<10){
+          if(pg>0){pdf.addPage();pdf.setFillColor(42,45,56);pdf.rect(0,0,pageW,pageH,"F")}
+          const sl=Math.min(pagePxH,pxH-srcY);const pc=document.createElement("canvas");
+          pc.width=pxW;pc.height=sl;pc.getContext("2d").drawImage(canvas,0,srcY,pxW,sl,0,0,pxW,sl);
+          pdf.addImage(pc.toDataURL("image/jpeg",0.6),"JPEG",0,0,pageW,sl*ratio);
+          srcY+=pagePxH;pg++;if(pxH-srcY<pagePxH*0.15)break;
         }
       }
-      const pdfBase64=pdf.output("datauristring").split(",")[1];
-      const pdfName=("Коммерческое предложение "+co.name).replace(/[^a-zA-Zа-яА-ЯёЁ0-9 _-]/g,"_").substring(0,80)+".pdf";
+      const b64=pdf.output("datauristring").split(",")[1];
+      const pdfName=("КП_"+co.name).replace(/[^a-zA-Zа-яА-ЯёЁ0-9_-]/g,"_").substring(0,50)+".pdf";
+      console.log("PDF size:",Math.round(b64.length/1024),"KB");
+      fl("Отправка письма...","warn");
 
-      // 2. Send email via Bitrix24 with PDF attachment
+      // 2. Send with attachment - try multiple formats
       const subj="Коммерческое предложение"+(ttl?" — "+ttl:"")+" | MAVIS GROUP";
-      const body="Добрый день!\n\nНаправляем Вам коммерческое предложение"+(ttl?" — "+ttl:"")+" от компании MAVIS GROUP.\nПодробности в прикреплённом файле.\n\n--\n"+mgrData.name+"\nMAVIS GROUP | Специалист отдела продаж\nТелефон: "+COMPANY_PHONE+"\nАдрес: "+COMPANY_ADDR+"\nEmail: "+FROM_EMAIL;
+      const body="Добрый день!\n\nНаправляем Вам коммерческое предложение"+(ttl?" — "+ttl:"")+".\nПодробности в прикреплённом файле.\n\n--\n"+mgrData.name+"\nMAVIS GROUP | Специалист отдела продаж\nТелефон: "+COMPANY_PHONE+"\nАдрес: "+COMPANY_ADDR+"\nEmail: "+FROM_EMAIL;
 
-      const r=await fetch(BX+"/crm.activity.add.json",{
-        method:"POST",
-        headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({fields:{
-          OWNER_TYPE_ID:4,
-          OWNER_ID:co.bx||0,
-          TYPE_ID:4,
-          SUBJECT:subj,
-          DESCRIPTION:body,
-          DESCRIPTION_TYPE:1,
-          DIRECTION:2,
-          COMPLETED:"Y",
-          SETTINGS:{MESSAGE_FROM:FROM_EMAIL},
-          FILES:[{fileData:[pdfName,pdfBase64]}],
-          COMMUNICATIONS:[{VALUE:co.email,ENTITY_ID:co.bx||0,ENTITY_TYPE_ID:4,TYPE:"EMAIL"}]
-        }})
-      });
-      const d=await r.json();
-      if(d.result){fl("КП отправлено на "+co.email+" с PDF");save()}
-      else fl("Ошибка: "+(d.error_description||JSON.stringify(d)),"error");
+      const baseFields={
+        OWNER_TYPE_ID:4,OWNER_ID:co.bx||0,
+        TYPE_ID:4,SUBJECT:subj,
+        DESCRIPTION:body,DESCRIPTION_TYPE:1,
+        DIRECTION:2,COMPLETED:"Y",
+        SETTINGS:{MESSAGE_FROM:FROM_EMAIL},
+        COMMUNICATIONS:[{VALUE:co.email,ENTITY_ID:co.bx||0,ENTITY_TYPE_ID:4,TYPE:"EMAIL"}]
+      };
+
+      // Format 1: array of objects with fileData
+      let ok=false;
+      const formats=[
+        {name:"fileData obj",FILES:[{fileData:[pdfName,b64]}]},
+        {name:"nested array",FILES:[[pdfName,b64]]},
+        {name:"object keys",FILES:{"n0":[pdfName,b64]}},
+      ];
+      for(const fmt of formats){
+        if(ok)break;
+        console.log("Trying format:",fmt.name);
+        try{
+          const r=await fetch(BX+"/crm.activity.add.json",{
+            method:"POST",headers:{"Content-Type":"application/json"},
+            body:JSON.stringify({fields:{...baseFields,...fmt}})
+          });
+          const d=await r.json();
+          console.log("Result for",fmt.name,":",JSON.stringify(d).substring(0,200));
+          if(d.result&&!d.error){
+            fl("КП с PDF отправлено на "+co.email+"!"); save(); ok=true;
+          }
+        }catch(e){console.log("Format",fmt.name,"error:",e.message)}
+      }
+      if(!ok){
+        fl("Битрикс не принял вложение. Откройте консоль (F12) для деталей.","error");
+      }
     }catch(e){fl("Ошибка: "+e.message,"error");console.error(e)}
     setSn(false);
   }
@@ -283,7 +298,7 @@ function App(){
               <div className="AB">
                 <button className="B BS Blg" onClick={()=>setSt(2)}>← Редактировать</button>
                 <button className="B BG Blg" onClick={save}>💾 Сохранить</button>
-                <button className="B BP Blg" onClick={sEm} disabled={sn}>{sn?"⏳":"✉ Отправить на "+(co.email||"email")}</button>
+                <button className="B BP Blg" onClick={sEm} disabled={sn}>{sn?"⏳ Отправка...":"✉ Отправить письмо"}</button>
                 <button className="B BS Blg" onClick={dlPdf} disabled={pdfing}>{pdfing?"⏳":"📄 Скачать PDF"}</button>
               </div>
             </>)}
