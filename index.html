@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MAVIS GROUP — КП Генератор</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0f1117">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useRef } = React;
+
+const BX = "https://mavisgroup.bitrix24.by/rest/2110/ie4502ilh74981qr";
+
+const CAT = [
+  { c: "Строительство", i: "🏗", s: [
+    { id: "spk", n: "СПК (свидетельство о подтв. компетентности)" },
+    { id: "attest", n: "Аттестация в строительстве" },
+    { id: "attest_gen", n: "Аттестация подряд + ген.подряд" },
+    { id: "attest_proj", n: "Аттестация проектирование + ген.проект" },
+    { id: "attest_confirm", n: "Подтверждение аттестации" },
+    { id: "spec_find", n: "Подбор аттестованного специалиста" },
+    { id: "spec_find_part", n: "Подбор совместителя" },
+    { id: "spec_find_narrow", n: "Подбор узкого специалиста" },
+    { id: "spec_attest", n: "Аттестация специалиста" },
+    { id: "period_spk", n: "Периодика СПК" },
+    { id: "period_iso", n: "Периодика ISO 9001" },
+    { id: "period_iso_suot", n: "Периодика ISO + СУОТ" },
+    { id: "period_cert", n: "Периодика Сертификаты" },
+  ]},
+  { c: "Системы менеджмента", i: "📋", s: [
+    { id: "iso9001_rb", n: "ISO 9001 (РБ)" },
+    { id: "iso9001_int", n: "ISO 9001 (международный)" },
+    { id: "iso45001", n: "СУОТ ISO 45001" },
+    { id: "iso9001_45001", n: "ISO 9001 + СУОТ ISO 45001 (комплекс)" },
+    { id: "iso27001_rb", n: "ISO 27001 (РБ)" },
+    { id: "iso27001_int", n: "ISO 27001 (международный)" },
+    { id: "iso9001_27001_int", n: "ISO 9001 + ISO 27001 (международный)" },
+    { id: "ohrana_truda", n: "Разработка документов по охране труда" },
+  ]},
+  { c: "Лицензирование", i: "📜", s: [
+    { id: "lic_mvd", n: "Лицензия МВД (монтаж, наладка, проектирование)" },
+    { id: "lic_mchs", n: "Лицензия МЧС (сигнализация, пожаротушение и др.)" },
+    { id: "osp_stroy", n: "ОСП на стройплощадку" },
+    { id: "osp_zavod", n: "ОСП на заводские условия + стройплощадку" },
+    { id: "attest_svarshik", n: "Аттестация сварщика" },
+    { id: "lic_gos_bur", n: "Лицензия Госпромнадзора (бурение скважин)" },
+    { id: "lic_gos_kotly", n: "Лицензия Госпромнадзора (котлы, сосуды)" },
+    { id: "lic_gos_lift", n: "Лицензия Госпромнадзора (лифты)" },
+    { id: "lic_gos_gas", n: "Лицензия Госпромнадзора (газ монтаж)" },
+  ]},
+  { c: "Продукция", i: "🏭", s: [
+    { id: "spk_prod", n: "СПК на продукцию" },
+    { id: "tech_svid", n: "Техническое свидетельство" },
+    { id: "cert_prod", n: "Сертификация продукции (1-й сертификат)" },
+    { id: "cert_prod_next", n: "Сертификация продукции (каждый последующий)" },
+    { id: "cert_metal", n: "Сертификат на металлоконструкции (1-й)" },
+    { id: "cert_metal_next", n: "Сертификат на металлоконструкции (след.)" },
+    { id: "cert_okna", n: "Сертификат окна/двери (1-й)" },
+    { id: "tech_reglament", n: "Разработка технического регламента" },
+    { id: "tech_usloviya", n: "Разработка ТУ" },
+    { id: "plity_beton", n: "Плиты бетонные (СТБ 1071)" },
+    { id: "dor_znaki", n: "Дорожные знаки (СТБ 1140)" },
+  ]},
+];
+
+const ADV = [
+  { t: "Сертификация, которую примут на любом объекте", d: "Работаем только с аккредитованными органами РБ и ЕАЭС. Сертификаты признаются генподрядчиками, технадзором и при тендерах." },
+  { t: "Фиксированные сроки", d: "Чёткое планирование. Вы знаете дату, когда документы будут у вас." },
+  { t: "После получения документов — не исчезаем", d: "Предупреждаем о продлении заранее и сопровождаем по льготным условиям." },
+  { t: "Ваш персональный эксперт", d: "Личный эксперт ведёт сделку от звонка до получения документов." },
+  { t: "Более 100 реализованных проектов", d: "Фармлэнд, Минскметрострой, Зеленстрой, Минское ПМС, Заславское ПС." },
+];
+const CL = ["Фармлэнд","Минскметрострой","Зеленстрой","Минское ПМС","Заславское ПС"];
+const td = () => { const d=new Date(), m=["января","февраля","марта","апреля","мая","июня","июля","августа","сентября","октября","ноября","декабря"]; return d.getDate()+" "+m[d.getMonth()]+" "+d.getFullYear(); };
+const mkn = () => "КП-"+String(new Date().getDate()).padStart(2,"0")+String(new Date().getMonth()+1).padStart(2,"0")+"-"+String(Math.floor(Math.random()*900)+100);
+const fm = (n) => (!n?"—":Number(n).toLocaleString("ru-RU")+" руб.");
+
+function App() {
+  const [pg, setPg] = useState("create");
+  const [st, setSt] = useState(1);
+  const [kn, setKn] = useState(mkn());
+  const [co, setCo] = useState({name:"",dir:"",email:"",phone:"",bx:""});
+  const [bq, setBq] = useState("");
+  const [br, setBr] = useState([]);
+  const [bl, setBl] = useState(false);
+  const [sv, setSv2] = useState([]);
+  const [ec, setEc] = useState(null);
+  const [hi, setHi] = useState([]);
+  const [cf, setCf] = useState({name:"",phone:"",email:""});
+  const [sn, setSn] = useState(false);
+  const [ttl, setTtl] = useState("");
+  const [nf, setNf] = useState(null);
+  const [cn, setCn] = useState("");
+  const ci = useRef(1);
+  const fl = (m,t="success") => { setNf({m,t}); setTimeout(()=>setNf(null),3500); };
+
+  const sBx = async () => {
+    if(!bq.trim()) return; setBl(true);
+    try {
+      const r=await fetch(BX+"/crm.company.list.json?filter[%25TITLE]="+encodeURIComponent(bq)+"&select[]=TITLE&select[]=EMAIL&select[]=PHONE");
+      const d=await r.json();
+      const res=(d.result||[]).map(c=>({id:c.ID,name:c.TITLE||"",email:c.EMAIL?.[0]?.VALUE||"",phone:c.PHONE?.[0]?.VALUE||""}));
+      setBr(res); if(!res.length) fl("Компании не найдены","warn");
+    } catch(e){fl("Ошибка Битрикс24","error")} setBl(false);
+  };
+
+  const pBx = async (c) => {
+    setCo(p=>({...p,name:c.name,email:c.email||p.email,phone:c.phone||p.phone,bx:c.id}));
+    setBr([]); setBq("");
+    try { const r=await fetch(BX+"/crm.contact.list.json?filter[COMPANY_ID]="+c.id+"&select[]=NAME&select[]=LAST_NAME&select[]=SECOND_NAME"); const d=await r.json(); if(d.result?.[0]){const t=d.result[0]; const f=[t.LAST_NAME,t.NAME,t.SECOND_NAME].filter(Boolean).join(" "); if(f) setCo(p=>({...p,dir:f}));} } catch(e){}
+    fl("«"+c.name+"» загружена");
+  };
+
+  const aS = (s) => { if(sv.find(x=>x.id===s.id)) return; setSv2(p=>[...p,{...s,prep:0,fee:0,extra:0,cn:"",ec:""}]); };
+  const aC = () => { if(!cn.trim()) return; setSv2(p=>[...p,{id:"c"+ci.current++,n:cn.trim(),prep:0,fee:0,extra:0,cn:"",ec:""}]); setCn(""); };
+  const rS = id => setSv2(p=>p.filter(s=>s.id!==id));
+  const uS = (id,f,v) => setSv2(p=>p.map(s=>s.id===id?{...s,[f]:v}:s));
+
+  const tP=sv.reduce((a,s)=>a+(+s.prep||0),0), tF=sv.reduce((a,s)=>a+(+s.fee||0),0), tE=sv.reduce((a,s)=>a+(+s.extra||0),0), tT=tP+tF+tE;
+
+  const save = () => { const k={id:Date.now(),kn,date:td(),co:{...co},sv:[...sv],ttl,tP,tF,tE,tT}; setHi(p=>[k,...p]); fl("КП сохранено"); };
+  const nw = () => { setSt(1); setCo({name:"",dir:"",email:"",phone:"",bx:""}); setSv2([]); setTtl(""); setKn(mkn()); setPg("create"); };
+  const ld = k => { setCo(k.co); setSv2(k.sv); setTtl(k.ttl); setKn(k.kn); setSt(3); setPg("create"); };
+
+  const eB = () => {
+    const rows=sv.map((s,i)=>"<tr><td style='padding:8px 12px;border-bottom:1px solid #eee;color:#555;'>"+(i+1)+"</td><td style='padding:8px 12px;border-bottom:1px solid #eee;'>"+(s.cn||s.n)+"</td><td style='padding:8px 12px;border-bottom:1px solid #eee;text-align:right;'>"+fm(s.prep)+"</td><td style='padding:8px 12px;border-bottom:1px solid #eee;text-align:right;'>"+fm(s.fee)+"</td><td style='padding:8px 12px;border-bottom:1px solid #eee;text-align:right;'>"+fm(s.extra)+(s.ec?"<br><small style='color:#888;'>"+s.ec+"</small>":"")+"</td></tr>").join("");
+    return "<div style='font-family:Arial,sans-serif;max-width:700px;margin:0 auto;'><div style='background:#2a2d38;color:#fff;padding:32px 28px;border-radius:8px 8px 0 0;'><h1 style='margin:0;font-size:22px;letter-spacing:2px;'>КОММЕРЧЕСКОЕ ПРЕДЛОЖЕНИЕ</h1><p style='margin:4px 0 0;opacity:0.6;font-size:13px;'>MAVIS GROUP &middot; "+td()+"</p></div><div style='padding:24px 28px;border:1px solid #e5e5e5;border-top:none;'><p style='font-size:15px;margin:0 0 20px;'><strong>"+co.name+"</strong>"+(co.dir?"<br><span style='color:#666;'>"+co.dir+"</span>":"")+"</p>"+(ttl?"<h2 style='font-size:16px;margin:0 0 16px;color:#333;'>"+ttl+"</h2>":"")+"<table style='width:100%;border-collapse:collapse;margin-bottom:20px;'><thead><tr style='background:#f5f5f5;'><th style='padding:10px 12px;text-align:left;font-size:12px;color:#888;'>No</th><th style='padding:10px 12px;text-align:left;font-size:12px;color:#888;'>Услуга</th><th style='padding:10px 12px;text-align:right;font-size:12px;color:#888;'>Подготовка</th><th style='padding:10px 12px;text-align:right;font-size:12px;color:#888;'>Пошлины</th><th style='padding:10px 12px;text-align:right;font-size:12px;color:#888;'>Доп. расходы</th></tr></thead><tbody>"+rows+"<tr style='font-weight:bold;border-top:2px solid #333;'><td></td><td style='padding:10px 12px;'>Итого:</td><td style='padding:10px 12px;text-align:right;'>"+fm(tP)+"</td><td style='padding:10px 12px;text-align:right;'>"+fm(tF)+"</td><td style='padding:10px 12px;text-align:right;'>"+fm(tE)+"</td></tr><tr style='font-weight:bold;font-size:16px;color:#4f7df5;'><td></td><td style='padding:12px;'>ОБЩАЯ СУММА:</td><td colspan='3' style='padding:12px;text-align:right;'>"+fm(tT)+"</td></tr></tbody></table><div style='font-size:13px;color:#555;line-height:1.8;margin-bottom:20px;'><strong>Условия:</strong><br>- 100% предоплата до начала работ.<br>- Гос. пошлина по мере направления документов.</div><p style='font-size:12px;color:#999;'>С уважением, "+(cf.name||"MAVIS GROUP")+(cf.phone?" | "+cf.phone:"")+(cf.email?" | "+cf.email:"")+"</p></div></div>";
+  };
+
+  const sEm = async () => {
+    if(!co.email){fl("Email клиента не указан","error");return;} setSn(true);
+    try {
+      const subj="Коммерческое предложение "+kn+(ttl?" — "+ttl:"")+" | MAVIS GROUP";
+      const r=await fetch(BX+"/crm.activity.add.json",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({fields:{OWNER_TYPE_ID:4,OWNER_ID:co.bx||0,TYPE_ID:4,SUBJECT:subj,DESCRIPTION:eB(),DESCRIPTION_TYPE:2,DIRECTION:2,COMPLETED:"Y",COMMUNICATIONS:[{VALUE:co.email,ENTITY_ID:co.bx||0,ENTITY_TYPE_ID:4,TYPE:"EMAIL"}]}})});
+      const d=await r.json();
+      if(d.result){fl("КП отправлено на "+co.email);save();}else fl("Ошибка: "+(d.error_description||"неизвестная"),"error");
+    } catch(e){fl("Ошибка сети: "+e.message,"error");} setSn(false);
+  };
+
+  const CSS = `
+    @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&family=Playfair+Display:wght@400;500;600;700&display=swap');
+    *{margin:0;padding:0;box-sizing:border-box}
+    :root{--bg:#0f1117;--sf:#1a1d27;--s2:#232734;--bd:#2d3143;--tx:#e4e6ef;--t2:#8b90a5;--ac:#4f7df5;--a2:#3d6ae0;--gn:#34c77b;--rd:#f5574f;--or:#f5a623}
+    body{font-family:'Manrope',sans-serif;background:var(--bg);color:var(--tx)}
+    .A{display:flex;height:100vh;overflow:hidden}
+    .SB{width:260px;min-width:260px;background:var(--sf);border-right:1px solid var(--bd);display:flex;flex-direction:column}
+    .SL{padding:24px 20px 20px;border-bottom:1px solid var(--bd)}.SL h1{font-family:'Playfair Display',serif;font-size:22px;font-weight:700;letter-spacing:1px;color:#fff}.SL>span{font-size:11px;color:var(--t2);letter-spacing:2px;text-transform:uppercase;display:block;margin-top:2px}
+    .SN{flex:1;padding:12px 10px}
+    .NI{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:10px;cursor:pointer;font-size:14px;font-weight:500;color:var(--t2);transition:all .2s;margin-bottom:2px}.NI:hover{background:var(--s2);color:var(--tx)}.NI.on{background:var(--ac);color:#fff}.NI .ic{font-size:18px;width:24px;text-align:center}.NI .badge{margin-left:auto;background:var(--ac);color:#fff;font-size:11px;padding:2px 8px;border-radius:10px;font-weight:700}.NI.on .badge{background:rgba(255,255,255,.25)}
+    .SFt{padding:16px 20px;border-top:1px solid var(--bd);font-size:11px;color:var(--t2)}
+    .MN{flex:1;overflow-y:auto}
+    .MH{position:sticky;top:0;z-index:10;background:rgba(15,17,23,.85);backdrop-filter:blur(20px);border-bottom:1px solid var(--bd);padding:18px 32px;display:flex;align-items:center;justify-content:space-between}.MH h2{font-size:18px;font-weight:700}
+    .MC{padding:28px 32px;max-width:1100px}
+    .STP{display:flex;margin-bottom:28px}
+    .SI{display:flex;align-items:center;gap:10px;padding:10px 20px;background:var(--sf);border:1px solid var(--bd);font-size:13px;font-weight:600;color:var(--t2);cursor:pointer;transition:all .2s}.SI:first-child{border-radius:10px 0 0 10px}.SI:last-child{border-radius:0 10px 10px 0}.SI.on{background:var(--ac);border-color:var(--ac);color:#fff}.SI.ok{background:var(--s2);border-color:var(--gn);color:var(--gn)}
+    .SNM{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;background:var(--s2);color:var(--t2)}.SI.on .SNM{background:rgba(255,255,255,.2);color:#fff}.SI.ok .SNM{background:var(--gn);color:#fff}
+    .CD{background:var(--sf);border:1px solid var(--bd);border-radius:12px;padding:24px;margin-bottom:20px}
+    .CT{font-size:15px;font-weight:700;margin-bottom:16px;display:flex;align-items:center;gap:8px}
+    .FG{display:grid;grid-template-columns:1fr 1fr;gap:16px}.FGR{display:flex;flex-direction:column;gap:6px}.FGR.fu{grid-column:1/-1}
+    .FL{font-size:12px;font-weight:600;color:var(--t2);text-transform:uppercase;letter-spacing:.5px}
+    .FI{background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:10px 14px;font-size:14px;color:var(--tx);outline:none;font-family:'Manrope',sans-serif;transition:border-color .2s}.FI:focus{border-color:var(--ac)}.FI::placeholder{color:var(--t2);opacity:.6}
+    .B{padding:10px 20px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:none;display:inline-flex;align-items:center;gap:8px;transition:all .2s;font-family:'Manrope',sans-serif}.BP{background:var(--ac);color:#fff}.BP:hover{background:var(--a2);transform:translateY(-1px)}.BS{background:var(--s2);color:var(--tx);border:1px solid var(--bd)}.BS:hover{border-color:var(--t2)}.BG{background:var(--gn);color:#fff}.BG:hover{opacity:.9}.BR{background:var(--rd);color:#fff}.Bsm{padding:6px 12px;font-size:12px}.Blg{padding:14px 28px;font-size:15px}.B:disabled{opacity:.5;cursor:not-allowed;transform:none!important}
+    .SR{display:flex;gap:10px;margin-bottom:16px}.SR .FI{flex:1}
+    .BXR{background:var(--s2);border:1px solid var(--bd);border-radius:8px;margin-bottom:16px;overflow:hidden}
+    .BXI{padding:12px 16px;cursor:pointer;border-bottom:1px solid var(--bd);transition:background .15s;display:flex;justify-content:space-between;align-items:center}.BXI:last-child{border-bottom:none}.BXI:hover{background:var(--ac)}
+    .CG{margin-bottom:12px}.CH{display:flex;align-items:center;gap:10px;padding:14px 18px;background:var(--s2);border-radius:10px;cursor:pointer;font-weight:700;font-size:14px;transition:all .2s;border:1px solid transparent}.CH:hover{border-color:var(--bd)}.CH.op{border-color:var(--ac);border-radius:10px 10px 0 0}.CH .aw{margin-left:auto;transition:transform .2s;color:var(--t2)}.CH.op .aw{transform:rotate(90deg)}
+    .CS{border:1px solid var(--bd);border-top:none;border-radius:0 0 10px 10px;overflow:hidden}
+    .SVI{display:flex;align-items:center;gap:12px;padding:12px 18px;border-bottom:1px solid var(--bd);font-size:13px;transition:background .15s}.SVI:last-child{border-bottom:none}.SVI:hover{background:var(--s2)}.SVN{flex:1}.SVA{color:var(--gn);font-size:12px;font-weight:600}
+    .TBL{width:100%;border-collapse:collapse}.TBL th{text-align:left;font-size:11px;font-weight:700;color:var(--t2);text-transform:uppercase;letter-spacing:.5px;padding:10px 12px;border-bottom:2px solid var(--bd)}.TBL td{padding:12px;border-bottom:1px solid var(--bd);font-size:13px;vertical-align:top}
+    .NI2{width:100px;background:var(--bg);border:1px solid var(--bd);border-radius:6px;padding:6px 10px;color:var(--tx);font-size:13px;font-family:'Manrope',sans-serif;text-align:right;outline:none}.NI2:focus{border-color:var(--ac)}
+    .CIp{width:120px;margin-top:4px;font-size:11px;padding:4px 8px;background:var(--bg);border:1px solid var(--bd);border-radius:6px;color:var(--t2);font-family:'Manrope',sans-serif;outline:none}.CIp:focus{border-color:var(--ac)}
+    .TR td{font-weight:700;font-size:14px;border-top:2px solid var(--ac)}.GR td{font-weight:800;font-size:16px;color:var(--ac)}
+    .KP{background:linear-gradient(135deg,#3a3d4a 0%,#2a2d38 40%,#1e2028 100%);border-radius:8px;padding:48px 40px;color:#fff;position:relative;overflow:hidden;font-family:'Manrope',sans-serif}.KP::before{content:'';position:absolute;inset:0;background:repeating-linear-gradient(135deg,transparent,transparent 48%,rgba(255,255,255,.02) 48%,rgba(255,255,255,.02) 52%,transparent 52%);pointer-events:none}
+    .KY{position:absolute;top:32px;left:32px;font-size:64px;font-weight:800;writing-mode:vertical-rl;color:rgba(255,255,255,.15);letter-spacing:8px;font-family:'Playfair Display',serif}
+    .KH{margin-left:60px;margin-bottom:36px}.KH h1{font-size:28px;font-weight:800;letter-spacing:6px;margin-bottom:4px;font-family:'Playfair Display',serif}.KH h2{font-size:16px;font-weight:300;letter-spacing:12px;color:rgba(255,255,255,.7)}.KH .br2{font-size:13px;font-weight:600;letter-spacing:3px;color:rgba(255,255,255,.5);margin-top:4px}
+    .KD{font-size:13px;color:rgba(255,255,255,.5);margin-left:60px;margin-bottom:8px}
+    .KC{margin-left:60px;margin-bottom:32px;padding:18px 24px;background:rgba(255,255,255,.06);border-radius:10px;border-left:3px solid var(--ac)}.KC h3{font-size:20px;font-weight:700;margin-bottom:4px}.KC p{font-size:13px;color:rgba(255,255,255,.6)}
+    .KS{margin-left:60px;font-size:16px;font-weight:700;margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid rgba(255,255,255,.1);font-family:'Playfair Display',serif;letter-spacing:1px}
+    .KT{margin-left:60px;width:calc(100% - 60px);border-collapse:collapse;margin-bottom:32px}.KT th{text-align:left;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:rgba(255,255,255,.5);padding:10px 14px;border-bottom:1px solid rgba(255,255,255,.15)}.KT td{padding:12px 14px;font-size:13px;border-bottom:1px solid rgba(255,255,255,.06)}.KT .TT td{font-weight:700;font-size:14px;border-top:2px solid rgba(255,255,255,.2);border-bottom:none}.KT .TGr td{font-weight:800;font-size:16px;color:var(--ac);padding-top:16px}
+    .KCN{margin-left:60px;font-size:13px;color:rgba(255,255,255,.7);line-height:1.8;margin-bottom:32px}
+    .KA{margin-left:60px}.KAI{margin-bottom:16px}.KAI h4{font-size:14px;font-weight:700;margin-bottom:4px;display:flex;align-items:center;gap:8px}.KAI p{font-size:12px;color:rgba(255,255,255,.6);line-height:1.5}
+    .KCL{margin-left:60px;display:flex;gap:12px;flex-wrap:wrap;margin-top:24px}.KCLT{padding:6px 16px;border:1px solid rgba(255,255,255,.2);border-radius:20px;font-size:12px;font-weight:600;color:rgba(255,255,255,.7)}
+    .HC{background:var(--sf);border:1px solid var(--bd);border-radius:12px;padding:18px 22px;cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:16px;margin-bottom:12px}.HC:hover{border-color:var(--ac);transform:translateY(-2px)}
+    .AB{display:flex;gap:10px;flex-wrap:wrap;margin-top:24px;padding-top:20px;border-top:1px solid var(--bd)}
+    .NF{position:fixed;top:20px;right:20px;z-index:1000;padding:14px 24px;border-radius:10px;font-size:14px;font-weight:600;animation:sIn .3s ease;box-shadow:0 8px 24px rgba(0,0,0,.3)}.NF.success{background:var(--gn);color:#fff}.NF.error{background:var(--rd);color:#fff}.NF.warn{background:var(--or);color:#fff}
+    @keyframes sIn{from{transform:translateX(100px);opacity:0}to{transform:translateX(0);opacity:1}}
+    .ES{text-align:center;padding:60px 20px;color:var(--t2)}.TG2{display:inline-block;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700;background:rgba(79,125,245,.15);color:var(--ac)}
+    ::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--bd);border-radius:3px}
+  `;
+
+  return (<>
+    <style>{CSS}</style>
+    {nf&&<div className={"NF "+nf.t}>{nf.m}</div>}
+    <div className="A">
+      <div className="SB">
+        <div className="SL"><h1>MAVIS</h1><span>КП Генератор</span></div>
+        <div className="SN">
+          <div className={`NI ${pg==="create"?"on":""}`} onClick={()=>setPg("create")}><span className="ic">✦</span> Новое КП</div>
+          <div className={`NI ${pg==="history"?"on":""}`} onClick={()=>setPg("history")}><span className="ic">☰</span> История{hi.length>0&&<span className="badge">{hi.length}</span>}</div>
+          <div className={`NI ${pg==="settings"?"on":""}`} onClick={()=>setPg("settings")}><span className="ic">⚙</span> Настройки</div>
+        </div>
+        <div className="SFt">MAVIS GROUP © 2026</div>
+      </div>
+      <div className="MN">
+        {pg==="create"&&(<>
+          <div className="MH"><h2>{kn}</h2><button className="B BS Bsm" onClick={nw}>+ Новое КП</button></div>
+          <div className="MC">
+            <div className="STP">
+              <div className={`SI ${st===1?"on":st>1?"ok":""}`} onClick={()=>setSt(1)}><span className="SNM">{st>1?"✓":"1"}</span> Компания</div>
+              <div className={`SI ${st===2?"on":st>2?"ok":""}`} onClick={()=>st>1&&setSt(2)}><span className="SNM">{st>2?"✓":"2"}</span> Услуги</div>
+              <div className={`SI ${st===3?"on":""}`} onClick={()=>st>2&&setSt(3)}><span className="SNM">3</span> Предпросмотр</div>
+            </div>
+            {st===1&&(<>
+              <div className="CD"><div className="CT">🔍 Поиск в Битрикс24</div>
+                <div className="SR"><input className="FI" placeholder="Введите название компании..." value={bq} onChange={e=>setBq(e.target.value)} onKeyDown={e=>e.key==="Enter"&&sBx()} /><button className="B BP" onClick={sBx} disabled={bl}>{bl?"⏳":"Найти"}</button></div>
+                {br.length>0&&<div className="BXR">{br.map(c=><div key={c.id} className="BXI" onClick={()=>pBx(c)}><div><div style={{fontWeight:600,fontSize:14}}>{c.name}</div><div style={{fontSize:12,color:"var(--t2)"}}>{c.email}{c.phone?" · "+c.phone:""}</div></div><span style={{fontSize:12,opacity:.5}}>→</span></div>)}</div>}
+              </div>
+              <div className="CD"><div className="CT">📝 Данные компании {co.bx&&<span className="TG2">Битрикс #{co.bx}</span>}</div>
+                <div className="FG">
+                  <div className="FGR fu"><span className="FL">Название компании *</span><input className="FI" placeholder='ООО «Название»' value={co.name} onChange={e=>setCo(p=>({...p,name:e.target.value}))} /></div>
+                  <div className="FGR"><span className="FL">ФИО директора</span><input className="FI" placeholder="Иванов И.И." value={co.dir} onChange={e=>setCo(p=>({...p,dir:e.target.value}))} /></div>
+                  <div className="FGR"><span className="FL">Email</span><input className="FI" type="email" placeholder="info@company.by" value={co.email} onChange={e=>setCo(p=>({...p,email:e.target.value}))} /></div>
+                  <div className="FGR"><span className="FL">Телефон</span><input className="FI" placeholder="+375 29 XXX-XX-XX" value={co.phone} onChange={e=>setCo(p=>({...p,phone:e.target.value}))} /></div>
+                  <div className="FGR"><span className="FL">Заголовок КП</span><input className="FI" placeholder="Получение аттестата соответствия" value={ttl} onChange={e=>setTtl(e.target.value)} /></div>
+                </div>
+              </div>
+              <div style={{display:"flex",justifyContent:"flex-end"}}><button className="B BP Blg" onClick={()=>{if(!co.name){fl("Укажите компанию","error");return;}setSt(2);}}>Далее: Услуги →</button></div>
+            </>)}
+            {st===2&&(<>
+              <div className="CD"><div className="CT">✏️ Добавить свою услугу</div><div className="SR"><input className="FI" placeholder="Введите название услуги..." value={cn} onChange={e=>setCn(e.target.value)} onKeyDown={e=>e.key==="Enter"&&aC()} /><button className="B BG" onClick={aC}>+ Добавить</button></div></div>
+              <div className="CD"><div className="CT">📂 Или выберите из каталога</div>
+                {CAT.map(cat=><div key={cat.c} className="CG"><div className={`CH ${ec===cat.c?"op":""}`} onClick={()=>setEc(ec===cat.c?null:cat.c)}><span>{cat.i}</span> {cat.c}<span style={{marginLeft:"auto",fontSize:12,color:"var(--t2)"}}>{cat.s.length}</span><span className="aw">▸</span></div>
+                  {ec===cat.c&&<div className="CS">{cat.s.map(s=>{const a=sv.some(x=>x.id===s.id);return <div key={s.id} className="SVI"><div className="SVN">{s.n}</div>{a?<span className="SVA">✓</span>:<button className="B BP Bsm" onClick={()=>aS(s)}>+</button>}</div>;})}</div>}
+                </div>)}
+              </div>
+              {sv.length>0&&<div className="CD"><div className="CT">✅ Выбранные услуги ({sv.length})</div><div style={{overflowX:"auto"}}><table className="TBL"><thead><tr><th style={{width:30}}>№</th><th>Наименование</th><th style={{width:120}}>Подготовка</th><th style={{width:120}}>Пошлины</th><th style={{width:150}}>Доп. расходы</th><th style={{width:40}}></th></tr></thead><tbody>
+                {sv.map((s,i)=><tr key={s.id}><td style={{color:"var(--t2)"}}>{i+1}</td><td><input className="FI" style={{width:"100%",background:"transparent",border:"none",padding:0,fontSize:13,color:"var(--tx)"}} value={s.cn||s.n} onChange={e=>uS(s.id,"cn",e.target.value)} /></td><td><input type="number" className="NI2" value={s.prep} onChange={e=>uS(s.id,"prep",+e.target.value)} /></td><td><input type="number" className="NI2" value={s.fee} onChange={e=>uS(s.id,"fee",+e.target.value)} /></td><td><input type="number" className="NI2" value={s.extra} onChange={e=>uS(s.id,"extra",+e.target.value)} /><input className="CIp" placeholder="Комментарий..." value={s.ec||""} onChange={e=>uS(s.id,"ec",e.target.value)} /></td><td><button className="B BR Bsm" onClick={()=>rS(s.id)}>✕</button></td></tr>)}
+                <tr className="TR"><td></td><td style={{textAlign:"right"}}>Итого:</td><td>{fm(tP)}</td><td>{fm(tF)}</td><td>{fm(tE)}</td><td></td></tr>
+                <tr className="GR"><td></td><td style={{textAlign:"right"}}>ОБЩАЯ СУММА:</td><td colSpan={3}>{fm(tT)}</td><td></td></tr>
+              </tbody></table></div></div>}
+              <div style={{display:"flex",justifyContent:"space-between"}}><button className="B BS Blg" onClick={()=>setSt(1)}>← Компания</button><button className="B BP Blg" onClick={()=>{if(!sv.length){fl("Добавьте услугу","error");return;}setSt(3);}}>Предпросмотр →</button></div>
+            </>)}
+            {st===3&&(<>
+              <div className="KP">
+                <div className="KY">2026</div>
+                <div className="KH"><h1>КОММЕРЧЕСКОЕ</h1><h2>ПРЕДЛОЖЕНИЕ</h2><div className="br2">MAVIS GROUP</div></div>
+                <div className="KD">Предложение о сотрудничестве от {td()}</div>
+                <div className="KC"><h3>{co.name}</h3>{co.dir&&<p>{co.dir}</p>}</div>
+                {ttl&&<div className="KS">{ttl}</div>}
+                <table className="KT"><thead><tr><th>№</th><th>Услуга</th><th>Подготовка</th><th>Пошлины</th><th>Доп. расходы</th></tr></thead><tbody>
+                  {sv.map((s,i)=><tr key={s.id}><td style={{color:"rgba(255,255,255,.4)"}}>{i+1}</td><td>{s.cn||s.n}</td><td>{fm(s.prep)}</td><td>{fm(s.fee)}</td><td>{fm(s.extra)}{s.ec&&<div style={{fontSize:11,color:"rgba(255,255,255,.4)",marginTop:2}}>{s.ec}</div>}</td></tr>)}
+                  <tr className="TT"><td></td><td>Итого:</td><td>{fm(tP)}</td><td>{fm(tF)}</td><td>{fm(tE)}</td></tr>
+                  <tr className="TGr"><td></td><td>ОБЩАЯ СУММА:</td><td colSpan={3}>{fm(tT)}</td></tr>
+                </tbody></table>
+                <div className="KCN"><strong>Условия сотрудничества:</strong><br/>— Оплата услуг по подготовке документов — 100% предоплата.<br/>— Гос. пошлина — по мере направления документов в орган.</div>
+                <div className="KS">Преимущества работы с нами</div>
+                <div className="KA">{ADV.map((a,i)=><div key={i} className="KAI"><h4><span style={{color:"var(--ac)"}}>◆</span> {a.t}</h4><p>{a.d}</p></div>)}</div>
+                <div className="KCL">{CL.map(c=><span key={c} className="KCLT">{c}</span>)}</div>
+              </div>
+              <div className="AB">
+                <button className="B BS Blg" onClick={()=>setSt(2)}>← Редактировать</button>
+                <button className="B BG Blg" onClick={save}>💾 Сохранить</button>
+                <button className="B BP Blg" onClick={sEm} disabled={sn}>{sn?"⏳ Отправка...":"✉ Отправить на "+(co.email||"email")}</button>
+                <button className="B BS Blg" onClick={()=>fl("PDF — следующее обновление","warn")}>📄 Скачать PDF</button>
+              </div>
+            </>)}
+          </div>
+        </>)}
+        {pg==="history"&&(<>
+          <div className="MH"><h2>История КП</h2></div>
+          <div className="MC">
+            {!hi.length?<div className="ES"><p style={{fontSize:48,marginBottom:16,opacity:.5}}>📋</p><p>Пока нет сохранённых КП.</p><button className="B BP" style={{marginTop:20}} onClick={nw}>+ Создать</button></div>
+            :hi.map(k=><div key={k.id} className="HC" onClick={()=>ld(k)}><div><div style={{fontSize:12,color:"var(--ac)",fontWeight:700}}>{k.kn}</div><div style={{fontSize:15,fontWeight:700}}>{k.co.name}</div><div style={{fontSize:12,color:"var(--t2)"}}>{k.date} · {k.sv.length} услуг</div></div><div style={{marginLeft:"auto",fontSize:16,fontWeight:800,color:"var(--gn)",whiteSpace:"nowrap"}}>{fm(k.tT)}</div></div>)}
+          </div>
+        </>)}
+        {pg==="settings"&&(<>
+          <div className="MH"><h2>Настройки</h2></div>
+          <div className="MC">
+            <div className="CD"><div className="CT">🔗 Битрикс24</div><div style={{padding:"12px 16px",background:"var(--s2)",borderRadius:8,fontSize:13,color:"var(--gn)",fontWeight:600}}>✓ Подключён: mavisgroup.bitrix24.by</div></div>
+            <div className="CD"><div className="CT">✉ Email</div><p style={{fontSize:13,color:"var(--t2)",lineHeight:1.6}}>Письма идут через Битрикс24 CRM. Подключите почтовый ящик в Битриксе. Каждое КП видно как активность в карточке.</p></div>
+            <div className="CD"><div className="CT">👤 Данные менеджера</div><div className="FG">
+              <div className="FGR"><span className="FL">ФИО</span><input className="FI" value={cf.name} onChange={e=>setCf(p=>({...p,name:e.target.value}))} placeholder="Ваше ФИО" /></div>
+              <div className="FGR"><span className="FL">Телефон</span><input className="FI" value={cf.phone} onChange={e=>setCf(p=>({...p,phone:e.target.value}))} placeholder="+375..." /></div>
+              <div className="FGR"><span className="FL">Email</span><input className="FI" value={cf.email} onChange={e=>setCf(p=>({...p,email:e.target.value}))} placeholder="you@mavisgroup.by" /></div>
+            </div></div>
+            <button className="B BG Blg" onClick={()=>fl("Сохранено!")}>💾 Сохранить</button>
+          </div>
+        </>)}
+      </div>
+    </div>
+  </>);
+}
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(React.createElement(App));
+</script>
+</body>
+</html>
