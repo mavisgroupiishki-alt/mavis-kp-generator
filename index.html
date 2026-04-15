@@ -316,7 +316,7 @@ function App(){
           <div className="CD"><div className="CT">🔗 Битрикс24</div><div style={{padding:"12px 16px",background:"var(--s2)",borderRadius:8,fontSize:13,color:"var(--gn)",fontWeight:600}}>✓ Подключён: mavisgroup.bitrix24.by</div></div>
           <div className="CD"><div className="CT">✉ Email</div><p style={{fontSize:13,color:"var(--t2)",lineHeight:1.6}}>Все КП отправляются с <strong style={{color:"var(--tx)"}}>{FROM_EMAIL}</strong>. Подпись выбранного менеджера подставляется автоматически.</p></div>
           <div className="CD"><div className="CT">👤 Менеджеры</div>
-              {MANAGERS.map((m,i)=><div key={m.id} style={{padding:"12px 16px",background:"var(--s2)",borderRadius:8,marginBottom:8,display:"flex",alignItems:"center",gap:12}}>
+              {INIT_MGRS.map((m,i)=><div key={m.id} style={{padding:"12px 16px",background:"var(--s2)",borderRadius:8,marginBottom:8,display:"flex",alignItems:"center",gap:12}}>
                 <span style={{fontSize:14,fontWeight:700}}>{m.name}</span>
                 <span style={{fontSize:12,color:"var(--t2)",marginLeft:"auto"}}>Специалист отдела продаж</span>
               </div>)}
