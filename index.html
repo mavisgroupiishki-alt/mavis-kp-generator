@@ -257,6 +257,7 @@ function App(){
             )})}
           </>):(<p style={{color:"var(--or)",fontSize:14,marginBottom:16}}>Сначала заполните имена менеджеров в настройках ↓</p>)}
           <button className="B BS" style={{marginTop:16}} onClick={()=>{setCurMgr(0);setPg("settings")}}>⚙ Настроить менеджеров</button>
+          <div style={{marginTop:12}}><button className="B BP" style={{width:"100%",justifyContent:"center"}} onClick={doInstall}>⊕ Установить на рабочий стол</button></div>
         </div>
       </div>
     </>);
@@ -289,13 +290,13 @@ function App(){
           <div className={`NI ${pg==="create"?"on":""}`} onClick={()=>setPg("create")}><span className="ic">✦</span> Новое КП</div>
           <div className={`NI ${pg==="history"?"on":""}`} onClick={()=>setPg("history")}><span className="ic">☰</span> История{hi.length>0&&<span className="badge">{hi.length}</span>}</div>
           <div className={`NI ${pg==="settings"?"on":""}`} onClick={()=>setPg("settings")}><span className="ic">⚙</span> Настройки</div>
-        </div>
-        <div style={{padding:"8px 10px"}}>
-            <div onClick={doInstall} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",borderRadius:10,cursor:"pointer",background:"var(--s2)",border:"1px dashed var(--bd)",transition:"all .2s",fontSize:13,fontWeight:600,color:installed?"var(--gn)":"var(--ac)"}} onMouseOver={e=>e.currentTarget.style.borderColor="var(--ac)"} onMouseOut={e=>e.currentTarget.style.borderColor="var(--bd)"}>
-              <span style={{fontSize:18}}>{installed?"✓":"⊕"}</span> {installed?"Установлено":"Установить на ПК"}
+          <div style={{marginTop:8,borderTop:"1px solid var(--bd)",paddingTop:8}}>
+            <div className="NI" onClick={doInstall} style={{color:installed?"var(--gn)":"var(--ac)",border:"1px dashed",borderColor:installed?"var(--gn)":"var(--bd)"}}>
+              <span className="ic">{installed?"✓":"⊕"}</span> {installed?"Установлено":"Установить"}
             </div>
           </div>
-          <div style={{padding:"12px 14px",borderTop:"1px solid var(--bd)",display:"flex",alignItems:"center",gap:10,cursor:"pointer"}} onClick={()=>setCurMgr(-1)}>
+        </div>
+        <div style={{padding:"12px 14px",borderTop:"1px solid var(--bd)",display:"flex",alignItems:"center",gap:10,cursor:"pointer"}} onClick={()=>setCurMgr(-1)}>
           <div style={{width:32,height:32,borderRadius:"50%",background:"var(--ac)",display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontWeight:700,fontSize:13}}>{mgrData?.name?.charAt(0)||"?"}</div>
           <div><div style={{fontSize:12,fontWeight:600,color:"var(--tx)"}}>{mgrData?.name||"Менеджер"}</div><div style={{fontSize:10,color:"var(--t2)"}}>Сменить →</div></div>
         </div>
