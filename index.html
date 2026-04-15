@@ -11,6 +11,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23555'/><text x='50' y='68' font-size='44' font-family='serif' font-weight='bold' fill='white' text-anchor='middle'>M</text></svg>">
 </head>
 <body>
 <div id="root"></div>
@@ -107,7 +108,22 @@ function App(){
     return pdf.output("datauristring").split(",")[1];
   };
 
-  const sEm=async()=>{
+  const dlPdf=async()=>{
+    if(!kpRef.current)return;
+    setPdfing(true);fl("Генерация PDF...","warn");
+    try{
+      const b64=await genPdfBlob();
+      const pdfName=("Коммерческое предложение "+co.name).replace(/[^a-zA-Zа-яА-ЯёЁ0-9 _-]/g,"_").substring(0,80)+".pdf";
+      const link=document.createElement("a");
+      link.href="data:application/pdf;base64,"+b64;
+      link.download=pdfName;
+      link.click();
+      fl("PDF сохранён!");save();
+    }catch(e){fl("Ошибка PDF: "+e.message,"error");console.error(e)}
+    setPdfing(false);
+  };
+
+    const sEm=async()=>{
     if(!co.email){fl("Email не указан","error");return}
     if(!mgrData){fl("Выберите менеджера","error");return}
     if(!kpRef.current){fl("Сначала перейдите на предпросмотр","error");return}
