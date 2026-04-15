@@ -49,6 +49,19 @@ function App(){
   const[ttl,setTtl]=useState("");
   const[kpDate,setKpDate]=useState(td());
   const[nf,setNf]=useState(null);
+  const[installEvt,setInstallEvt]=useState(null);
+  const[installed,setInstalled]=useState(false);
+  React.useEffect(()=>{
+    const h=e=>{e.preventDefault();setInstallEvt(e)};
+    window.addEventListener("beforeinstallprompt",h);
+    window.addEventListener("appinstalled",()=>setInstalled(true));
+    if(window.matchMedia("(display-mode:standalone)").matches)setInstalled(true);
+    return()=>window.removeEventListener("beforeinstallprompt",h);
+  },[]);
+  const doInstall=async()=>{
+    if(installEvt){installEvt.prompt();const r=await installEvt.userChoice;if(r.outcome==="accepted")setInstalled(true);setInstallEvt(null)}
+    else{fl("Откройте в Google Chrome для установки","warn")}
+  };
   const[cn,setCn]=useState("");
   const ci=useRef(1);const kpRef=useRef(null);
 
@@ -239,7 +252,12 @@ function App(){
           <div className={`NI ${pg==="history"?"on":""}`} onClick={()=>setPg("history")}><span className="ic">☰</span> История{hi.length>0&&<span className="badge">{hi.length}</span>}</div>
           <div className={`NI ${pg==="settings"?"on":""}`} onClick={()=>setPg("settings")}><span className="ic">⚙</span> Настройки</div>
         </div>
-        <div style={{padding:"12px 14px",borderTop:"1px solid var(--bd)",display:"flex",alignItems:"center",gap:10,cursor:"pointer"}} onClick={()=>setCurMgr(-1)}>
+        {!installed&&<div style={{padding:"8px 10px"}}>
+            <div onClick={doInstall} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",borderRadius:10,cursor:"pointer",background:"var(--s2)",border:"1px dashed var(--bd)",transition:"all .2s",fontSize:13,fontWeight:600,color:"var(--ac)"}} onMouseOver={e=>e.currentTarget.style.borderColor="var(--ac)"} onMouseOut={e=>e.currentTarget.style.borderColor="var(--bd)"}>
+              <span style={{fontSize:18}}>⊕</span> Установить на ПК
+            </div>
+          </div>}
+          <div style={{padding:"12px 14px",borderTop:"1px solid var(--bd)",display:"flex",alignItems:"center",gap:10,cursor:"pointer"}} onClick={()=>setCurMgr(-1)}>
           <div style={{width:32,height:32,borderRadius:"50%",background:"var(--ac)",display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontWeight:700,fontSize:13}}>{mgrData?.name?.charAt(0)||"?"}</div>
           <div><div style={{fontSize:12,fontWeight:600,color:"var(--tx)"}}>{mgrData?.name||"Менеджер"}</div><div style={{fontSize:10,color:"var(--t2)"}}>Сменить →</div></div>
         </div>
