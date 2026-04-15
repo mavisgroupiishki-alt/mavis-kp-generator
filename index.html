@@ -60,8 +60,10 @@ function App(){
   },[]);
   const doInstall=async()=>{
     if(installEvt){installEvt.prompt();const r=await installEvt.userChoice;if(r.outcome==="accepted")setInstalled(true);setInstallEvt(null)}
-    else{fl("Откройте в Google Chrome для установки","warn")}
+    else if(installed){fl("Приложение уже установлено","success")}
+    else{setShowInstallHelp(true)}
   };
+  const[showInstallHelp,setShowInstallHelp]=useState(false);
   const[cn,setCn]=useState("");
   const ci=useRef(1);const kpRef=useRef(null);
 
@@ -223,6 +225,24 @@ function App(){
   if(!mgrData){
     const filled=mgrs.filter(m=>m.name.trim());
     return(<><style>{CSS}</style>
+    {showInstallHelp&&<div style={{position:"fixed",inset:0,zIndex:9999,background:"rgba(0,0,0,.7)",display:"flex",alignItems:"center",justifyContent:"center",padding:20}} onClick={()=>setShowInstallHelp(false)}>
+      <div style={{background:"var(--sf)",border:"1px solid var(--bd)",borderRadius:16,padding:"32px 28px",maxWidth:480,width:"100%",color:"var(--tx)"}} onClick={e=>e.stopPropagation()}>
+        <h3 style={{fontSize:18,fontWeight:700,marginBottom:16}}>📲 Как установить на рабочий стол</h3>
+        <div style={{marginBottom:20}}>
+          <p style={{fontWeight:700,color:"var(--ac)",marginBottom:6}}>Google Chrome / Edge:</p>
+          <p style={{fontSize:13,color:"var(--t2)",lineHeight:1.6}}>Откройте эту же ссылку в Chrome → в адресной строке справа нажмите ⊕ «Установить»</p>
+        </div>
+        <div style={{marginBottom:20}}>
+          <p style={{fontWeight:700,color:"var(--ac)",marginBottom:6}}>Яндекс Браузер:</p>
+          <p style={{fontSize:13,color:"var(--t2)",lineHeight:1.6}}>Меню ☰ → Дополнительные инструменты → Создать ярлык → ✓ Открывать в отдельном окне → Создать</p>
+        </div>
+        <div style={{marginBottom:24}}>
+          <p style={{fontWeight:700,color:"var(--ac)",marginBottom:6}}>Телефон (iOS / Android):</p>
+          <p style={{fontSize:13,color:"var(--t2)",lineHeight:1.6}}>Откройте ссылку → Поделиться → На экран «Домой»</p>
+        </div>
+        <button className="B BP Blg" style={{width:"100%",justifyContent:"center"}} onClick={()=>setShowInstallHelp(false)}>Понятно</button>
+      </div>
+    </div>}
       <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100vh",background:"var(--bg)",fontFamily:"'Manrope',sans-serif"}}>
         <div style={{textAlign:"center",maxWidth:440,width:"100%",padding:"0 20px"}}>
           <h1 style={{fontFamily:"'Playfair Display',serif",fontSize:28,color:"#fff",marginBottom:4}}>MAVIS</h1>
@@ -243,6 +263,24 @@ function App(){
   }
 
   return(<><style>{CSS}</style>
+    {showInstallHelp&&<div style={{position:"fixed",inset:0,zIndex:9999,background:"rgba(0,0,0,.7)",display:"flex",alignItems:"center",justifyContent:"center",padding:20}} onClick={()=>setShowInstallHelp(false)}>
+      <div style={{background:"var(--sf)",border:"1px solid var(--bd)",borderRadius:16,padding:"32px 28px",maxWidth:480,width:"100%",color:"var(--tx)"}} onClick={e=>e.stopPropagation()}>
+        <h3 style={{fontSize:18,fontWeight:700,marginBottom:16}}>📲 Как установить на рабочий стол</h3>
+        <div style={{marginBottom:20}}>
+          <p style={{fontWeight:700,color:"var(--ac)",marginBottom:6}}>Google Chrome / Edge:</p>
+          <p style={{fontSize:13,color:"var(--t2)",lineHeight:1.6}}>Откройте эту же ссылку в Chrome → в адресной строке справа нажмите ⊕ «Установить»</p>
+        </div>
+        <div style={{marginBottom:20}}>
+          <p style={{fontWeight:700,color:"var(--ac)",marginBottom:6}}>Яндекс Браузер:</p>
+          <p style={{fontSize:13,color:"var(--t2)",lineHeight:1.6}}>Меню ☰ → Дополнительные инструменты → Создать ярлык → ✓ Открывать в отдельном окне → Создать</p>
+        </div>
+        <div style={{marginBottom:24}}>
+          <p style={{fontWeight:700,color:"var(--ac)",marginBottom:6}}>Телефон (iOS / Android):</p>
+          <p style={{fontSize:13,color:"var(--t2)",lineHeight:1.6}}>Откройте ссылку → Поделиться → На экран «Домой»</p>
+        </div>
+        <button className="B BP Blg" style={{width:"100%",justifyContent:"center"}} onClick={()=>setShowInstallHelp(false)}>Понятно</button>
+      </div>
+    </div>}
     {nf&&<div className={"NF "+nf.t}>{nf.m}</div>}
     <div className="A">
       <div className="SB">
@@ -252,11 +290,11 @@ function App(){
           <div className={`NI ${pg==="history"?"on":""}`} onClick={()=>setPg("history")}><span className="ic">☰</span> История{hi.length>0&&<span className="badge">{hi.length}</span>}</div>
           <div className={`NI ${pg==="settings"?"on":""}`} onClick={()=>setPg("settings")}><span className="ic">⚙</span> Настройки</div>
         </div>
-        {!installed&&<div style={{padding:"8px 10px"}}>
-            <div onClick={doInstall} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",borderRadius:10,cursor:"pointer",background:"var(--s2)",border:"1px dashed var(--bd)",transition:"all .2s",fontSize:13,fontWeight:600,color:"var(--ac)"}} onMouseOver={e=>e.currentTarget.style.borderColor="var(--ac)"} onMouseOut={e=>e.currentTarget.style.borderColor="var(--bd)"}>
-              <span style={{fontSize:18}}>⊕</span> Установить на ПК
+        <div style={{padding:"8px 10px"}}>
+            <div onClick={doInstall} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",borderRadius:10,cursor:"pointer",background:"var(--s2)",border:"1px dashed var(--bd)",transition:"all .2s",fontSize:13,fontWeight:600,color:installed?"var(--gn)":"var(--ac)"}} onMouseOver={e=>e.currentTarget.style.borderColor="var(--ac)"} onMouseOut={e=>e.currentTarget.style.borderColor="var(--bd)"}>
+              <span style={{fontSize:18}}>{installed?"✓":"⊕"}</span> {installed?"Установлено":"Установить на ПК"}
             </div>
-          </div>}
+          </div>
           <div style={{padding:"12px 14px",borderTop:"1px solid var(--bd)",display:"flex",alignItems:"center",gap:10,cursor:"pointer"}} onClick={()=>setCurMgr(-1)}>
           <div style={{width:32,height:32,borderRadius:"50%",background:"var(--ac)",display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontWeight:700,fontSize:13}}>{mgrData?.name?.charAt(0)||"?"}</div>
           <div><div style={{fontSize:12,fontWeight:600,color:"var(--tx)"}}>{mgrData?.name||"Менеджер"}</div><div style={{fontSize:10,color:"var(--t2)"}}>Сменить →</div></div>
