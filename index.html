@@ -348,52 +348,54 @@ function App(){
               <div className="CD"><div className="CT">✏️ Добавить свою услугу</div><div className="SR"><input className="FI" placeholder="Введите название услуги..." value={cn} onChange={e=>setCn(e.target.value)} onKeyDown={e=>e.key==="Enter"&&aC()} /><button className="B BG" onClick={aC}>+ Добавить</button></div></div>
               <div className="CD"><div className="CT">📂 Или из каталога</div>{CAT.map(cat=><div key={cat.c} className="CG"><div className={`CH ${ec===cat.c?"op":""}`} onClick={()=>setEc(ec===cat.c?null:cat.c)}><span>{cat.i}</span> {cat.c}<span style={{marginLeft:"auto",fontSize:12,color:"var(--t2)"}}>{cat.s.length}</span><span className="aw">▸</span></div>{ec===cat.c&&<div className="CS">{cat.s.map(s=>{const a=sv.some(x=>x.id===s.id);return<div key={s.id} className="SVI"><div className="SVN">{s.n}</div>{a?<span className="SVA">✓</span>:<button className="B BP Bsm" onClick={()=>aS(s)}>+</button>}</div>})}</div>}</div>)}</div>
               {sv.length>0&&<div className="CD"><div className="CT">✅ Услуги ({sv.length})</div><div style={{overflowX:"auto"}}><table className="TBL"><thead><tr><th style={{width:30}}>№</th><th>Наименование</th><th style={{width:120}}>Подготовка</th><th style={{width:120}}>Пошлины</th><th style={{width:150}}>Доп. расходы</th><th style={{width:40}}></th></tr></thead><tbody>
-                {sv.map((s,i)=><tr key={s.id}><td style={{color:"var(--t2)"}}>{i+1}</td><td><input className="FI" style={{width:"100%",background:"transparent",border:"none",padding:0,fontSize:13,color:"var(--tx)"}} value={s.cn||s.n} onChange={e=>uS(s.id,"cn",e.target.value)} /></td><td><input type="number" className="NI2" value={s.prep} onChange={e=>uS(s.id,"prep",+e.target.value)} /></td><td><input type="number" className="NI2" value={s.fee} onChange={e=>uS(s.id,"fee",+e.target.value)} /></td><td><input type="number" className="NI2" value={s.extra} onChange={e=>uS(s.id,"extra",+e.target.value)} /><input className="CIp" placeholder="Комментарий..." value={s.ec||""} onChange={e=>uS(s.id,"ec",e.target.value)} /></td><td><button className="B BR Bsm" onClick={()=>rS(s.id)}>✕</button></td></tr>)}
+                {sv.map((s,i)=>{const hasWork=s.spk||s.att;const isExp=expandedSvc===s.id;return <React.Fragment key={s.id}>
+                  <tr><td style={{color:"var(--t2)"}}>{i+1}</td>
+                    <td><div style={{display:"flex",alignItems:"center",gap:8}}>
+                      {hasWork&&<span style={{cursor:"pointer",userSelect:"none",fontSize:14,color:isExp?"var(--ac)":"var(--t2)",transition:"transform .2s",display:"inline-block",transform:isExp?"rotate(90deg)":"none"}} onClick={()=>setExpandedSvc(isExp?null:s.id)}>▸</span>}
+                      <input className="FI" style={{flex:1,background:"transparent",border:"none",padding:0,fontSize:13,color:"var(--tx)"}} value={s.cn||s.n} onChange={e=>uS(s.id,"cn",e.target.value)} />
+                    </div>
+                    {hasWork&&workTypes.length>0&&!isExp&&<div style={{fontSize:11,color:"var(--gn)",marginTop:4}}>✓ Видов работ: {workTypes.length}</div>}
+                    </td>
+                    <td><input type="number" className="NI2" value={s.prep} onChange={e=>uS(s.id,"prep",+e.target.value)} /></td>
+                    <td><input type="number" className="NI2" value={s.fee} onChange={e=>uS(s.id,"fee",+e.target.value)} /></td>
+                    <td><input type="number" className="NI2" value={s.extra} onChange={e=>uS(s.id,"extra",+e.target.value)} /><input className="CIp" placeholder="Комментарий..." value={s.ec||""} onChange={e=>uS(s.id,"ec",e.target.value)} /></td>
+                    <td><button className="B BR Bsm" onClick={()=>rS(s.id)}>✕</button></td>
+                  </tr>
+                  {hasWork&&isExp&&<tr><td colSpan={6} style={{background:"var(--s2)",padding:"16px 20px"}}>
+                    <div style={{fontWeight:700,fontSize:13,marginBottom:12,color:"var(--ac)"}}>📋 Виды работ {s.spk?"для СПК":"для Аттестации"}</div>
+                    <div style={{display:"flex",gap:10,marginBottom:12}}>
+                      <button className="B BP Bsm" onClick={()=>setShowWorkPicker(!showWorkPicker)}>{showWorkPicker?"Скрыть каталог":"📂 Выбрать из каталога"}</button>
+                      <input className="FI" style={{flex:1,fontSize:12,padding:"6px 10px"}} placeholder="Или впишите свой..." value={customWork} onChange={e=>setCustomWork(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&customWork.trim()){setWorkTypes(p=>[...p,{code:"",name:customWork.trim(),custom:true}]);setCustomWork("")}}} />
+                      <button className="B BG Bsm" onClick={()=>{if(customWork.trim()){setWorkTypes(p=>[...p,{code:"",name:customWork.trim(),custom:true}]);setCustomWork("")}}}>+</button>
+                    </div>
+                    {showWorkPicker&&<div style={{background:"var(--bg)",borderRadius:8,padding:"10px",maxHeight:350,overflowY:"auto",marginBottom:12,border:"1px solid var(--bd)"}}>
+                      <input className="FI" style={{width:"100%",marginBottom:10,fontSize:12,padding:"6px 10px"}} placeholder="🔍 Поиск..." value={workSearch} onChange={e=>setWorkSearch(e.target.value)} />
+                      {WORK_TYPES.filter(w=>!workSearch.trim()||(w.code+" "+w.name).toLowerCase().includes(workSearch.toLowerCase())).map(w=>{const added=workTypes.find(x=>x.code===w.code);return <div key={w.code} onClick={()=>{if(added){setWorkTypes(p=>p.filter(x=>x.code!==w.code))}else{setWorkTypes(p=>[...p,{code:w.code,name:w.name}])}}} style={{padding:"6px 10px",borderRadius:6,cursor:"pointer",fontSize:12,display:"flex",gap:10,alignItems:"flex-start",background:added?"rgba(52,199,123,.1)":"transparent",marginBottom:2}}><span style={{fontSize:14,flexShrink:0,color:added?"var(--gn)":"var(--t2)",marginTop:-2}}>{added?"✓":"☐"}</span><span style={{fontWeight:700,color:"var(--ac)",minWidth:40}}>{w.code}</span><span style={{flex:1}}>{w.name}</span></div>})}
+                    </div>}
+                    {workTypes.length>0&&<div style={{background:"var(--bg)",border:"1px solid var(--bd)",borderRadius:8,padding:"10px 14px",marginBottom:10}}>
+                      <div style={{fontSize:11,color:"var(--t2)",marginBottom:6,fontWeight:600}}>Выбрано ({workTypes.length}):</div>
+                      {workTypes.map((w,i)=><div key={i} style={{display:"flex",gap:8,padding:"4px 0",fontSize:12,alignItems:"flex-start",borderBottom:i<workTypes.length-1?"1px solid var(--bd)":"none"}}>{w.code&&<span style={{color:"var(--ac)",fontWeight:700,minWidth:40}}>{w.code}</span>}<span style={{flex:1}}>{w.name}</span><button className="B BR" style={{padding:"1px 6px",fontSize:10}} onClick={()=>setWorkTypes(p=>p.filter((_,j)=>j!==i))}>✕</button></div>)}
+                    </div>}
+                    {autoSI.length>0&&<div style={{marginBottom:10,padding:"10px 14px",background:"rgba(79,125,245,.08)",borderRadius:8,border:"1px solid rgba(79,125,245,.2)"}}>
+                      <div style={{fontSize:11,color:"var(--ac)",marginBottom:4,fontWeight:700}}>🔧 Автоматически подобранные СИ ({autoSI.length}):</div>
+                      <div style={{fontSize:11,color:"var(--tx)",lineHeight:1.6}}>{autoSI.join(" · ")}</div>
+                    </div>}
+                    {(autoSPEC.spk.length>0||autoSPEC.att.length>0)&&<div style={{padding:"10px 14px",background:"rgba(52,199,123,.08)",borderRadius:8,border:"1px solid rgba(52,199,123,.2)"}}>
+                      <div style={{fontSize:11,color:"var(--gn)",marginBottom:6,fontWeight:700}}>👷 Необходимые специалисты:</div>
+                      {autoSPEC.spk.length>0&&<div style={{marginBottom:autoSPEC.att.length?6:0}}>
+                        <div style={{fontSize:10,color:"var(--t2)",marginBottom:2,fontWeight:600,textTransform:"uppercase",letterSpacing:.5}}>Для СПК:</div>
+                        <div style={{fontSize:11,color:"var(--tx)",lineHeight:1.6}}>{autoSPEC.spk.map((sp,k)=><div key={k}>• {sp}</div>)}</div>
+                      </div>}
+                      {autoSPEC.att.length>0&&<div>
+                        <div style={{fontSize:10,color:"var(--t2)",marginBottom:2,fontWeight:600,textTransform:"uppercase",letterSpacing:.5}}>Для аттестата:</div>
+                        <div style={{fontSize:11,color:"var(--tx)",lineHeight:1.6}}>{autoSPEC.att.map((sp,k)=><div key={k}>• {sp}</div>)}</div>
+                      </div>}
+                    </div>}
+                  </td></tr>}
+                </React.Fragment>})}
                 <tr className="TR"><td></td><td style={{textAlign:"right"}}>Итого:</td><td>{fm(tP)}</td><td>{fm(tF)}</td><td>{fm(tE)}</td><td></td></tr>
                 <tr className="GR"><td></td><td style={{textAlign:"right"}}>ОБЩАЯ СУММА:</td><td colSpan={3}>{fm(tT)}</td><td></td></tr>
               </tbody></table></div></div>}
-              {sv.find(s=>s.spk||s.att)&&<div className="CD">
-                <div className="CT">📋 Виды работ {sv.find(s=>s.spk)&&sv.find(s=>s.att)?"для СПК / Аттестации":sv.find(s=>s.spk)?"для СПК":"для Аттестации"}</div>
-                <div style={{display:"flex",gap:10,marginBottom:12}}>
-                  <button className="B BP" onClick={()=>setShowWorkPicker(!showWorkPicker)}>{showWorkPicker?"Скрыть каталог":"📂 Выбрать из каталога"}</button>
-                  <input className="FI" style={{flex:1}} placeholder="Или впишите свой вид работ..." value={customWork} onChange={e=>setCustomWork(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&customWork.trim()){setWorkTypes(p=>[...p,{code:"",name:customWork.trim(),custom:true}]);setCustomWork("")}}} />
-                  <button className="B BG" onClick={()=>{if(customWork.trim()){setWorkTypes(p=>[...p,{code:"",name:customWork.trim(),custom:true}]);setCustomWork("")}}}>+</button>
-                </div>
-                {showWorkPicker&&<div style={{background:"var(--s2)",borderRadius:8,padding:"12px",maxHeight:400,overflowY:"auto",marginBottom:12}}>
-                  <input className="FI" style={{width:"100%",marginBottom:10}} placeholder="🔍 Поиск..." value={workSearch} onChange={e=>setWorkSearch(e.target.value)} />
-                  {WORK_TYPES.filter(w=>!workSearch.trim()||(w.code+" "+w.name).toLowerCase().includes(workSearch.toLowerCase())).map(w=>{
-                    const added=workTypes.find(x=>x.code===w.code);
-                    return <div key={w.code} onClick={()=>{if(added){setWorkTypes(p=>p.filter(x=>x.code!==w.code))}else{setWorkTypes(p=>[...p,{code:w.code,name:w.name}])}}} style={{padding:"8px 12px",borderRadius:6,cursor:"pointer",fontSize:13,display:"flex",gap:10,alignItems:"flex-start",background:added?"rgba(52,199,123,.1)":"transparent",marginBottom:2}}>
-                      <span style={{fontSize:16,flexShrink:0,color:added?"var(--gn)":"var(--t2)",marginTop:-2}}>{added?"✓":"☐"}</span>
-                      <span style={{fontWeight:700,color:"var(--ac)",minWidth:40}}>{w.code}</span>
-                      <span style={{flex:1}}>{w.name}</span>
-                    </div>;
-                  })}
-                </div>}
-                {workTypes.length>0&&<div style={{background:"var(--bg)",border:"1px solid var(--bd)",borderRadius:8,padding:"12px 16px"}}>
-                  <div style={{fontSize:12,color:"var(--t2)",marginBottom:8,fontWeight:600}}>Выбрано ({workTypes.length}):</div>
-                  {workTypes.map((w,i)=><div key={i} style={{display:"flex",gap:8,padding:"6px 0",fontSize:13,alignItems:"flex-start",borderBottom:i<workTypes.length-1?"1px solid var(--bd)":"none"}}>
-                    {w.code&&<span style={{color:"var(--ac)",fontWeight:700,minWidth:40}}>{w.code}</span>}
-                    <span style={{flex:1}}>{w.name}</span>
-                    <button className="B BR Bsm" style={{padding:"2px 8px",fontSize:11}} onClick={()=>setWorkTypes(p=>p.filter((_,j)=>j!==i))}>✕</button>
-                  </div>)}
-                </div>}
-                {autoSI.length>0&&<div style={{marginTop:12,padding:"12px 16px",background:"rgba(79,125,245,.08)",borderRadius:8,border:"1px solid rgba(79,125,245,.2)"}}>
-                  <div style={{fontSize:12,color:"var(--ac)",marginBottom:6,fontWeight:700}}>🔧 Автоматически подобранные СИ ({autoSI.length}):</div>
-                  <div style={{fontSize:12,color:"var(--tx)",lineHeight:1.7}}>{autoSI.join(" · ")}</div>
-                </div>}
-                {(autoSPEC.spk.length>0||autoSPEC.att.length>0)&&<div style={{marginTop:12,padding:"12px 16px",background:"rgba(52,199,123,.08)",borderRadius:8,border:"1px solid rgba(52,199,123,.2)"}}>
-                  <div style={{fontSize:12,color:"var(--gn)",marginBottom:8,fontWeight:700}}>👷 Необходимые специалисты:</div>
-                  {autoSPEC.spk.length>0&&<div style={{marginBottom:autoSPEC.att.length?8:0}}>
-                    <div style={{fontSize:11,color:"var(--t2)",marginBottom:4,fontWeight:600,textTransform:"uppercase",letterSpacing:.5}}>Для свидетельства о тех. компетентности:</div>
-                    <div style={{fontSize:12,color:"var(--tx)",lineHeight:1.7}}>{autoSPEC.spk.map((s,i)=><div key={i}>• {s}</div>)}</div>
-                  </div>}
-                  {autoSPEC.att.length>0&&<div>
-                    <div style={{fontSize:11,color:"var(--t2)",marginBottom:4,fontWeight:600,textTransform:"uppercase",letterSpacing:.5}}>Для аттестата соответствия:</div>
-                    <div style={{fontSize:12,color:"var(--tx)",lineHeight:1.7}}>{autoSPEC.att.map((s,i)=><div key={i}>• {s}</div>)}</div>
-                  </div>}
-                </div>}
-              </div>}
               <div style={{display:"flex",justifyContent:"space-between"}}><button className="B BS Blg" onClick={()=>setSt(1)}>← Компания</button><button className="B BP Blg" onClick={()=>{if(!sv.length){fl("Добавьте услугу","error");return}setSt(3)}}>Предпросмотр →</button></div>
             </>)}
             {st===3&&(<>
@@ -403,14 +405,10 @@ function App(){
                 <div className="KD">Предложение о сотрудничестве от {kpDate}</div>
                 <div className="KC"><h3>{co.name}</h3>{co.dir&&<p>{co.dir}</p>}</div>
                 {workTypes.length>0&&<div style={{marginLeft:60,marginBottom:24,padding:"16px 20px",background:"rgba(255,255,255,.6)",borderRadius:8,border:"1px solid rgba(100,100,100,.2)"}}>
-                  <div style={{fontSize:13,fontWeight:700,marginBottom:10,color:"#3a2e1a"}}>Виды работ:</div>
-                  <div style={{fontSize:11,color:"#5a4528",lineHeight:1.7}}>
+                  <div style={{fontSize:13,fontWeight:700,marginBottom:10,color:"#333"}}>Виды работ:</div>
+                  <div style={{fontSize:11,color:"#444",lineHeight:1.7}}>
                     {workTypes.map((w,i)=><span key={i}>{w.code&&<strong style={{color:"#8b5a1e",fontWeight:700}}>{w.code}</strong>} {w.name}{i<workTypes.length-1?"; ":""}</span>)}
                   </div>
-                  {autoSI.length>0&&<div style={{marginTop:12,paddingTop:12,borderTop:"1px solid rgba(100,100,100,.2)"}}>
-                    <div style={{fontSize:12,fontWeight:700,marginBottom:6,color:"#3a2e1a"}}>Перечень необходимых СИ:</div>
-                    <div style={{fontSize:10,color:"#6b5535",lineHeight:1.6}}>{autoSI.join(" · ")}</div>
-                  </div>}
                 </div>}
                 {ttl&&<div className="KS">{ttl}</div>}
                 <table className="KT"><thead><tr><th>№</th><th>Услуга</th><th>Подготовка</th><th>Пошлины</th><th>Доп. расходы</th></tr></thead><tbody>
