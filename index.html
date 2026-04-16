@@ -377,6 +377,7 @@ function App(){
                     </div>
                     {hasWork&&(s.workTypes||[]).length>0&&!isExp&&<div style={{fontSize:11,color:"var(--gn)",marginTop:4}}>✓ Видов работ: {(s.workTypes||[]).length}</div>}
                     </td>
+                    <td><input type="number" className="NI2" style={{width:60,textAlign:"center"}} min={1} value={s.qty||1} onChange={e=>uS(s.id,"qty",Math.max(1,+e.target.value||1))} /></td>
                     <td><input type="number" className="NI2" placeholder="0" value={s.prep||""} onChange={e=>uS(s.id,"prep",e.target.value===""?0:+e.target.value)} /></td>
                     <td><input type="number" className="NI2" placeholder="0" value={s.fee||""} onChange={e=>uS(s.id,"fee",e.target.value===""?0:+e.target.value)} /></td>
                     <td><input type="number" className="NI2" placeholder="0" value={s.extra||""} onChange={e=>uS(s.id,"extra",e.target.value===""?0:+e.target.value)} /><input className="CIp" placeholder="Комментарий..." value={s.ec||""} onChange={e=>uS(s.id,"ec",e.target.value)} /></td>
