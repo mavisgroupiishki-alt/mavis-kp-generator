@@ -112,8 +112,8 @@ function App(){
     if(sv.find(x=>x.id===s.id))return;
     const newOnes=[{...s,prep:0,fee:0,extra:0,qty:1,cn:"",ec:"",workTypes:[],specs:[]}];
     if(s.spk){
-      if(!sv.find(x=>x.id==="tnpa"))newOnes.push({id:"tnpa",n:"Доступ к базе ТНПА",prep:250,fee:0,extra:0,qty:1,cn:"",ec:"Авто-добавлено к СПК",workTypes:[],specs:[]});
-      if(!sv.find(x=>x.id==="tech_cards"))newOnes.push({id:"tech_cards",n:"Тех. карты (по видам работ)",prep:0,fee:0,extra:0,qty:1,cn:"",ec:"Укажите количество и сумму",workTypes:[],specs:[]});
+      if(!sv.find(x=>x.id==="tnpa"))newOnes.push({id:"tnpa",n:"Доступ к базе ТНПА",prep:0,fee:0,extra:250,qty:1,cn:"",ec:"",workTypes:[],specs:[]});
+      if(!sv.find(x=>x.id==="tech_cards"))newOnes.push({id:"tech_cards",n:"Тех. карты (по видам работ)",prep:0,fee:0,extra:300,qty:1,cn:"",ec:"",workTypes:[],specs:[]});
     }
     setSv(p=>[...p,...newOnes]);
   };
