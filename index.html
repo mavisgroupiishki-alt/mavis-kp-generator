@@ -87,7 +87,15 @@ function App(){
   const pBx=async c=>{setCo(p=>({...p,name:c.name,email:c.email||p.email,phone:c.phone||p.phone,bx:c.id}));setBr([]);setBq("");try{const r=await fetch(BX+"/crm.contact.list.json?filter[COMPANY_ID]="+c.id+"&select[]=NAME&select[]=LAST_NAME&select[]=SECOND_NAME");const d=await r.json();if(d.result?.[0]){const t=d.result[0];const f=[t.LAST_NAME,t.NAME,t.SECOND_NAME].filter(Boolean).join(" ");if(f)setCo(p=>({...p,dir:f}))}}catch(e){}fl("«"+c.name+"» загружена")};
 
   // Services
-  const aS=s=>{if(sv.find(x=>x.id===s.id))return;setSv(p=>[...p,{...s,prep:0,fee:0,extra:0,cn:"",ec:""}])};
+  const aS=s=>{
+    if(sv.find(x=>x.id===s.id))return;
+    const newOnes=[{...s,prep:0,fee:0,extra:0,cn:"",ec:""}];
+    if(s.spk){
+      if(!sv.find(x=>x.id==="tnpa"))newOnes.push({id:"tnpa",n:"Доступ к базе ТНПА",prep:250,fee:0,extra:0,cn:"",ec:"Авто-добавлено к СПК"});
+      if(!sv.find(x=>x.id==="tech_cards"))newOnes.push({id:"tech_cards",n:"Тех. карты (по видам работ)",prep:0,fee:0,extra:0,cn:"",ec:"Укажите количество и сумму"});
+    }
+    setSv(p=>[...p,...newOnes]);
+  };
   const aC=()=>{if(!cn.trim())return;setSv(p=>[...p,{id:"c"+ci.current++,n:cn.trim(),prep:0,fee:0,extra:0,cn:"",ec:""}]);setCn("")};
   const rS=id=>setSv(p=>p.filter(s=>s.id!==id));
   const uS=(id,f,v)=>setSv(p=>p.map(s=>s.id===id?{...s,[f]:v}:s));
@@ -342,6 +350,48 @@ function App(){
                 <tr className="TR"><td></td><td style={{textAlign:"right"}}>Итого:</td><td>{fm(tP)}</td><td>{fm(tF)}</td><td>{fm(tE)}</td><td></td></tr>
                 <tr className="GR"><td></td><td style={{textAlign:"right"}}>ОБЩАЯ СУММА:</td><td colSpan={3}>{fm(tT)}</td><td></td></tr>
               </tbody></table></div></div>}
+              {sv.find(s=>s.spk)&&<div className="CD">
+                <div className="CT">📋 Виды работ для СПК</div>
+                <div style={{display:"flex",gap:10,marginBottom:12}}>
+                  <button className="B BP" onClick={()=>setShowWorkPicker(!showWorkPicker)}>{showWorkPicker?"Скрыть каталог":"📂 Выбрать из каталога"}</button>
+                  <input className="FI" style={{flex:1}} placeholder="Или впишите свой вид работ..." value={customWork} onChange={e=>setCustomWork(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&customWork.trim()){setWorkTypes(p=>[...p,{code:"",name:customWork.trim(),custom:true}]);setCustomWork("")}}} />
+                  <button className="B BG" onClick={()=>{if(customWork.trim()){setWorkTypes(p=>[...p,{code:"",name:customWork.trim(),custom:true}]);setCustomWork("")}}}>+</button>
+                </div>
+                {showWorkPicker&&<div style={{background:"var(--s2)",borderRadius:8,padding:"12px",maxHeight:400,overflowY:"auto",marginBottom:12}}>
+                  <input className="FI" style={{width:"100%",marginBottom:10}} placeholder="🔍 Поиск..." value={workSearch} onChange={e=>setWorkSearch(e.target.value)} />
+                  {WORK_TYPES.filter(w=>!workSearch.trim()||(w.code+" "+w.name).toLowerCase().includes(workSearch.toLowerCase())).map(w=>{
+                    const added=workTypes.find(x=>x.code===w.code);
+                    return <div key={w.code} onClick={()=>{if(added){setWorkTypes(p=>p.filter(x=>x.code!==w.code))}else{setWorkTypes(p=>[...p,{code:w.code,name:w.name}])}}} style={{padding:"8px 12px",borderRadius:6,cursor:"pointer",fontSize:13,display:"flex",gap:10,alignItems:"flex-start",background:added?"rgba(52,199,123,.1)":"transparent",marginBottom:2}}>
+                      <span style={{fontSize:16,flexShrink:0,color:added?"var(--gn)":"var(--t2)",marginTop:-2}}>{added?"✓":"☐"}</span>
+                      <span style={{fontWeight:700,color:"var(--ac)",minWidth:40}}>{w.code}</span>
+                      <span style={{flex:1}}>{w.name}</span>
+                    </div>;
+                  })}
+                </div>}
+                {workTypes.length>0&&<div style={{background:"var(--bg)",border:"1px solid var(--bd)",borderRadius:8,padding:"12px 16px"}}>
+                  <div style={{fontSize:12,color:"var(--t2)",marginBottom:8,fontWeight:600}}>Выбрано ({workTypes.length}):</div>
+                  {workTypes.map((w,i)=><div key={i} style={{display:"flex",gap:8,padding:"6px 0",fontSize:13,alignItems:"flex-start",borderBottom:i<workTypes.length-1?"1px solid var(--bd)":"none"}}>
+                    {w.code&&<span style={{color:"var(--ac)",fontWeight:700,minWidth:40}}>{w.code}</span>}
+                    <span style={{flex:1}}>{w.name}</span>
+                    <button className="B BR Bsm" style={{padding:"2px 8px",fontSize:11}} onClick={()=>setWorkTypes(p=>p.filter((_,j)=>j!==i))}>✕</button>
+                  </div>)}
+                </div>}
+                {autoSI.length>0&&<div style={{marginTop:12,padding:"12px 16px",background:"rgba(79,125,245,.08)",borderRadius:8,border:"1px solid rgba(79,125,245,.2)"}}>
+                  <div style={{fontSize:12,color:"var(--ac)",marginBottom:6,fontWeight:700}}>🔧 Автоматически подобранные СИ ({autoSI.length}):</div>
+                  <div style={{fontSize:12,color:"var(--tx)",lineHeight:1.7}}>{autoSI.join(" · ")}</div>
+                </div>}
+                {(autoSPEC.spk.length>0||autoSPEC.att.length>0)&&<div style={{marginTop:12,padding:"12px 16px",background:"rgba(52,199,123,.08)",borderRadius:8,border:"1px solid rgba(52,199,123,.2)"}}>
+                  <div style={{fontSize:12,color:"var(--gn)",marginBottom:8,fontWeight:700}}>👷 Необходимые специалисты:</div>
+                  {autoSPEC.spk.length>0&&<div style={{marginBottom:autoSPEC.att.length?8:0}}>
+                    <div style={{fontSize:11,color:"var(--t2)",marginBottom:4,fontWeight:600,textTransform:"uppercase",letterSpacing:.5}}>Для свидетельства о тех. компетентности:</div>
+                    <div style={{fontSize:12,color:"var(--tx)",lineHeight:1.7}}>{autoSPEC.spk.map((s,i)=><div key={i}>• {s}</div>)}</div>
+                  </div>}
+                  {autoSPEC.att.length>0&&<div>
+                    <div style={{fontSize:11,color:"var(--t2)",marginBottom:4,fontWeight:600,textTransform:"uppercase",letterSpacing:.5}}>Для аттестата соответствия:</div>
+                    <div style={{fontSize:12,color:"var(--tx)",lineHeight:1.7}}>{autoSPEC.att.map((s,i)=><div key={i}>• {s}</div>)}</div>
+                  </div>}
+                </div>}
+              </div>}
               <div style={{display:"flex",justifyContent:"space-between"}}><button className="B BS Blg" onClick={()=>setSt(1)}>← Компания</button><button className="B BP Blg" onClick={()=>{if(!sv.length){fl("Добавьте услугу","error");return}setSt(3)}}>Предпросмотр →</button></div>
             </>)}
             {st===3&&(<>
