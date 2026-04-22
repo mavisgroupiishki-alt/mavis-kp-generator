@@ -438,8 +438,8 @@ function App(){
                 <div className="KC"><h3>{co.name}</h3>{co.dir&&<p>{co.dir}</p>}</div>
                 {sv.filter(s=>(s.workTypes||[]).length>0).map(s=><div key={"wt_"+s.id} style={{marginLeft:60,marginBottom:16,padding:"16px 20px",background:"rgba(255,255,255,.6)",borderRadius:8,border:"1px solid rgba(100,100,100,.2)"}}>
                   <div style={{fontSize:13,fontWeight:700,marginBottom:10,color:"#1f1f1f"}}>Виды работ {s.spk?"для СПК":s.att?"для Аттестации":""} ({s.cn||s.n}):</div>
-                  <div style={{fontSize:11,color:"#1f1f1f",lineHeight:1.7,fontWeight:500}}>
-                    {(s.workTypes||[]).map((w,i)=><span key={i}>{w.code&&<strong style={{color:"#8b5a1e",fontWeight:700}}>{w.code}</strong>} {w.name}{i<(s.workTypes||[]).length-1?"; ":""}</span>)}
+                  <div style={{fontSize:11,color:"#1f1f1f",lineHeight:1.6,fontWeight:500}}>
+                    {(s.workTypes||[]).map((w,i)=><div key={i} style={{padding:"2px 0"}}>— {w.name}</div>)}
                   </div>
                 </div>)}
                 {ttl&&<div className="KS">{ttl}</div>}
@@ -448,12 +448,6 @@ function App(){
                   <tr className="TT"><td></td><td>Итого:</td><td>{fm(tP)}</td><td>{fm(tF)}</td><td>{fm(tE)}</td></tr>
                   <tr className="TG"><td></td><td>ОБЩАЯ СУММА:</td><td colSpan={3}>{fm(tT)}</td></tr>
                 </tbody></table>
-                {autoSI.length>0&&<div style={{marginLeft:60,marginRight:0,marginBottom:32,border:"1px solid rgba(100,100,100,.3)",borderRadius:4}}>
-                  <div style={{background:"rgba(100,100,100,.12)",padding:"10px 16px",fontWeight:700,fontSize:14,color:"#1f1f1f",textAlign:"center",borderBottom:"1px solid rgba(100,100,100,.25)"}}>Перечень необходимого оборудования</div>
-                  <div style={{padding:"14px 20px",fontSize:12,color:"#1f1f1f",lineHeight:2}}>
-                    {autoSI.map((s,i)=><div key={i}>— {s};</div>)}
-                  </div>
-                </div>}
                 {(autoSPEC.spk.length>0||autoSPEC.att.length>0)&&<div style={{marginLeft:60,marginRight:0,marginBottom:32,border:"1px solid rgba(100,100,100,.3)",borderRadius:4}}>
                   <div style={{background:"rgba(100,100,100,.12)",padding:"10px 16px",fontWeight:700,fontSize:14,color:"#1f1f1f",textAlign:"center",borderBottom:"1px solid rgba(100,100,100,.25)"}}>Необходимые специалисты</div>
                   <div style={{padding:"14px 20px",fontSize:12,color:"#1f1f1f",lineHeight:1.8}}>
@@ -465,6 +459,12 @@ function App(){
                       <div style={{fontWeight:700,marginBottom:6,color:"#8b5a1e"}}>Для аттестата соответствия:</div>
                       {autoSPEC.att.map((s,i)=><div key={i}>— {s};</div>)}
                     </div>}
+                  </div>
+                </div>}
+                {autoSI.length>0&&<div style={{marginLeft:60,marginRight:0,marginBottom:32,border:"1px solid rgba(100,100,100,.3)",borderRadius:4}}>
+                  <div style={{background:"rgba(100,100,100,.12)",padding:"10px 16px",fontWeight:700,fontSize:14,color:"#1f1f1f",textAlign:"center",borderBottom:"1px solid rgba(100,100,100,.25)"}}>Перечень необходимого оборудования</div>
+                  <div style={{padding:"10px 20px",fontSize:11,color:"#1f1f1f",lineHeight:1.4}}>
+                    {autoSI.map((s,i)=><div key={i} style={{padding:"1px 0"}}>— {s};</div>)}
                   </div>
                 </div>}
                 {sv.find(s=>s.ot)&&<div style={{marginLeft:60,marginRight:0,marginBottom:32,border:"1px solid rgba(100,100,100,.3)",borderRadius:4}}>
