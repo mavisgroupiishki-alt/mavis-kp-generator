@@ -5,13 +5,14 @@
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>MAVIS GROUP — КП Генератор</title>
 <meta name="theme-color" content="#0f1117">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/svg+xml" href="icon.svg">
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-
 </head>
 <body>
 <div id="root"></div>
@@ -19,7 +20,9 @@
 const{useState,useRef}=React;
 const BX="https://mavisgroup.bitrix24.by/rest/2110/ie4502ilh74981qr";
 const FROM_EMAIL="mavis.group@mail.ru";
-const INIT_MGRS=[{id:1,name:"Роман Авсеенко",phone:"80 (44) 721 42 15"},{id:2,name:"Екатерина Халько",phone:"80 (44) 721 42 15"},{id:3,name:"Ирина Богомольцева",phone:"80 (44) 721 42 15"}];const COMPANY_PHONE="80 (44) 721 42 15";const COMPANY_ADDR="г. Минск, ул. Домбровская 9, офис 12.2.2";
+const INIT_MGRS=[{id:1,name:"Роман Авсеенко",phone:"80 (44) 721 42 15"},{id:2,name:"Екатерина Халько",phone:"80 (44) 721 42 15"},{id:3,name:"Ирина Богомольцева",phone:"80 (44) 721 42 15"}];
+const COMPANY_PHONE="80 (44) 721 42 15";
+const COMPANY_ADDR="г. Минск, ул. Домбровская 9, офис 12.2.2";
 const CAT=[
 {c:"Строительство",i:"🏗",s:[{id:"spk",n:"СПК (свидетельство о подтв. компетентности)",spk:true},{id:"attest",att:true,n:"Аттестация в строительстве"},{id:"attest_gen",att:true,n:"Аттестация подряд + ген.подряд"},{id:"attest_proj",att:true,n:"Аттестация проектирование + ген.проект"},{id:"attest_confirm",n:"Подтверждение аттестации"},{id:"spec_find",spec:true,n:"Подбор основного специалиста"},{id:"spec_find_part",spec:true,n:"Подбор совместителя"},{id:"spec_attest",n:"Аттестация специалиста"},{id:"period_spk",n:"Периодика СПК"},{id:"period_iso",n:"Периодика ISO 9001"},{id:"period_iso_suot",n:"Периодика ISO + СУОТ"},{id:"period_cert",n:"Периодика Сертификаты"}]},
 {c:"Системы менеджмента",i:"📋",s:[{id:"iso9001_rb",n:"ISO 9001 (РБ)"},{id:"iso9001_int",n:"ISO 9001 (международный)"},{id:"iso45001",n:"СУОТ ISO 45001"},{id:"iso9001_45001",n:"ISO 9001 + СУОТ ISO 45001 (комплекс)"},{id:"iso27001_rb",n:"ISO 27001 (РБ)"},{id:"iso27001_int",n:"ISO 27001 (международный)"},{id:"iso9001_27001_int",n:"ISO 9001 + ISO 27001 (международный)"},{id:"ohrana_truda",ot:true,n:"Разработка документов по охране труда"}]},
@@ -32,528 +35,666 @@ const SI_GROUPS={"geo": ["тахеометр", "нивелир", "нивелир
 const WORK_TYPES=[{"code": "w1", "name": "Геодезические работы", "si": "geo"}, {"code": "w2", "name": "Устройство оснований фундаментов зданий и сооружений", "si": "osn"}, {"code": "w3", "name": "Устройство искусственных оснований из насыпных, намывных, закрепленных грунтов, армированных оснований и сооружений из армированного грунта", "si": "osn"}, {"code": "w4", "name": "Устройство плитных фундаментов (ленточных, столбчатых, сплошных плит)", "si": "osn"}, {"code": "w5", "name": "Устройство свайных фундаментов", "si": "osn"}, {"code": "w6", "name": "Устройство щелевых фундаментов", "si": "osn"}, {"code": "w7", "name": "Устройство специальных видов фундаментов зданий и сооружений", "si": "osn"}, {"code": "w8", "name": "Возведение монолитных бетонных и железобетонных конструкций", "si": "monolit"}, {"code": "w9", "name": "Монтаж сборных бетонных и железобетонных конструкций", "si": "sbor_beton"}, {"code": "w10", "name": "Монтаж стальных конструкций", "si": "stal"}, {"code": "w11", "name": "Возведение каменных и армокаменных конструкций", "si": "kamen"}, {"code": "w12", "name": "Монтаж деревянных конструкций", "si": "derevo"}, {"code": "w13", "name": "Монтаж легких ограждающих конструкций", "si": "legk_ogr"}, {"code": "w14", "name": "Устройство кровель", "si": "krov"}, {"code": "w15", "name": "Устройство изоляционных покрытий", "si": "antikor"}, {"code": "w16", "name": "Устройство антикоррозионных покрытий строительных конструкций зданий и сооружений", "si": "antikor"}, {"code": "w17", "name": "Устройство тепловой изоляции наружных ограждающих конструкций зданий и сооружений", "si": "tepl_izol"}, {"code": "w18", "name": "Устройство тепловой изоляции оборудования и трубопроводов", "si": "tepl_izol"}, {"code": "w19", "name": "Устройство полов", "si": "osn"}, {"code": "w20", "name": "Заполнение оконных и дверных проемов", "si": "osn"}, {"code": "w21", "name": "Штукатурные работы", "si": "osn"}, {"code": "w22", "name": "Облицовочные работы", "si": "osn"}, {"code": "w23", "name": "Малярные работы", "si": "osn"}, {"code": "w24", "name": "Обойные работы", "si": "osn"}, {"code": "w25", "name": "Стекольные работы", "si": "osn"}, {"code": "w26", "name": "Устройство дорожных одежд с покрытием из плит тротуарных", "si": "trot"}, {"code": "w27", "name": "Благоустройство территорий. Устройство асфальтобетонных покрытий", "si": "dorogi"}, {"code": "w28", "name": "Благоустройство территорий. Озеленение", "si": "osn"}, {"code": "w29", "name": "Благоустройство территории. Ограды", "si": "osn"}, {"code": "w30", "name": "Монтаж внутренних инженерных систем зданий и сооружений: водоснабжение", "si": "vnutr_vk"}, {"code": "w31", "name": "Монтаж внутренних инженерных систем зданий и сооружений: канализация", "si": "vnutr_vk"}, {"code": "w32", "name": "Монтаж внутренних инженерных систем зданий и сооружений: вентиляция и кондиционирование воздуха", "si": "vent"}, {"code": "w33", "name": "Монтаж внутренних инженерных систем зданий и сооружений: отопление", "si": "vnutr_vk"}, {"code": "w34", "name": "Монтаж внутренних инженерных систем зданий и сооружений: тепловые пункты и котельные", "si": "teplset"}, {"code": "w35", "name": "Монтаж внутренних инженерных систем зданий и сооружений: газоснабжение", "si": "gaz"}, {"code": "w36", "name": "Монтаж наружных инженерных сетей и сооружений: водоснабжение и канализация", "si": "nar_vk"}, {"code": "w37", "name": "Монтаж наружных инженерных сетей и сооружений: монтаж тепловых сетей", "si": "teplset"}, {"code": "w38", "name": "Монтаж наружных инженерных сетей и сооружений: газоснабжение", "si": "gaz"}, {"code": "w39", "name": "Монтаж приборов учета тепла", "si": "teplset"}, {"code": "w40", "name": "Монтаж внутренних инженерных систем зданий и сооружений: электромонтажные работы", "si": "elec"}, {"code": "w41", "name": "Монтаж внутренних инженерных систем зданий и сооружений: монтаж систем автоматизации", "si": "elec"}, {"code": "w42", "name": "Монтаж внутренних инженерных систем зданий и сооружений: устройство сетей связи и диспетчеризации", "si": "elec"}, {"code": "w43", "name": "Монтаж инженерных сетей: линейно-кабельные сооружения электросвязи", "si": "elec"}, {"code": "w44", "name": "Монтаж пассивных оптических сетей", "si": "elec"}, {"code": "w45", "name": "Монтаж наружных сетей электроснабжения: кабельные линии электропередачи", "si": "elec"}, {"code": "w46", "name": "Монтаж наружных сетей электроснабжения: воздушные линии электропередач", "si": "elec"}, {"code": "w47", "name": "Монтаж сетей электроснабжения: распределительные устройства и подстанции", "si": "elec"}, {"code": "w48", "name": "Монтаж технологических трубопроводов", "si": "tech_obor"}, {"code": "w49", "name": "Монтаж технологического оборудования", "si": "tech_obor"}, {"code": "w50", "name": "Устройство мелиоративных систем и сооружений", "si": "osn"}, {"code": "w51", "name": "Устройство автомобильных дорог", "si": "dorogi"}, {"code": "w52", "name": "Устройство улиц и дорог городов, поселков и сельских населенных пунктов", "si": "dorogi"}, {"code": "w53", "name": "Устройство мостов и труб", "si": "dorogi"}];
 const SPEC_MAP={"w1": {"spk": "геодезист / главный геодезист", "att": "геодезист"}, "w2": {"spk": "прораб общестрой", "att": "прораб общестрой"}, "w3": {"spk": "прораб общестрой", "att": "прораб общестрой"}, "w4": {"spk": "прораб общестрой", "att": "прораб общестрой"}, "w5": {"spk": "прораб общестрой", "att": "прораб общестрой"}, "w6": {"spk": "прораб общестрой", "att": "прораб общестрой"}, "w7": {"spk": "прораб общестрой", "att": "прораб общестрой"}, "w8": {"spk": "прораб общестрой", "att": "прораб общестрой"}, "w9": {"spk": "прораб общестрой", "att": "прораб общестрой"}, "w10": {"spk": "прораб общестрой", "att": "прораб общестрой"}, "w11": {"spk": "прораб общестрой", "att": "прораб общестрой"}, "w12": {"spk": "прораб общестрой", "att": "прораб общестрой"}, "w13": {"spk": "прораб общестрой", "att": "прораб общестрой"}, "w14": {"spk": "прораб общестрой", "att": "прораб общестрой"}, "w15": {"spk": "прораб общестрой", "att": "-"}, "w16": {"spk": "прораб общестрой", "att": "прораб общестрой"}, "w17": {"spk": "прораб общестрой", "att": "прораб по тепловой изоляции наружных ограждающих конструкций"}, "w18": {"spk": "прораб сантехник", "att": "прораб по тепловой изоляции трубопроводов"}, "w19": {"spk": "прораб общестрой", "att": "-"}, "w20": {"spk": "прораб общестрой", "att": "-"}, "w21": {"spk": "прораб общестрой", "att": "-"}, "w22": {"spk": "прораб общестрой", "att": "-"}, "w23": {"spk": "прораб общестрой", "att": "-"}, "w24": {"spk": "прораб общестрой", "att": "-"}, "w25": {"spk": "прораб общестрой", "att": "-"}, "w26": {"spk": "прораб общестрой или прораб по благоустройству", "att": "прораб по благоустройству"}, "w27": {"spk": "прораб общестрой или прораб по благоустройству", "att": "прораб по благоустройству"}, "w28": {"spk": "прораб общестрой или прораб по благоустройству", "att": "прораб по благоустройству"}, "w29": {"spk": "прораб общестрой или прораб по благоустройству", "att": "прораб по благоустройству"}, "w30": {"spk": "прораб ВК/отопление/вентиляция (1 прораб с 2 аттестатами)", "att": "прораб водоснабжение/канализация"}, "w31": {"spk": "прораб ВК/отопление/вентиляция (1 прораб с 2 аттестатами)", "att": "прораб водоснабжение/канализация"}, "w32": {"spk": "прораб ВК/отопление/вентиляция (1 прораб с 2 аттестатами)", "att": "прораб отопление/вентиляция"}, "w33": {"spk": "прораб ВК/отопление/вентиляция (1 прораб с 2 аттестатами)", "att": "прораб отопление/вентиляция"}, "w34": {"spk": "прораб ВК/отопление/вентиляция (1 прораб с 2 аттестатами)", "att": "-"}, "w35": {"spk": "прораб по газу", "att": "прораб по газу"}, "w36": {"spk": "прораб ВК/отопление/вентиляция", "att": "прораб водоснабжение/канализация"}, "w37": {"spk": "прораб ВК/отопление/вентиляция", "att": "прораб отопление/вентиляция"}, "w38": {"spk": "прораб по газу", "att": "прораб по газу"}, "w39": {"spk": "прораб ВК/отопление/вентиляция", "att": "-"}, "w40": {"spk": "прораб электрик", "att": "прораб электрик"}, "w41": {"spk": "прораб электрик или прораб по автоматизации", "att": "прораб по автоматизации"}, "w42": {"spk": "прораб электрик или прораб по сетям связи", "att": "прораб по сетям связи"}, "w43": {"spk": "прораб по сетям связи", "att": "прораб по сетям связи"}, "w44": {"spk": "прораб по сетям связи", "att": "прораб по сетям связи"}, "w45": {"spk": "прораб электрик", "att": "прораб электрик"}, "w46": {"spk": "прораб электрик", "att": "прораб электрик"}, "w47": {"spk": "прораб электрик", "att": "прораб электрик"}, "w48": {"spk": "прораб монтажа технологического оборудования и трубопроводов", "att": "прораб монтажа технологического оборудования и трубопроводов"}, "w49": {"spk": "прораб монтажа технологического оборудования и трубопроводов", "att": "прораб монтажа технологического оборудования и трубопроводов"}, "w50": {"spk": "прораб по мелиорации", "att": "-"}, "w51": {"spk": "прораб по дорогам", "att": "прораб по дорогам"}, "w52": {"spk": "прораб по дорогам", "att": "прораб по дорогам"}, "w53": {"spk": "прораб по дорогам", "att": "-"}};
 const SPECIALISTS=[
-  "производитель работ (прораб) — общестроительные работы",
-  "производитель работ (прораб) — устройство фасадных систем теплоизоляции и облицовка фасадов зданий",
-  "производитель работ (прораб) — устройство наружных сетей водоснабжения, канализации, устройство внутренних систем водопровода и канализации",
-  "производитель работ (прораб) — устройство внутренних и наружных сетей теплоснабжения, монтаж систем вентиляции и кондиционирования воздуха",
-  "производитель работ (прораб) или мастер — устройство наружных сетей газопроводов, устройство внутренних систем газоснабжения",
-  "производитель работ (прораб) — устройство наружных сетей и линий электроснабжения, трансформаторных подстанций и распределительных устройств, устройство внутренних систем электроснабжения",
-  "производитель работ (прораб) — устройство слаботочных сетей и систем",
-  "производитель работ (прораб) — монтаж систем автоматизации",
-  "производитель работ (прораб) или мастер — монтаж систем холодоснабжения",
-  "производитель работ (прораб) — монтаж технологических трубопроводов и оборудования",
-  "производитель работ (прораб) — защита трубопроводов, устройство изоляционных покрытий",
-  "производитель работ (прораб) — мелиоративное строительство",
-  "производитель работ (прораб) — строительство автомобильных дорог и аэродромов, строительство мостов, транспортных эстакад и путепроводов",
-  "производитель работ (прораб) — благоустройство территорий",
-  "инженер по сметной работе (сметчик)",
-  "главный инженер"
+"производитель работ (прораб) — общестроительные работы",
+"производитель работ (прораб) — устройство фасадных систем теплоизоляции и облицовка фасадов зданий",
+"производитель работ (прораб) — устройство наружных сетей водоснабжения, канализации, устройство внутренних систем водопровода и канализации",
+"производитель работ (прораб) — устройство внутренних и наружных сетей теплоснабжения, монтаж систем вентиляции и кондиционирования воздуха",
+"производитель работ (прораб) или мастер — устройство наружных сетей газопроводов, устройство внутренних систем газоснабжения",
+"производитель работ (прораб) — устройство наружных сетей и линий электроснабжения, трансформаторных подстанций и распределительных устройств, устройство внутренних систем электроснабжения",
+"производитель работ (прораб) — устройство слаботочных сетей и систем",
+"производитель работ (прораб) — монтаж систем автоматизации",
+"производитель работ (прораб) или мастер — монтаж систем холодоснабжения",
+"производитель работ (прораб) — монтаж технологических трубопроводов и оборудования",
+"производитель работ (прораб) — защита трубопроводов, устройство изоляционных покрытий",
+"производитель работ (прораб) — мелиоративное строительство",
+"производитель работ (прораб) — строительство автомобильных дорог и аэродромов, строительство мостов, транспортных эстакад и путепроводов",
+"производитель работ (прораб) — благоустройство территорий",
+"инженер по сметной работе (сметчик)",
+"главный инженер"
 ];
-
 const OT_DOCS=[
 "Приказы","Перечни","Инструкции","Журналы","Документы, описывающие риски","Документы по проверке знаний","Программа проведения внутренних аудитов","Формы документов","Политика в области охраны труда","Лист ознакомления с политикой системы менеджмента здоровья и безопасности","Цели организации в области охраны труда и мероприятия по их достижению","Лист ознакомления с целями системы менеджмента здоровья и безопасности","План мероприятий по охране труда","Положение о службе охраны труда организации","График учебно-тренировочных занятий работающих при возникновении аварийных ситуаций или аварий","Программа вводного инструктажа по охране труда, пожарной безопасности","Схема прохождения информации при возникновении аварий, аварийных ситуаций","Реестр законодательных и других применяемых требований в области охраны труда","Оценка возможностей организации в области OH&S","Реестр рисков и Мероприятия по управлению рисками","SWOT-анализ","Состав обязательной исходной информации для оценки системы менеджмента здоровья и безопасности при профессиональной деятельности","Отчет о результативности функционирования системы менеджмента здоровья и безопасности при профессиональной деятельности","Организационная структура","Перечень оборудования и технических устройств, представляющих повышенную опасность","Разрешений на производство строительно-монтажных работ","Организационная структура службы охраны труда","Перечень документов и записей системы управления охраной труда","Управление операциями СТП OH&S 8.1-02","Памятка по ведению документов"
-];const td=()=>{const d=new Date(),m=["января","февраля","марта","апреля","мая","июня","июля","августа","сентября","октября","ноября","декабря"];return d.getDate()+" "+m[d.getMonth()]+" "+d.getFullYear()};
+];
+const td=()=>{const d=new Date(),m=["января","февраля","марта","апреля","мая","июня","июля","августа","сентября","октября","ноября","декабря"];return d.getDate()+" "+m[d.getMonth()]+" "+d.getFullYear()};
 const mkn=()=>"КП-"+String(new Date().getDate()).padStart(2,"0")+String(new Date().getMonth()+1).padStart(2,"0")+"-"+String(Math.floor(Math.random()*900)+100);
 const fm=n=>(!n?"—":Number(n).toLocaleString("ru-RU")+" руб.");
 
+// ===== EditableField: inline-редактирование текста в превью =====
+function EditableField({value,onChange,style,multiline,placeholder}){
+const[editing,setEditing]=useState(false);
+const[draft,setDraft]=useState(value||"");
+const ref=useRef(null);
+React.useEffect(()=>{setDraft(value||"")},[value]);
+React.useEffect(()=>{if(editing&&ref.current){ref.current.focus();ref.current.select&&ref.current.select()}},[editing]);
+const save=()=>{onChange(draft);setEditing(false)};
+const cancel=()=>{setDraft(value||"");setEditing(false)};
+const baseStyle={...style,cursor:"text",borderRadius:3,padding:"1px 3px",transition:"background .15s",position:"relative"};
+if(editing){
+if(multiline){
+return <textarea ref={ref} value={draft} onChange={e=>setDraft(e.target.value)} onBlur={save} onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();save()}else if(e.key==="Escape")cancel()}} style={{...baseStyle,background:"#fff8d5",border:"1px solid #d4a647",outline:"none",fontFamily:"inherit",fontSize:"inherit",fontWeight:"inherit",color:"inherit",width:"100%",minHeight:60,resize:"vertical",lineHeight:1.5}} />
+}
+return <input ref={ref} type="text" value={draft} onChange={e=>setDraft(e.target.value)} onBlur={save} onKeyDown={e=>{if(e.key==="Enter"){e.preventDefault();save()}else if(e.key==="Escape")cancel()}} placeholder={placeholder} style={{...baseStyle,background:"#fff8d5",border:"1px solid #d4a647",outline:"none",fontFamily:"inherit",fontSize:"inherit",fontWeight:"inherit",color:"inherit",width:"100%"}} />
+}
+return <span onClick={()=>setEditing(true)} style={baseStyle} className="edt" title="Кликните, чтобы изменить">{value||<em style={{color:"#aaa"}}>{placeholder||"—"}</em>}</span>;
+}
+
 function App(){
-  // Manager selection
-  const[mgrs,setMgrs]=useState(INIT_MGRS);
-  const[curMgr,setCurMgr]=useState(-1); // -1 = not selected
-  const mgrData=mgrs[curMgr]||null;
+// Manager selection
+const[mgrs,setMgrs]=useState(INIT_MGRS);
+const[curMgr,setCurMgr]=useState(-1);
+const mgrData=mgrs[curMgr]||null;
+const[pg,setPg]=useState("create");
+const[st,setSt]=useState(1);
+const[kn,setKn]=useState(mkn());
+const[co,setCo]=useState({name:"",dir:"",email:"",phone:"",bx:""});
+const[bq,setBq]=useState("");const[br,setBr]=useState([]);const[bl,setBl]=useState(false);
+const[sv,setSv]=useState([]);const[ec,setEc]=useState(null);
+const[hi,setHi]=useState(()=>{try{const s=localStorage.getItem("mavis_kp_history");return s?JSON.parse(s):[];}catch(e){return[];}});
+const[histTab,setHistTab]=useState("all");const[histQ,setHistQ]=useState("");
+const[sn,setSn]=useState(false);const[pdfing,setPdfing]=useState(false);
+const[ttl,setTtl]=useState("");
+const[kpDate,setKpDate]=useState(td());
+const[nf,setNf]=useState(null);
+const[installEvt,setInstallEvt]=useState(null);
+const[installed,setInstalled]=useState(false);
 
-  const[pg,setPg]=useState("create");
-  const[st,setSt]=useState(1);
-  const[kn,setKn]=useState(mkn());
-  const[co,setCo]=useState({name:"",dir:"",email:"",phone:"",bx:""});
-  const[bq,setBq]=useState("");const[br,setBr]=useState([]);const[bl,setBl]=useState(false);
-  const[sv,setSv]=useState([]);const[ec,setEc]=useState(null);
-  const[hi,setHi]=useState(()=>{try{const s=localStorage.getItem("mavis_kp_history");return s?JSON.parse(s):[];}catch(e){return[];}});const[histTab,setHistTab]=useState("all");const[histQ,setHistQ]=useState("");
-  const[sn,setSn]=useState(false);const[pdfing,setPdfing]=useState(false);
-  const[ttl,setTtl]=useState("");
-  const[kpDate,setKpDate]=useState(td());
-  const[nf,setNf]=useState(null);
-  const[installEvt,setInstallEvt]=useState(null);
-  const[installed,setInstalled]=useState(false);
-  React.useEffect(()=>{
-    const h=e=>{e.preventDefault();setInstallEvt(e)};
-    window.addEventListener("beforeinstallprompt",h);
-    window.addEventListener("appinstalled",()=>setInstalled(true));
-    if(window.matchMedia("(display-mode:standalone)").matches)setInstalled(true);
-    return()=>window.removeEventListener("beforeinstallprompt",h);
-  },[]);
-  const doInstall=async()=>{
-    if(installEvt){installEvt.prompt();const r=await installEvt.userChoice;if(r.outcome==="accepted")setInstalled(true);setInstallEvt(null)}
-    else if(installed){fl("Приложение уже установлено","success")}
-    else{setShowInstallHelp(true)}
-  };
-  const[showInstallHelp,setShowInstallHelp]=useState(false);
-  const[cn,setCn]=useState("");
-  const[customWork,setCustomWork]=useState("");
-  const[catSearch,setCatSearch]=useState("");
-  const[showWorkPicker,setShowWorkPicker]=useState(false);
-  const[workSearch,setWorkSearch]=useState("");
-  // Compute SI from ALL work types across all services (combined, deduped)
-  const allWorkTypes=sv.reduce((acc,s)=>acc.concat(s.workTypes||[]),[]);
-  const autoSI=(()=>{const set=new Set();allWorkTypes.forEach(w=>{const wt=WORK_TYPES.find(x=>x.code===w.code);if(wt&&SI_GROUPS[wt.si])SI_GROUPS[wt.si].forEach(s=>set.add(s))});return Array.from(set)})();
-  // Specialists: SPK from services with spk flag, ATT from services with att flag
-  const autoSPEC=(()=>{const spk=new Set(),att=new Set();sv.forEach(s=>{(s.workTypes||[]).forEach(w=>{const m=SPEC_MAP[w.code];if(m){if(s.spk&&m.spk)spk.add(m.spk);if(s.att&&m.att&&m.att!=="-")att.add(m.att);}});if(s.att)(s.attSpecs||[]).forEach(sp=>att.add(sp))});return{spk:Array.from(spk),att:Array.from(att)};})();
-  // Helper: update workTypes for a specific service
-  const updWork=(id,fn)=>setSv(p=>p.map(s=>s.id===id?{...s,workTypes:fn(s.workTypes||[])}:s));
-  const updAttSpecs=(id,fn)=>setSv(p=>p.map(s=>s.id===id?{...s,attSpecs:fn(s.attSpecs||[])}:s));
-  const[customSpec,setCustomSpec]=useState("");
-  const ci=useRef(1);const kpRef=useRef(null);
+// === НОВОЕ: пользовательские правки списков СИ и специалистов в КП ===
+// extraSI: [строка] - добавленные вручную СИ для всего КП
+// removedSI: [строка] - удалённые автоматические СИ
+// extraSpkSpecs / extraAttSpecs: массивы строк, добавленных вручную
+// removedSpkSpecs / removedAttSpecs: множества строк, удалённых из автоподбора
+const[extraSI,setExtraSI]=useState([]);
+const[removedSI,setRemovedSI]=useState([]);
+const[extraSpkSpecs,setExtraSpkSpecs]=useState([]);
+const[removedSpkSpecs,setRemovedSpkSpecs]=useState([]);
+const[extraAttSpecs,setExtraAttSpecs]=useState([]);
+const[removedAttSpecs,setRemovedAttSpecs]=useState([]);
 
-  const fl=(m,t="success")=>{setNf({m,t});setTimeout(()=>setNf(null),3500)};
+// Условия и преимущества — теперь редактируемые в превью
+const[condText,setCondText]=useState("— 100% предоплата до начала выполнения работ.\n— Гос. пошлина — по мере направления документов.");
+const[advList,setAdvList]=useState(ADV.map(a=>({...a})));
 
-  // Persist history to localStorage
-  React.useEffect(()=>{try{localStorage.setItem("mavis_kp_history",JSON.stringify(hi));}catch(e){}},[hi]);
+React.useEffect(()=>{
+const h=e=>{e.preventDefault();setInstallEvt(e)};
+window.addEventListener("beforeinstallprompt",h);
+window.addEventListener("appinstalled",()=>setInstalled(true));
+if(window.matchMedia("(display-mode:standalone)").matches)setInstalled(true);
+return()=>window.removeEventListener("beforeinstallprompt",h);
+},[]);
 
-  // Bitrix
-  const sBx=async()=>{if(!bq.trim())return;setBl(true);try{const r=await fetch(BX+"/crm.company.list.json?filter[%25TITLE]="+encodeURIComponent(bq)+"&select[]=TITLE&select[]=EMAIL&select[]=PHONE");const d=await r.json();const res=(d.result||[]).map(c=>({id:c.ID,name:c.TITLE||"",email:c.EMAIL?.[0]?.VALUE||"",phone:c.PHONE?.[0]?.VALUE||""}));setBr(res);if(!res.length)fl("Не найдено","warn")}catch(e){fl("Ошибка Битрикс24","error")}setBl(false)};
-  const pBx=async c=>{setCo(p=>({...p,name:c.name,email:c.email||p.email,phone:c.phone||p.phone,bx:c.id}));setBr([]);setBq("");try{const r=await fetch(BX+"/crm.contact.list.json?filter[COMPANY_ID]="+c.id+"&select[]=NAME&select[]=LAST_NAME&select[]=SECOND_NAME");const d=await r.json();if(d.result?.[0]){const t=d.result[0];const f=[t.LAST_NAME,t.NAME,t.SECOND_NAME].filter(Boolean).join(" ");if(f)setCo(p=>({...p,dir:f}))}}catch(e){}fl("«"+c.name+"» загружена")};
+const doInstall=async()=>{
+if(installEvt){installEvt.prompt();const r=await installEvt.userChoice;if(r.outcome==="accepted")setInstalled(true);setInstallEvt(null)}
+else if(installed){fl("Приложение уже установлено","success")}
+else{setShowInstallHelp(true)}
+};
+const[showInstallHelp,setShowInstallHelp]=useState(false);
+const[cn,setCn]=useState("");
+const[customWork,setCustomWork]=useState("");
+const[catSearch,setCatSearch]=useState("");
+const[showWorkPicker,setShowWorkPicker]=useState(false);
+const[workSearch,setWorkSearch]=useState("");
 
-  // Services
-  const aS=s=>{
-    if(sv.find(x=>x.id===s.id))return;
-    let autoAttSpecs=[];
-    if(s.att){
-      autoAttSpecs=["главный инженер","руководитель в области строительства (директор или заместитель директора с высшим строительным образованием и опытом 5 лет)"];
-      if(s.id==="attest_gen"){
-        autoAttSpecs=["руководитель в области строительства (директор или заместитель директора с высшим строительным образованием и опытом 5 лет)","главный инженер (в должности заместитель директора — главный инженер закроет руководителя в области строительства)","инженер по сметной работе (сметчик)","прорабы или мастера по направлениям из подрядного аттестата"];
-      }
-    }
-    const newOnes=[{...s,prep:0,fee:0,extra:0,qty:1,cn:"",ec:"",workTypes:[],specs:[],attSpecs:autoAttSpecs}];
-    if(s.spk){
-      if(!sv.find(x=>x.id==="tnpa"))newOnes.push({id:"tnpa",n:"Доступ к базе ТНПА",prep:0,fee:0,extra:250,qty:1,cn:"",ec:"",workTypes:[],specs:[],attSpecs:[]});
-      if(!sv.find(x=>x.id==="tech_cards"))newOnes.push({id:"tech_cards",n:"Тех. карты (по видам работ)",prep:0,fee:0,extra:300,qty:1,cn:"",ec:"",workTypes:[],specs:[],attSpecs:[]});
-    }
-    setSv(p=>[...p,...newOnes]);
-  };
-  // Toggle expand per service row
-  const[expandedSvc,setExpandedSvc]=useState(null);
-  const aC=()=>{if(!cn.trim())return;setSv(p=>[...p,{id:"c"+ci.current++,n:cn.trim(),prep:0,fee:0,extra:0,qty:1,cn:"",ec:"",workTypes:[],specs:[],attSpecs:[]}]);setCn("")};
-  const rS=id=>setSv(p=>p.filter(s=>s.id!==id));
-  const uS=(id,f,v)=>setSv(p=>p.map(s=>s.id===id?{...s,[f]:v}:s));
-  const tP=sv.reduce((a,s)=>a+(+s.prep||0),0),tF=sv.reduce((a,s)=>a+(+s.fee||0),0),tE=sv.reduce((a,s)=>a+(+s.extra||0),0),tT=tP+tF+tE;
+// Compute SI from ALL work types
+const allWorkTypes=sv.reduce((acc,s)=>acc.concat(s.workTypes||[]),[]);
+const baseAutoSI=(()=>{const set=new Set();allWorkTypes.forEach(w=>{const wt=WORK_TYPES.find(x=>x.code===w.code);if(wt&&SI_GROUPS[wt.si])SI_GROUPS[wt.si].forEach(s=>set.add(s))});return Array.from(set)})();
+// Применяем правки: убираем удалённые, добавляем свои
+const autoSI=[...baseAutoSI.filter(s=>!removedSI.includes(s)),...extraSI];
 
-  // History
-  const save=()=>{const k={id:Date.now(),kn,date:kpDate,co:{...co},sv:[...sv],ttl,workTypes:[...workTypes],tP,tF,tE,tT,mgr:mgrData?.name||""};setHi(p=>[k,...p]);fl("КП сохранено")};
-  const nw=()=>{setSt(1);setCo({name:"",dir:"",email:"",phone:"",bx:""});setSv([]);setTtl("");setKpDate(td());setWorkTypes([]);setKn(mkn());setPg("create")};
-  const ld=k=>{setCo(k.co);setSv(k.sv);setTtl(k.ttl);if(k.date)setKpDate(k.date);setWorkTypes(k.workTypes||[]);setKn(k.kn);setSt(3);setPg("create")};
+// Specialists
+const baseAutoSPEC=(()=>{const spk=new Set(),att=new Set();sv.forEach(s=>{(s.workTypes||[]).forEach(w=>{const m=SPEC_MAP[w.code];if(m){if(s.spk&&m.spk)spk.add(m.spk);if(s.att&&m.att&&m.att!=="-")att.add(m.att);}});if(s.att)(s.attSpecs||[]).forEach(sp=>att.add(sp))});return{spk:Array.from(spk),att:Array.from(att)};})();
+const autoSPEC={
+spk:[...baseAutoSPEC.spk.filter(s=>!removedSpkSpecs.includes(s)),...extraSpkSpecs],
+att:[...baseAutoSPEC.att.filter(s=>!removedAttSpecs.includes(s)),...extraAttSpecs]
+};
 
-  // Email signature
-  const mgrSig=()=>"<div style='border-top:2px solid #ddd;padding-top:16px;margin-top:16px;'><p style='font-size:18px;font-weight:bold;color:#222;margin:0 0 4px;'>"+(mgrData?.name||"MAVIS GROUP")+"</p><p style='font-size:13px;color:#333;margin:0 0 4px;'><strong>MAVIS GROUP</strong> | Специалист отдела продаж</p>"+(mgrData?.phone?"<p style='font-size:13px;color:#555;margin:0 0 2px;'><span style='color:#e67e22;'>Телефон:</span> "+mgrData.phone+"</p>":"")+"<p style='font-size:13px;color:#555;margin:0;'><span style='color:#e67e22;'>Адрес:</span> "+COMPANY_ADDR+"</p></div>";
+// Helpers
+const updWork=(id,fn)=>setSv(p=>p.map(s=>s.id===id?{...s,workTypes:fn(s.workTypes||[])}:s));
+const updAttSpecs=(id,fn)=>setSv(p=>p.map(s=>s.id===id?{...s,attSpecs:fn(s.attSpecs||[])}:s));
+const updSpkSpecs=(id,fn)=>setSv(p=>p.map(s=>s.id===id?{...s,spkSpecs:fn(s.spkSpecs||[])}:s));
+const updSiManual=(id,fn)=>setSv(p=>p.map(s=>s.id===id?{...s,siManual:fn(s.siManual||[])}:s));
 
-  // Email body
-  const genPdfBlob=async()=>{
-    const clone=kpRef.current.cloneNode(true);
-    const wrap=document.createElement("div");
-    wrap.style.cssText="position:fixed;left:-9999px;top:0;width:794px;z-index:-1;";
-    clone.style.cssText="width:794px;max-width:794px;border-radius:0;padding:56px 48px 40px;margin:0;background:#faf6ec;color:#333;font-family:Manrope,sans-serif;";
-    clone.querySelectorAll("*").forEach(el=>{el.style.transition="none";el.style.animation="none"});
-    wrap.appendChild(clone);document.body.appendChild(wrap);
-    await new Promise(r=>setTimeout(r,600));
-    const canvas=await html2canvas(clone,{scale:1.5,useCORS:true,backgroundColor:"#faf6ec",logging:false,width:794});
-    document.body.removeChild(wrap);
-    const{jsPDF}=window.jspdf;
-    const pxW=canvas.width,pxH=canvas.height,pageW=210,pageH=297,ratio=pageW/pxW,pagePxH=Math.floor(pageH/ratio);
-    const totalMmH=pxH*ratio;
-    const pdf=new jsPDF("p","mm","a4");
-    pdf.setFillColor(250,246,236);pdf.rect(0,0,pageW,pageH,"F");
-    if(totalMmH<=pageH*1.3){
-      const fitH=Math.min(totalMmH,pageH);const fitW=(fitH/totalMmH)*pageW;const offsetX=(pageW-fitW)/2;
-      pdf.addImage(canvas.toDataURL("image/jpeg",0.7),"JPEG",offsetX,0,fitW,fitH);
-    }else{
-      let page=0,srcY=0;
-      while(srcY<pxH&&page<10){
-        if(page>0){pdf.addPage();pdf.setFillColor(250,246,236);pdf.rect(0,0,pageW,pageH,"F");}
-        const sliceH=Math.min(pagePxH,pxH-srcY);const pc=document.createElement("canvas");
-        pc.width=pxW;pc.height=sliceH;pc.getContext("2d").drawImage(canvas,0,srcY,pxW,sliceH,0,0,pxW,sliceH);
-        pdf.addImage(pc.toDataURL("image/jpeg",0.7),"PNG",0,0,pageW,sliceH*ratio);
-        srcY+=pagePxH;page++;if(pxH-srcY<pagePxH*0.15)break;
-      }
-    }
-    return pdf.output("datauristring").split(",")[1];
-  };
+const[customSpec,setCustomSpec]=useState("");
+const[customSpkSpec,setCustomSpkSpec]=useState("");
+const[customSi,setCustomSi]=useState("");
+const ci=useRef(1);const kpRef=useRef(null);
+const fl=(m,t="success")=>{setNf({m,t});setTimeout(()=>setNf(null),3500)};
 
-  const dlPdf=async()=>{
-    if(!kpRef.current)return;
-    setPdfing(true);fl("Генерация PDF...","warn");
-    try{
-      const b64=await genPdfBlob();
-      const pdfName=("Коммерческое предложение "+co.name).replace(/[^a-zA-Zа-яА-ЯёЁ0-9 _-]/g,"_").substring(0,80)+".pdf";
-      const link=document.createElement("a");
-      link.href="data:application/pdf;base64,"+b64;
-      link.download=pdfName;
-      link.click();
-      fl("PDF сохранён!");save();
-    }catch(e){fl("Ошибка PDF: "+e.message,"error");console.error(e)}
-    setPdfing(false);
-  };
+React.useEffect(()=>{try{localStorage.setItem("mavis_kp_history",JSON.stringify(hi));}catch(e){}},[hi]);
 
-    const sEm=async()=>{
-    if(!co.email){fl("Email не указан","error");return}
-    if(!mgrData){fl("Выберите менеджера","error");return}
-    if(!kpRef.current){fl("Откройте предпросмотр","error");return}
-    setSn(true);fl("Генерация PDF...","warn");
-    try{
-      // 1. Generate small PDF
-      const clone=kpRef.current.cloneNode(true);
-      const wrap=document.createElement("div");
-      wrap.style.cssText="position:fixed;left:-9999px;top:0;width:794px;z-index:-1;";
-      clone.style.cssText="width:794px;max-width:794px;border-radius:0;padding:56px 48px 40px;margin:0;background:#faf6ec;color:#333;font-family:Manrope,sans-serif;";
-      clone.querySelectorAll("*").forEach(el=>{el.style.transition="none";el.style.animation="none"});
-      wrap.appendChild(clone);document.body.appendChild(wrap);
-      await new Promise(r=>setTimeout(r,500));
-      const canvas=await html2canvas(clone,{scale:1,useCORS:true,backgroundColor:"#faf6ec",logging:false,width:794});
-      document.body.removeChild(wrap);
-      const{jsPDF}=window.jspdf;
-      const pxW=canvas.width,pxH=canvas.height,pageW=210,pageH=297,ratio=pageW/pxW;
-      const totalMmH=pxH*ratio;
-      const pdf=new jsPDF("p","mm","a4");
-      pdf.setFillColor(250,246,236);pdf.rect(0,0,pageW,pageH,"F");
-      if(totalMmH<=pageH*1.3){
-        const fitH=Math.min(totalMmH,pageH);const fitW=(fitH/totalMmH)*pageW;
-        pdf.addImage(canvas.toDataURL("image/jpeg",0.45),"JPEG",(pageW-fitW)/2,0,fitW,fitH);
-      }else{
-        const pagePxH=Math.floor(pageH/ratio);let pg=0,srcY=0;
-        while(srcY<pxH&&pg<10){
-          if(pg>0){pdf.addPage();pdf.setFillColor(42,45,56);pdf.rect(0,0,pageW,pageH,"F")}
-          const sl=Math.min(pagePxH,pxH-srcY);const pc=document.createElement("canvas");
-          pc.width=pxW;pc.height=sl;pc.getContext("2d").drawImage(canvas,0,srcY,pxW,sl,0,0,pxW,sl);
-          pdf.addImage(pc.toDataURL("image/jpeg",0.45),"JPEG",0,0,pageW,sl*ratio);
-          srcY+=pagePxH;pg++;if(pxH-srcY<pagePxH*0.15)break;
-        }
-      }
-      const b64=pdf.output("datauristring").split(",")[1];
-      const pdfName=("КП_"+co.name).replace(/[^a-zA-Zа-яА-ЯёЁ0-9_-]/g,"_").substring(0,50)+".pdf";
-      console.log("PDF size:",Math.round(b64.length/1024),"KB");
-      fl("Отправка письма...","warn");
+// Bitrix
+const sBx=async()=>{if(!bq.trim())return;setBl(true);try{const r=await fetch(BX+"/crm.company.list.json?filter[%25TITLE]="+encodeURIComponent(bq)+"&select[]=TITLE&select[]=EMAIL&select[]=PHONE");const d=await r.json();const res=(d.result||[]).map(c=>({id:c.ID,name:c.TITLE||"",email:c.EMAIL?.[0]?.VALUE||"",phone:c.PHONE?.[0]?.VALUE||""}));setBr(res);if(!res.length)fl("Не найдено","warn")}catch(e){fl("Ошибка Битрикс24","error")}setBl(false)};
+const pBx=async c=>{setCo(p=>({...p,name:c.name,email:c.email||p.email,phone:c.phone||p.phone,bx:c.id}));setBr([]);setBq("");try{const r=await fetch(BX+"/crm.contact.list.json?filter[COMPANY_ID]="+c.id+"&select[]=NAME&select[]=LAST_NAME&select[]=SECOND_NAME");const d=await r.json();if(d.result?.[0]){const t=d.result[0];const f=[t.LAST_NAME,t.NAME,t.SECOND_NAME].filter(Boolean).join(" ");if(f)setCo(p=>({...p,dir:f}))}}catch(e){}fl("«"+c.name+"» загружена")};
 
-      // 2. Send with attachment - try multiple formats
-      const subj="Коммерческое предложение"+(ttl?" — "+ttl:"")+" | MAVIS GROUP";
-      const body="Добрый день!\n\nНаправляем Вам коммерческое предложение"+(ttl?" — "+ttl:"")+".\nПодробности в прикреплённом файле.\n\n--\n"+mgrData.name+"\nMAVIS GROUP | Специалист отдела продаж\nТелефон: "+COMPANY_PHONE+"\nАдрес: "+COMPANY_ADDR+"\nEmail: "+FROM_EMAIL;
+// Services
+const aS=s=>{
+if(sv.find(x=>x.id===s.id))return;
+let autoAttSpecs=[];
+if(s.att){
+autoAttSpecs=["главный инженер","руководитель в области строительства (директор или заместитель директора с высшим строительным образованием и опытом 5 лет)"];
+if(s.id==="attest_gen"){
+autoAttSpecs=["руководитель в области строительства (директор или заместитель директора с высшим строительным образованием и опытом 5 лет)","главный инженер (в должности заместитель директора — главный инженер закроет руководителя в области строительства)","инженер по сметной работе (сметчик)","прорабы или мастера по направлениям из подрядного аттестата"];
+}
+}
+const newOnes=[{...s,prep:0,fee:0,extra:0,qty:1,cn:"",ec:"",workTypes:[],specs:[],attSpecs:autoAttSpecs,spkSpecs:[],siManual:[]}];
+if(s.spk){
+if(!sv.find(x=>x.id==="tnpa"))newOnes.push({id:"tnpa",n:"Доступ к базе ТНПА",prep:0,fee:0,extra:250,qty:1,cn:"",ec:"",workTypes:[],specs:[],attSpecs:[],spkSpecs:[],siManual:[]});
+if(!sv.find(x=>x.id==="tech_cards"))newOnes.push({id:"tech_cards",n:"Тех. карты (по видам работ)",prep:0,fee:0,extra:300,qty:1,cn:"",ec:"",workTypes:[],specs:[],attSpecs:[],spkSpecs:[],siManual:[]});
+}
+setSv(p=>[...p,...newOnes]);
+};
 
-      const baseFields={
-        OWNER_TYPE_ID:4,OWNER_ID:co.bx||0,
-        TYPE_ID:4,SUBJECT:subj,
-        DESCRIPTION:body,DESCRIPTION_TYPE:1,
-        DIRECTION:2,COMPLETED:"Y",
-        SETTINGS:{MESSAGE_FROM:FROM_EMAIL},
-        COMMUNICATIONS:[{VALUE:co.email,ENTITY_ID:co.bx||0,ENTITY_TYPE_ID:4,TYPE:"EMAIL"}]
-      };
+const[expandedSvc,setExpandedSvc]=useState(null);
+const aC=()=>{if(!cn.trim())return;setSv(p=>[...p,{id:"c"+ci.current++,n:cn.trim(),prep:0,fee:0,extra:0,qty:1,cn:"",ec:"",workTypes:[],specs:[],attSpecs:[],spkSpecs:[],siManual:[]}]);setCn("")};
+const rS=id=>setSv(p=>p.filter(s=>s.id!==id));
+const uS=(id,f,v)=>setSv(p=>p.map(s=>s.id===id?{...s,[f]:v}:s));
+const tP=sv.reduce((a,s)=>a+(+s.prep||0)*(s.qty||1),0),tF=sv.reduce((a,s)=>a+(+s.fee||0)*(s.qty||1),0),tE=sv.reduce((a,s)=>a+(+s.extra||0)*(s.qty||1),0),tT=tP+tF+tE;
 
-      // Format 1: array of objects with fileData
-      let ok=false;
-      const formats=[
-        {name:"fileData obj",FILES:[{fileData:[pdfName,b64]}]},
-        {name:"nested array",FILES:[[pdfName,b64]]},
-        {name:"object keys",FILES:{"n0":[pdfName,b64]}},
-      ];
-      for(const fmt of formats){
-        if(ok)break;
-        console.log("Trying format:",fmt.name);
-        try{
-          const r=await fetch(BX+"/crm.activity.add.json",{
-            method:"POST",headers:{"Content-Type":"application/json"},
-            body:JSON.stringify({fields:{...baseFields,...fmt}})
-          });
-          const d=await r.json();
-          console.log("Result for",fmt.name,":",JSON.stringify(d).substring(0,200));
-          if(d.result&&!d.error){
-            fl("КП с PDF отправлено на "+co.email+"!"); save(); ok=true;
-          }
-        }catch(e){console.log("Format",fmt.name,"error:",e.message)}
-      }
-      if(!ok){
-        fl("Битрикс не принял вложение. Откройте консоль (F12) для деталей.","error");
-      }
-    }catch(e){fl("Ошибка: "+e.message,"error");console.error(e)}
-    setSn(false);
-  }
+// History
+const save=()=>{const k={id:Date.now(),kn,date:kpDate,co:{...co},sv:[...sv],ttl,tP,tF,tE,tT,mgr:mgrData?.name||"",extraSI,removedSI,extraSpkSpecs,removedSpkSpecs,extraAttSpecs,removedAttSpecs,condText,advList};setHi(p=>[k,...p]);fl("КП сохранено")};
+const nw=()=>{setSt(1);setCo({name:"",dir:"",email:"",phone:"",bx:""});setSv([]);setTtl("");setKpDate(td());setKn(mkn());setExtraSI([]);setRemovedSI([]);setExtraSpkSpecs([]);setRemovedSpkSpecs([]);setExtraAttSpecs([]);setRemovedAttSpecs([]);setCondText("— 100% предоплата до начала выполнения работ.\n— Гос. пошлина — по мере направления документов.");setAdvList(ADV.map(a=>({...a})));setPg("create")};
+const ld=k=>{setCo(k.co);setSv(k.sv);setTtl(k.ttl);if(k.date)setKpDate(k.date);setKn(k.kn);setExtraSI(k.extraSI||[]);setRemovedSI(k.removedSI||[]);setExtraSpkSpecs(k.extraSpkSpecs||[]);setRemovedSpkSpecs(k.removedSpkSpecs||[]);setExtraAttSpecs(k.extraAttSpecs||[]);setRemovedAttSpecs(k.removedAttSpecs||[]);if(k.condText)setCondText(k.condText);if(k.advList)setAdvList(k.advList);setSt(3);setPg("create")};
 
-  const CSS=`@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&family=Playfair+Display:wght@400;500;600;700&display=swap');*{margin:0;padding:0;box-sizing:border-box}:root{--bg:#0f1117;--sf:#1a1d27;--s2:#232734;--bd:#2d3143;--tx:#e4e6ef;--t2:#8b90a5;--ac:#4f7df5;--a2:#3d6ae0;--gn:#34c77b;--rd:#f5574f;--or:#f5a623}body{font-family:'Manrope',sans-serif;background:var(--bg);color:var(--tx)}.A{display:flex;height:100vh;overflow:hidden}.SB{width:260px;min-width:260px;background:var(--sf);border-right:1px solid var(--bd);display:flex;flex-direction:column}.SL{padding:24px 20px 20px;border-bottom:1px solid var(--bd)}.SL h1{font-family:'Playfair Display',serif;font-size:22px;font-weight:700;color:#fff}.SL>span{font-size:11px;color:var(--t2);letter-spacing:2px;text-transform:uppercase;display:block;margin-top:2px}.SN{flex:1;padding:12px 10px}.NI{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:10px;cursor:pointer;font-size:14px;font-weight:500;color:var(--t2);transition:all .2s;margin-bottom:2px}.NI:hover{background:var(--s2);color:var(--tx)}.NI.on{background:var(--ac);color:#fff}.NI .ic{font-size:18px;width:24px;text-align:center}.NI .badge{margin-left:auto;background:var(--ac);color:#fff;font-size:11px;padding:2px 8px;border-radius:10px;font-weight:700}.NI.on .badge{background:rgba(255,255,255,.25)}.MN{flex:1;overflow-y:auto}.MH{position:sticky;top:0;z-index:10;background:rgba(15,17,23,.85);backdrop-filter:blur(20px);border-bottom:1px solid var(--bd);padding:18px 32px;display:flex;align-items:center;justify-content:space-between}.MH h2{font-size:18px;font-weight:700}.MC{padding:28px 32px;max-width:1100px}.STP{display:flex;margin-bottom:28px}.SI{display:flex;align-items:center;gap:10px;padding:10px 20px;background:var(--sf);border:1px solid var(--bd);font-size:13px;font-weight:600;color:var(--t2);cursor:pointer;transition:all .2s}.SI:first-child{border-radius:10px 0 0 10px}.SI:last-child{border-radius:0 10px 10px 0}.SI.on{background:var(--ac);border-color:var(--ac);color:#fff}.SI.ok{background:var(--s2);border-color:var(--gn);color:var(--gn)}.SNM{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;background:var(--s2);color:var(--t2)}.SI.on .SNM{background:rgba(255,255,255,.2);color:#fff}.SI.ok .SNM{background:var(--gn);color:#fff}.CD{background:var(--sf);border:1px solid var(--bd);border-radius:12px;padding:24px;margin-bottom:20px}.CT{font-size:15px;font-weight:700;margin-bottom:16px;display:flex;align-items:center;gap:8px}.FG{display:grid;grid-template-columns:1fr 1fr;gap:16px}.FGR{display:flex;flex-direction:column;gap:6px}.FGR.fu{grid-column:1/-1}.FL{font-size:12px;font-weight:600;color:var(--t2);text-transform:uppercase;letter-spacing:.5px}.FI{background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:10px 14px;font-size:14px;color:var(--tx);outline:none;font-family:'Manrope',sans-serif;transition:border-color .2s}.FI:focus{border-color:var(--ac)}.FI::placeholder{color:var(--t2);opacity:.6}.B{padding:10px 20px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:none;display:inline-flex;align-items:center;gap:8px;transition:all .2s;font-family:'Manrope',sans-serif}.BP{background:var(--ac);color:#fff}.BP:hover{background:var(--a2);transform:translateY(-1px)}.BS{background:var(--s2);color:var(--tx);border:1px solid var(--bd)}.BS:hover{border-color:var(--t2)}.BG{background:var(--gn);color:#fff}.BG:hover{opacity:.9}.BR{background:var(--rd);color:#fff}.Bsm{padding:6px 12px;font-size:12px}.Blg{padding:14px 28px;font-size:15px}.B:disabled{opacity:.5;cursor:not-allowed;transform:none!important}.SR{display:flex;gap:10px;margin-bottom:16px}.SR .FI{flex:1}.BXR{background:var(--s2);border:1px solid var(--bd);border-radius:8px;margin-bottom:16px;overflow:hidden}.BXI{padding:12px 16px;cursor:pointer;border-bottom:1px solid var(--bd);transition:background .15s;display:flex;justify-content:space-between;align-items:center}.BXI:last-child{border-bottom:none}.BXI:hover{background:var(--ac)}.CG{margin-bottom:12px}.CH{display:flex;align-items:center;gap:10px;padding:14px 18px;background:var(--s2);border-radius:10px;cursor:pointer;font-weight:700;font-size:14px;border:1px solid transparent}.CH:hover{border-color:var(--bd)}.CH.op{border-color:var(--ac);border-radius:10px 10px 0 0}.CH .aw{margin-left:auto;transition:transform .2s;color:var(--t2)}.CH.op .aw{transform:rotate(90deg)}.CS{border:1px solid var(--bd);border-top:none;border-radius:0 0 10px 10px;overflow:hidden}.SVI{display:flex;align-items:center;gap:12px;padding:12px 18px;border-bottom:1px solid var(--bd);font-size:13px}.SVI:last-child{border-bottom:none}.SVI:hover{background:var(--s2)}.SVN{flex:1}.SVA{color:var(--gn);font-size:12px;font-weight:600}.TBL{width:100%;border-collapse:collapse}.TBL th{text-align:left;font-size:11px;font-weight:700;color:var(--t2);text-transform:uppercase;padding:10px 12px;border-bottom:2px solid var(--bd)}.TBL td{padding:12px;border-bottom:1px solid var(--bd);font-size:13px;vertical-align:top}.NI2{width:100px;background:var(--bg);border:1px solid var(--bd);border-radius:6px;padding:6px 10px;color:var(--tx);font-size:13px;font-family:'Manrope',sans-serif;text-align:right;outline:none}.NI2:focus{border-color:var(--ac)}.CIp{width:120px;margin-top:4px;font-size:11px;padding:4px 8px;background:var(--bg);border:1px solid var(--bd);border-radius:6px;color:var(--t2);font-family:'Manrope',sans-serif;outline:none}.CIp:focus{border-color:var(--ac)}.TR td{font-weight:700;font-size:14px;border-top:2px solid var(--ac)}.GR td{font-weight:800;font-size:16px;color:var(--ac)}.KP{background:#faf6ec;border-radius:8px;padding:48px 40px;color:#333;position:relative;overflow:hidden;font-family:'Manrope',sans-serif;box-shadow:0 4px 24px rgba(0,0,0,.15)}.KY{position:absolute;top:32px;left:32px;font-size:64px;font-weight:800;writing-mode:vertical-rl;color:rgba(80,80,80,.12);letter-spacing:8px;font-family:'Manrope',sans-serif}.KH{margin-left:60px;margin-bottom:36px}.KH h1,.KH h2{font-size:28px;font-weight:800;letter-spacing:4px;font-family:'Manrope',sans-serif;color:#8b5a1e;line-height:1.2;margin:0;text-transform:uppercase}.KH .br2{font-size:13px;font-weight:700;letter-spacing:3px;color:#555;margin-top:8px}.KD{font-size:13px;color:#555;margin-left:60px;margin-bottom:8px;font-weight:500}.KC{margin-left:60px;margin-bottom:32px;padding:18px 24px;background:rgba(255,255,255,.5);border-radius:10px;border-left:3px solid #8b5a1e}.KC h3{font-size:20px;font-weight:700;color:#1f1f1f}.KC p{font-size:13px;color:#2a2a2a;font-weight:500}.KS{margin-left:60px;font-size:17px;font-weight:800;margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid rgba(100,100,100,.25);font-family:'Manrope',sans-serif;color:#1f1f1f;letter-spacing:0.5px}.KT{margin-left:60px;width:calc(100% - 60px);border-collapse:collapse;margin-bottom:32px}.KT th{text-align:left;font-size:11px;font-weight:700;text-transform:uppercase;color:#777;padding:10px 14px;border-bottom:1px solid rgba(139,115,72,.3);letter-spacing:1px}.KT td{padding:12px 14px;font-size:13px;border-bottom:1px solid rgba(100,100,100,.15);color:#1f1f1f;font-weight:500}.KT .TT td{font-weight:700;border-top:2px solid rgba(139,115,72,.5);border-bottom:none}.KT .TG td{font-weight:800;font-size:16px;color:#8b5a1e;padding-top:16px}.KCN{margin-left:60px;font-size:13px;color:#2a2a2a;line-height:1.8;margin-bottom:32px;font-weight:500}.KA{margin-left:60px}.KAI{margin-bottom:16px}.KAI h4{font-size:14px;font-weight:700;display:flex;align-items:center;gap:8px;color:#1f1f1f}.KAI p{font-size:12px;color:#3a3a3a;line-height:1.5;font-weight:500}.KCL{margin-left:60px;display:flex;gap:12px;flex-wrap:wrap;margin-top:24px}.KCLT{padding:6px 16px;border:1px solid rgba(100,100,100,.3);border-radius:20px;font-size:12px;font-weight:700;color:#1f1f1f;background:rgba(255,255,255,.5)}.HC{background:var(--sf);border:1px solid var(--bd);border-radius:12px;padding:18px 22px;cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:16px;margin-bottom:12px}.HC:hover{border-color:var(--ac);transform:translateY(-2px)}.AB{display:flex;gap:10px;flex-wrap:wrap;margin-top:24px;padding-top:20px;border-top:1px solid var(--bd)}.NF{position:fixed;top:20px;right:20px;z-index:1000;padding:14px 24px;border-radius:10px;font-size:14px;font-weight:600;animation:sIn .3s ease;box-shadow:0 8px 24px rgba(0,0,0,.3)}.NF.success{background:var(--gn);color:#fff}.NF.error{background:var(--rd);color:#fff}.NF.warn{background:var(--or);color:#fff}@keyframes sIn{from{transform:translateX(100px);opacity:0}to{transform:translateX(0);opacity:1}}.ES{text-align:center;padding:60px 20px;color:var(--t2)}.TG2{display:inline-block;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700;background:rgba(79,125,245,.15);color:var(--ac)}::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--bd);border-radius:3px}`;
+// PDF
+const genPdfBlob=async()=>{
+const clone=kpRef.current.cloneNode(true);
+// убираем кнопки удаления и подсказки редактирования из клона
+clone.querySelectorAll(".no-pdf").forEach(el=>el.remove());
+clone.querySelectorAll(".edt").forEach(el=>{el.style.cursor="default";el.style.background="transparent";el.style.border="none"});
+const wrap=document.createElement("div");
+wrap.style.cssText="position:fixed;left:-9999px;top:0;width:794px;z-index:-1;";
+clone.style.cssText="width:794px;max-width:794px;border-radius:0;padding:56px 48px 40px;margin:0;background:#faf6ec;color:#333;font-family:Manrope,sans-serif;";
+clone.querySelectorAll("*").forEach(el=>{el.style.transition="none";el.style.animation="none"});
+wrap.appendChild(clone);document.body.appendChild(wrap);
+await new Promise(r=>setTimeout(r,600));
+const canvas=await html2canvas(clone,{scale:1.5,useCORS:true,backgroundColor:"#faf6ec",logging:false,width:794});
+document.body.removeChild(wrap);
+const{jsPDF}=window.jspdf;
+const pxW=canvas.width,pxH=canvas.height,pageW=210,pageH=297,ratio=pageW/pxW,pagePxH=Math.floor(pageH/ratio);
+const totalMmH=pxH*ratio;
+const pdf=new jsPDF("p","mm","a4");
+pdf.setFillColor(250,246,236);pdf.rect(0,0,pageW,pageH,"F");
+if(totalMmH<=pageH*1.3){
+const fitH=Math.min(totalMmH,pageH);const fitW=(fitH/totalMmH)*pageW;const offsetX=(pageW-fitW)/2;
+pdf.addImage(canvas.toDataURL("image/jpeg",0.7),"JPEG",offsetX,0,fitW,fitH);
+}else{
+let page=0,srcY=0;
+while(srcY<pxH&&page<10){
+if(page>0){pdf.addPage();pdf.setFillColor(250,246,236);pdf.rect(0,0,pageW,pageH,"F");}
+const sliceH=Math.min(pagePxH,pxH-srcY);const pc=document.createElement("canvas");
+pc.width=pxW;pc.height=sliceH;pc.getContext("2d").drawImage(canvas,0,srcY,pxW,sliceH,0,0,pxW,sliceH);
+pdf.addImage(pc.toDataURL("image/jpeg",0.7),"PNG",0,0,pageW,sliceH*ratio);
+srcY+=pagePxH;page++;if(pxH-srcY<pagePxH*0.15)break;
+}
+}
+return pdf.output("datauristring").split(",")[1];
+};
 
-  // MANAGER SELECTION SCREEN
-  if(!mgrData){
-    const filled=mgrs.filter(m=>m.name.trim());
-    return(<><style>{CSS}</style>
-    {showInstallHelp&&<div style={{position:"fixed",inset:0,zIndex:9999,background:"rgba(0,0,0,.7)",display:"flex",alignItems:"center",justifyContent:"center",padding:20}} onClick={()=>setShowInstallHelp(false)}>
-      <div style={{background:"var(--sf)",border:"1px solid var(--bd)",borderRadius:16,padding:"32px 28px",maxWidth:480,width:"100%",color:"var(--tx)"}} onClick={e=>e.stopPropagation()}>
-        <h3 style={{fontSize:18,fontWeight:700,marginBottom:16}}>📲 Как установить на рабочий стол</h3>
-        <div style={{marginBottom:20}}>
-          <p style={{fontWeight:700,color:"var(--ac)",marginBottom:6}}>Google Chrome / Edge:</p>
-          <p style={{fontSize:13,color:"var(--t2)",lineHeight:1.6}}>Откройте эту же ссылку в Chrome → в адресной строке справа нажмите ⊕ «Установить»</p>
-        </div>
-        <div style={{marginBottom:20}}>
-          <p style={{fontWeight:700,color:"var(--ac)",marginBottom:6}}>Яндекс Браузер:</p>
-          <p style={{fontSize:13,color:"var(--t2)",lineHeight:1.6}}>Меню ☰ → Дополнительные инструменты → Создать ярлык → ✓ Открывать в отдельном окне → Создать</p>
-        </div>
-        <div style={{marginBottom:24}}>
-          <p style={{fontWeight:700,color:"var(--ac)",marginBottom:6}}>Телефон (iOS / Android):</p>
-          <p style={{fontSize:13,color:"var(--t2)",lineHeight:1.6}}>Откройте ссылку → Поделиться → На экран «Домой»</p>
-        </div>
-        <button className="B BP Blg" style={{width:"100%",justifyContent:"center"}} onClick={()=>setShowInstallHelp(false)}>Понятно</button>
-      </div>
-    </div>}
-      <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100vh",background:"var(--bg)",fontFamily:"'Manrope',sans-serif"}}>
-        <div style={{textAlign:"center",maxWidth:440,width:"100%",padding:"0 20px"}}>
-          <h1 style={{fontFamily:"'Playfair Display',serif",fontSize:28,color:"#fff",marginBottom:4}}>MAVIS</h1>
-          <p style={{color:"var(--t2)",fontSize:12,letterSpacing:3,marginBottom:36}}>КП ГЕНЕРАТОР</p>
-          {filled.length>0?(<>
-            <p style={{color:"var(--tx)",fontSize:15,fontWeight:600,marginBottom:16}}>Кто работает сегодня?</p>
-            {filled.map((m,i)=>{const idx=mgrs.indexOf(m);return(
-              <div key={m.id} onClick={()=>setCurMgr(idx)} style={{background:"var(--sf)",border:"1px solid var(--bd)",borderRadius:12,padding:"16px 20px",cursor:"pointer",marginBottom:10,textAlign:"left",display:"flex",alignItems:"center",gap:14,transition:"border-color .2s"}} onMouseOver={e=>e.currentTarget.style.borderColor="#4f7df5"} onMouseOut={e=>e.currentTarget.style.borderColor="var(--bd)"}>
-                <div style={{width:42,height:42,borderRadius:"50%",background:"var(--ac)",display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontWeight:700,fontSize:17,flexShrink:0}}>{m.name.charAt(0)}</div>
-                <div><div style={{fontWeight:600,fontSize:15}}>{m.name}</div>{m.phone&&<div style={{fontSize:12,color:"var(--t2)",marginTop:2}}>{m.phone}</div>}</div>
-              </div>
-            )})}
-          </>):(<p style={{color:"var(--or)",fontSize:14,marginBottom:16}}>Сначала заполните имена менеджеров в настройках ↓</p>)}
-          <button className="B BS" style={{marginTop:16}} onClick={()=>{setCurMgr(0);setPg("settings")}}>⚙ Настроить менеджеров</button>
-          <div style={{marginTop:12}}><button className="B BP" style={{width:"100%",justifyContent:"center"}} onClick={doInstall}>⊕ Установить на рабочий стол</button></div>
-        </div>
-      </div>
-    </>);
-  }
+const dlPdf=async()=>{
+if(!kpRef.current)return;
+setPdfing(true);fl("Генерация PDF...","warn");
+try{
+const b64=await genPdfBlob();
+const pdfName=("Коммерческое предложение "+co.name).replace(/[^a-zA-Zа-яА-ЯёЁ0-9 _-]/g,"_").substring(0,80)+".pdf";
+const link=document.createElement("a");
+link.href="data:application/pdf;base64,"+b64;
+link.download=pdfName;
+link.click();
+fl("PDF сохранён!");save();
+}catch(e){fl("Ошибка PDF: "+e.message,"error");console.error(e)}
+setPdfing(false);
+};
 
-  return(<><style>{CSS}</style>
-    {showInstallHelp&&<div style={{position:"fixed",inset:0,zIndex:9999,background:"rgba(0,0,0,.7)",display:"flex",alignItems:"center",justifyContent:"center",padding:20}} onClick={()=>setShowInstallHelp(false)}>
-      <div style={{background:"var(--sf)",border:"1px solid var(--bd)",borderRadius:16,padding:"32px 28px",maxWidth:480,width:"100%",color:"var(--tx)"}} onClick={e=>e.stopPropagation()}>
-        <h3 style={{fontSize:18,fontWeight:700,marginBottom:16}}>📲 Как установить на рабочий стол</h3>
-        <div style={{marginBottom:20}}>
-          <p style={{fontWeight:700,color:"var(--ac)",marginBottom:6}}>Google Chrome / Edge:</p>
-          <p style={{fontSize:13,color:"var(--t2)",lineHeight:1.6}}>Откройте эту же ссылку в Chrome → в адресной строке справа нажмите ⊕ «Установить»</p>
-        </div>
-        <div style={{marginBottom:20}}>
-          <p style={{fontWeight:700,color:"var(--ac)",marginBottom:6}}>Яндекс Браузер:</p>
-          <p style={{fontSize:13,color:"var(--t2)",lineHeight:1.6}}>Меню ☰ → Дополнительные инструменты → Создать ярлык → ✓ Открывать в отдельном окне → Создать</p>
-        </div>
-        <div style={{marginBottom:24}}>
-          <p style={{fontWeight:700,color:"var(--ac)",marginBottom:6}}>Телефон (iOS / Android):</p>
-          <p style={{fontSize:13,color:"var(--t2)",lineHeight:1.6}}>Откройте ссылку → Поделиться → На экран «Домой»</p>
-        </div>
-        <button className="B BP Blg" style={{width:"100%",justifyContent:"center"}} onClick={()=>setShowInstallHelp(false)}>Понятно</button>
-      </div>
-    </div>}
-    {nf&&<div className={"NF "+nf.t}>{nf.m}</div>}
-    <div className="A">
-      <div className="SB">
-        <div className="SL"><h1>MAVIS</h1><span>КП Генератор</span></div>
-        <div className="SN">
-          <div className={`NI ${pg==="create"?"on":""}`} onClick={()=>setPg("create")}><span className="ic">✦</span> Новое КП</div>
-          <div className={`NI ${pg==="history"?"on":""}`} onClick={()=>setPg("history")}><span className="ic">☰</span> История{hi.length>0&&<span className="badge">{hi.length}</span>}</div>
-          <div className={`NI ${pg==="settings"?"on":""}`} onClick={()=>setPg("settings")}><span className="ic">⚙</span> Настройки</div>
-          <div style={{marginTop:8,borderTop:"1px solid var(--bd)",paddingTop:8}}>
-            <div className="NI" onClick={doInstall} style={{color:installed?"var(--gn)":"var(--ac)",border:"1px dashed",borderColor:installed?"var(--gn)":"var(--bd)"}}>
-              <span className="ic">{installed?"✓":"⊕"}</span> {installed?"Установлено":"Установить"}
-            </div>
-          </div>
-        </div>
-        <div style={{padding:"12px 14px",borderTop:"1px solid var(--bd)",display:"flex",alignItems:"center",gap:10,cursor:"pointer"}} onClick={()=>setCurMgr(-1)}>
-          <div style={{width:32,height:32,borderRadius:"50%",background:"var(--ac)",display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontWeight:700,fontSize:13}}>{mgrData?.name?.charAt(0)||"?"}</div>
-          <div><div style={{fontSize:12,fontWeight:600,color:"var(--tx)"}}>{mgrData?.name||"Менеджер"}</div><div style={{fontSize:10,color:"var(--t2)"}}>Сменить →</div></div>
-        </div>
-      </div>
-      <div className="MN">
-        {pg==="create"&&(<>
-          <div className="MH"><h2>{kn}</h2><button className="B BS Bsm" onClick={nw}>+ Новое КП</button></div>
-          <div className="MC">
-            <div className="STP">
-              <div className={`SI ${st===1?"on":st>1?"ok":""}`} onClick={()=>setSt(1)}><span className="SNM">{st>1?"✓":"1"}</span> Компания</div>
-              <div className={`SI ${st===2?"on":st>2?"ok":""}`} onClick={()=>st>1&&setSt(2)}><span className="SNM">{st>2?"✓":"2"}</span> Услуги</div>
-              <div className={`SI ${st===3?"on":""}`} onClick={()=>st>2&&setSt(3)}><span className="SNM">3</span> Предпросмотр</div>
-            </div>
-            {st===1&&(<>
-              <div className="CD"><div className="CT">🔍 Поиск в Битрикс24</div><div className="SR"><input className="FI" placeholder="Введите название компании..." value={bq} onChange={e=>setBq(e.target.value)} onKeyDown={e=>e.key==="Enter"&&sBx()} /><button className="B BP" onClick={sBx} disabled={bl}>{bl?"⏳":"Найти"}</button></div>
-                {br.length>0&&<div className="BXR">{br.map(c=><div key={c.id} className="BXI" onClick={()=>pBx(c)}><div><div style={{fontWeight:600,fontSize:14}}>{c.name}</div><div style={{fontSize:12,color:"var(--t2)"}}>{c.email}{c.phone?" · "+c.phone:""}</div></div><span style={{fontSize:12,opacity:.5}}>→</span></div>)}</div>}
-              </div>
-              <div className="CD"><div className="CT">📝 Данные компании {co.bx&&<span className="TG2">Битрикс #{co.bx}</span>}</div><div className="FG">
-                <div className="FGR fu"><span className="FL">Название компании *</span><input className="FI" placeholder='ООО «Название»' value={co.name} onChange={e=>setCo(p=>({...p,name:e.target.value}))} /></div>
-                <div className="FGR"><span className="FL">ФИО директора</span><input className="FI" placeholder="Иванов И.И." value={co.dir} onChange={e=>setCo(p=>({...p,dir:e.target.value}))} /></div>
-                <div className="FGR"><span className="FL">Email</span><input className="FI" type="email" placeholder="info@company.by" value={co.email} onChange={e=>setCo(p=>({...p,email:e.target.value}))} /></div>
-                <div className="FGR"><span className="FL">Телефон</span><input className="FI" placeholder="+375 29 XXX-XX-XX" value={co.phone} onChange={e=>setCo(p=>({...p,phone:e.target.value}))} /></div>
-                <div className="FGR"><span className="FL">Дата КП</span><input className="FI" type="text" placeholder="15 апреля 2026" value={kpDate} onChange={e=>setKpDate(e.target.value)} /></div>
-                  <div className="FGR"><span className="FL">Заголовок КП</span><input className="FI" placeholder="Получение аттестата соответствия" value={ttl} onChange={e=>setTtl(e.target.value)} /></div>
-              </div></div>
-              <div style={{display:"flex",justifyContent:"flex-end"}}><button className="B BP Blg" onClick={()=>{if(!co.name){fl("Укажите компанию","error");return}setSt(2)}}>Далее: Услуги →</button></div>
-            </>)}
-            {st===2&&(<>
-              <div className="CD"><div className="CT">✏️ Добавить свою услугу</div><div className="SR"><input className="FI" placeholder="Введите название услуги..." value={cn} onChange={e=>setCn(e.target.value)} onKeyDown={e=>e.key==="Enter"&&aC()} /><button className="B BG" onClick={aC}>+ Добавить</button></div></div>
-              <div className="CD"><div className="CT">📂 Или из каталога</div><input className="FI" style={{width:"100%",marginBottom:14}} placeholder="🔍 Поиск по услугам..." value={catSearch} onChange={e=>setCatSearch(e.target.value)} />{(catSearch.trim()?[{c:"Результаты поиска",i:"🔎",s:CAT.flatMap(cat=>cat.s).filter(s=>s.n.toLowerCase().includes(catSearch.toLowerCase()))}]:CAT).map(cat=><div key={cat.c} className="CG"><div className={`CH ${(catSearch.trim()||ec===cat.c)?"op":""}`} onClick={()=>!catSearch.trim()&&setEc(ec===cat.c?null:cat.c)}><span>{cat.i}</span> {cat.c}<span style={{marginLeft:"auto",fontSize:12,color:"var(--t2)"}}>{cat.s.length}</span><span className="aw">▸</span></div>{(catSearch.trim()||ec===cat.c)&&<div className="CS">{cat.s.length===0?<div className="SVI" style={{color:"var(--t2)",fontStyle:"italic"}}>Ничего не найдено</div>:cat.s.map(s=>{const a=sv.some(x=>x.id===s.id);return<div key={s.id} className="SVI"><div className="SVN">{s.n}</div>{a?<span className="SVA">✓</span>:<button className="B BP Bsm" onClick={()=>aS(s)}>+</button>}</div>})}</div>}</div>)}</div>
-              {sv.length>0&&<div className="CD"><div className="CT">✅ Услуги ({sv.length})</div><div style={{overflowX:"auto"}}><table className="TBL"><thead><tr><th style={{width:30}}>№</th><th>Наименование</th><th style={{width:70}}>Кол-во</th><th style={{width:120}}>Подготовка</th><th style={{width:120}}>Пошлины</th><th style={{width:150}}>Доп. расходы</th><th style={{width:40}}></th></tr></thead><tbody>
-                {sv.map((s,i)=>{const hasWork=s.spk||s.att||s.spec;const isExp=expandedSvc===s.id;return <React.Fragment key={s.id}>
-                  <tr><td style={{color:"var(--t2)"}}>{i+1}</td>
-                    <td><div style={{display:"flex",alignItems:"center",gap:8}}>
-                      {hasWork&&<span style={{cursor:"pointer",userSelect:"none",fontSize:14,color:isExp?"var(--ac)":"var(--t2)",transition:"transform .2s",display:"inline-block",transform:isExp?"rotate(90deg)":"none"}} onClick={()=>setExpandedSvc(isExp?null:s.id)}>▸</span>}
-                      <input className="FI" style={{flex:1,background:"transparent",border:"none",padding:0,fontSize:13,color:"var(--tx)"}} value={s.cn||s.n} onChange={e=>uS(s.id,"cn",e.target.value)} />
-                    </div>
-                    {hasWork&&(s.workTypes||[]).length>0&&!isExp&&<div style={{fontSize:11,color:"var(--gn)",marginTop:4}}>✓ Видов работ: {(s.workTypes||[]).length}</div>}
-                    </td>
-                    <td><input type="number" className="NI2" style={{width:60,textAlign:"center"}} min={1} value={s.qty||1} onChange={e=>uS(s.id,"qty",Math.max(1,+e.target.value||1))} /></td>
-                    <td><input type="number" className="NI2" placeholder="0" value={s.prep||""} onChange={e=>uS(s.id,"prep",e.target.value===""?0:+e.target.value)} /></td>
-                    <td><input type="number" className="NI2" placeholder="0" value={s.fee||""} onChange={e=>uS(s.id,"fee",e.target.value===""?0:+e.target.value)} /></td>
-                    <td><input type="number" className="NI2" placeholder="0" value={s.extra||""} onChange={e=>uS(s.id,"extra",e.target.value===""?0:+e.target.value)} /><input className="CIp" placeholder="Комментарий..." value={s.ec||""} onChange={e=>uS(s.id,"ec",e.target.value)} /></td>
-                    <td><button className="B BR Bsm" onClick={()=>rS(s.id)}>✕</button></td>
-                  </tr>
-                  {hasWork&&isExp&&<tr><td colSpan={7} style={{background:"var(--s2)",padding:"16px 20px"}}>
-                    <div style={{fontWeight:700,fontSize:13,marginBottom:12,color:"var(--ac)"}}>{s.spec?"👷 Выбор специалистов":("📋 Виды работ "+(s.spk?"для СПК":"для Аттестации"))}</div>
-                    {s.spec?<div>
-                      <div style={{background:"var(--bg)",borderRadius:8,padding:"10px",maxHeight:380,overflowY:"auto",marginBottom:10,border:"1px solid var(--bd)"}}>
-                        {SPECIALISTS.map(sp=>{const added=(s.specs||[]).includes(sp);return<div key={sp} onClick={()=>{if(added){setSv(p=>p.map(x=>x.id===s.id?{...x,specs:(x.specs||[]).filter(z=>z!==sp)}:x))}else{setSv(p=>p.map(x=>x.id===s.id?{...x,specs:[...(x.specs||[]),sp]}:x))}}} style={{padding:"6px 10px",borderRadius:6,cursor:"pointer",fontSize:12,display:"flex",gap:10,alignItems:"flex-start",background:added?"rgba(52,199,123,.1)":"transparent",marginBottom:2,lineHeight:1.4}}><span style={{fontSize:14,flexShrink:0,color:added?"var(--gn)":"var(--t2)",marginTop:-2}}>{added?"✓":"☐"}</span><span style={{flex:1}}>{sp}</span></div>})}
-                      </div>
-                      {(s.specs||[]).length>0&&<div style={{fontSize:11,color:"var(--gn)",fontWeight:600}}>✓ Выбрано: {(s.specs||[]).length}</div>}
-                    </div>:<><div style={{display:"flex",gap:10,marginBottom:12}}>
-                      <button className="B BP Bsm" onClick={()=>setShowWorkPicker(!showWorkPicker)}>{showWorkPicker?"Скрыть каталог":"📂 Выбрать из каталога"}</button>
-                      <input className="FI" style={{flex:1,fontSize:12,padding:"6px 10px"}} placeholder="Или впишите свой..." value={customWork} onChange={e=>setCustomWork(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&customWork.trim()){updWork(s.id,p=>[...p,{code:"",name:customWork.trim(),custom:true}]);setCustomWork("")}}} />
-                      <button className="B BG Bsm" onClick={()=>{if(customWork.trim()){updWork(s.id,p=>[...p,{code:"",name:customWork.trim(),custom:true}]);setCustomWork("")}}}>+</button>
-                    </div>
-                    {showWorkPicker&&<div style={{background:"var(--bg)",borderRadius:8,padding:"10px",maxHeight:350,overflowY:"auto",marginBottom:12,border:"1px solid var(--bd)"}}>
-                      <input className="FI" style={{width:"100%",marginBottom:10,fontSize:12,padding:"6px 10px"}} placeholder="🔍 Поиск..." value={workSearch} onChange={e=>setWorkSearch(e.target.value)} />
-                      {WORK_TYPES.filter(w=>!workSearch.trim()||(w.code+" "+w.name).toLowerCase().includes(workSearch.toLowerCase())).map(w=>{const added=(s.workTypes||[]).find(x=>x.code===w.code);return <div key={w.code} onClick={()=>{if(added){updWork(s.id,p=>p.filter(x=>x.code!==w.code))}else{updWork(s.id,p=>[...p,{code:w.code,name:w.name}])}}} style={{padding:"6px 10px",borderRadius:6,cursor:"pointer",fontSize:12,display:"flex",gap:10,alignItems:"flex-start",background:added?"rgba(52,199,123,.1)":"transparent",marginBottom:2}}><span style={{fontSize:14,flexShrink:0,color:added?"var(--gn)":"var(--t2)",marginTop:-2}}>{added?"✓":"☐"}</span><span style={{fontWeight:700,color:"var(--ac)",minWidth:40}}>{w.code}</span><span style={{flex:1}}>{w.name}</span></div>})}
-                    </div>}
-                    {(s.workTypes||[]).length>0&&<div style={{background:"var(--bg)",border:"1px solid var(--bd)",borderRadius:8,padding:"10px 14px",marginBottom:10}}>
-                      <div style={{fontSize:11,color:"var(--t2)",marginBottom:6,fontWeight:600}}>Выбрано ({(s.workTypes||[]).length}):</div>
-                      {(s.workTypes||[]).map((w,i)=><div key={i} style={{display:"flex",gap:8,padding:"4px 0",fontSize:12,alignItems:"flex-start",borderBottom:i<(s.workTypes||[]).length-1?"1px solid var(--bd)":"none"}}>{w.code&&<span style={{color:"var(--ac)",fontWeight:700,minWidth:40}}>{w.code}</span>}<span style={{flex:1}}>{w.name}</span><button className="B BR" style={{padding:"1px 6px",fontSize:10}} onClick={()=>updWork(s.id,p=>p.filter((_,j)=>j!==i))}>✕</button></div>)}
-                    </div>}
-                    {(()=>{const si=new Set();(s.workTypes||[]).forEach(w=>{const wt=WORK_TYPES.find(x=>x.code===w.code);if(wt&&SI_GROUPS[wt.si])SI_GROUPS[wt.si].forEach(x=>si.add(x))});const siArr=Array.from(si);const spk=new Set(),att=new Set();(s.workTypes||[]).forEach(w=>{const m=SPEC_MAP[w.code];if(m){if(s.spk&&m.spk)spk.add(m.spk);if(s.att&&m.att&&m.att!=="-")att.add(m.att)}});const spkArr=Array.from(spk),attArr=Array.from(att);return<React.Fragment>
-                      {siArr.length>0&&<div style={{marginBottom:10,padding:"10px 14px",background:"rgba(79,125,245,.08)",borderRadius:8,border:"1px solid rgba(79,125,245,.2)"}}>
-                        <div style={{fontSize:11,color:"var(--ac)",marginBottom:4,fontWeight:700}}>🔧 Автоматически подобранные СИ ({siArr.length}):</div>
-                        <div style={{fontSize:11,color:"var(--tx)",lineHeight:1.6}}>{siArr.join(" · ")}</div>
-                      </div>}
-                      {(spkArr.length>0||attArr.length>0)&&<div style={{padding:"10px 14px",background:"rgba(52,199,123,.08)",borderRadius:8,border:"1px solid rgba(52,199,123,.2)"}}>
-                        <div style={{fontSize:11,color:"var(--gn)",marginBottom:6,fontWeight:700}}>👷 Необходимые специалисты:</div>
-                        {spkArr.length>0&&<div style={{marginBottom:attArr.length?6:0}}>
-                          <div style={{fontSize:10,color:"var(--t2)",marginBottom:2,fontWeight:600,textTransform:"uppercase",letterSpacing:.5}}>Для СПК:</div>
-                          <div style={{fontSize:11,color:"var(--tx)",lineHeight:1.6}}>{spkArr.map((sp,k)=><div key={k}>• {sp}</div>)}</div>
-                        </div>}
-                        {attArr.length>0&&<div>
-                          <div style={{fontSize:10,color:"var(--t2)",marginBottom:2,fontWeight:600,textTransform:"uppercase",letterSpacing:.5}}>Для аттестата:</div>
-                          <div style={{fontSize:11,color:"var(--tx)",lineHeight:1.6}}>{attArr.map((sp,k)=><div key={k}>• {sp}</div>)}</div>
-                        </div>}
-                      </div>}
-                    </React.Fragment>})()}</>}
-                    {s.att&&<div style={{marginTop:12}}>
-                      <div style={{fontWeight:700,fontSize:12,marginBottom:8,color:"var(--gn)"}}>👷 Обязательные специалисты для аттестации:</div>
-                      {(s.attSpecs||[]).map((sp,k)=><div key={k} style={{display:"flex",gap:8,alignItems:"center",padding:"5px 10px",fontSize:12,background:"var(--bg)",borderRadius:6,marginBottom:4,border:"1px solid var(--bd)"}}>
-                        <span style={{flex:1,color:"var(--tx)"}}>{sp}</span>
-                        <button className="B BR" style={{padding:"1px 6px",fontSize:10}} onClick={()=>updAttSpecs(s.id,p=>p.filter((_,j)=>j!==k))}>✕</button>
-                      </div>)}
-                      <div style={{display:"flex",gap:8,marginTop:8}}>
-                        <input className="FI" style={{flex:1,fontSize:12,padding:"6px 10px"}} placeholder="Добавить специалиста..." value={customSpec} onChange={e=>setCustomSpec(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&customSpec.trim()){updAttSpecs(s.id,p=>[...p,customSpec.trim()]);setCustomSpec("")}}} />
-                        <button className="B BG Bsm" onClick={()=>{if(customSpec.trim()){updAttSpecs(s.id,p=>[...p,customSpec.trim()]);setCustomSpec("")}}}>+</button>
-                      </div>
-                    </div>}
-                  </td></tr>}
-                </React.Fragment>})}
-                <tr className="TR"><td></td><td style={{textAlign:"right"}}>Итого:</td><td></td><td>{fm(tP)}</td><td>{fm(tF)}</td><td>{fm(tE)}</td><td></td></tr>
-                <tr className="GR"><td></td><td style={{textAlign:"right"}}>ОБЩАЯ СУММА:</td><td colSpan={4}>{fm(tT)}</td><td></td></tr>
-              </tbody></table></div></div>}
-              <div style={{display:"flex",justifyContent:"space-between"}}><button className="B BS Blg" onClick={()=>setSt(1)}>← Компания</button><button className="B BP Blg" onClick={()=>{if(!sv.length){fl("Добавьте услугу","error");return}setSt(3)}}>Предпросмотр →</button></div>
-            </>)}
-            {st===3&&(<>
-              <div className="KP" ref={kpRef}>
-                <div className="KY">2026</div>
-                <div className="KH"><h1>КОММЕРЧЕСКОЕ</h1><h2>ПРЕДЛОЖЕНИЕ</h2><div className="br2">MAVIS GROUP</div></div>
-                <div className="KD">Предложение о сотрудничестве от {kpDate}</div>
-                <div className="KC"><h3>{co.name}</h3>{co.dir&&<p>{co.dir}</p>}</div>
-                {sv.filter(s=>(s.workTypes||[]).length>0).map(s=><div key={"wt_"+s.id} style={{marginLeft:60,marginBottom:16,padding:"16px 20px",background:"rgba(255,255,255,.6)",borderRadius:8,border:"1px solid rgba(100,100,100,.2)"}}>
-                  <div style={{fontSize:13,fontWeight:700,marginBottom:10,color:"#1f1f1f"}}>Виды работ {s.spk?"для СПК":s.att?"для Аттестации":""} ({s.cn||s.n}):</div>
-                  <div style={{fontSize:11,color:"#1f1f1f",lineHeight:1.6,fontWeight:500}}>
-                    {(s.workTypes||[]).map((w,i)=><div key={i} style={{padding:"2px 0"}}>— {w.name}</div>)}
-                  </div>
-                </div>)}
-                {ttl&&<div className="KS">{ttl}</div>}
-                <table className="KT"><thead><tr><th>№</th><th>Услуга</th><th>Наши услуги</th><th>Пошлины</th><th>Доп. расходы</th></tr></thead><tbody>
-                  {sv.map((s,i)=><tr key={s.id}><td style={{color:"#777"}}>{i+1}</td><td>{s.id!=="tnpa"&&s.id!=="tech_cards"&&<div style={{fontSize:10,color:"#8b5a1e",fontWeight:700,marginBottom:2,letterSpacing:1}}>ЭТАП {i+1}</div>}{s.cn||s.n}{(s.qty||1)>1&&<span style={{color:"#777"}}> × {s.qty}</span>}</td><td>{fm(s.prep*(s.qty||1))}</td><td>{fm(s.fee*(s.qty||1))}</td><td>{fm(s.extra*(s.qty||1))}{s.ec&&<div style={{fontSize:11,color:"#777",marginTop:2}}>{s.ec}</div>}</td></tr>)}
-                  <tr className="TT"><td></td><td>Итого:</td><td>{fm(tP)}</td><td>{fm(tF)}</td><td>{fm(tE)}</td></tr>
-                  <tr className="TG"><td></td><td>ОБЩАЯ СУММА:</td><td colSpan={3}>{fm(tT)}</td></tr>
-                </tbody></table>
-                {(autoSPEC.spk.length>0||autoSPEC.att.length>0)&&<div style={{marginLeft:60,marginRight:0,marginBottom:32,border:"1px solid rgba(100,100,100,.3)",borderRadius:4}}>
-                  <div style={{background:"rgba(100,100,100,.12)",padding:"10px 16px",fontWeight:700,fontSize:14,color:"#1f1f1f",textAlign:"center",borderBottom:"1px solid rgba(100,100,100,.25)"}}>Необходимые специалисты</div>
-                  <div style={{padding:"14px 20px",fontSize:12,color:"#1f1f1f",lineHeight:1.8}}>
-                    {autoSPEC.spk.length>0&&<div style={{marginBottom:autoSPEC.att.length>0?12:0}}>
-                      <div style={{fontWeight:700,marginBottom:6,color:"#8b5a1e"}}>Для свидетельства о тех. компетентности:</div>
-                      {autoSPEC.spk.map((s,i)=><div key={i}>— {s};</div>)}
-                    </div>}
-                    {autoSPEC.att.length>0&&<div>
-                      <div style={{fontWeight:700,marginBottom:6,color:"#8b5a1e"}}>Для аттестата соответствия:</div>
-                      {autoSPEC.att.map((s,i)=><div key={i}>— {s};</div>)}
-                    </div>}
-                  </div>
-                </div>}
-                {autoSI.length>0&&<div style={{marginLeft:60,marginRight:0,marginBottom:32,border:"1px solid rgba(100,100,100,.3)",borderRadius:4}}>
-                  <div style={{background:"rgba(100,100,100,.12)",padding:"10px 16px",fontWeight:700,fontSize:14,color:"#1f1f1f",textAlign:"center",borderBottom:"1px solid rgba(100,100,100,.25)"}}>Перечень необходимого оборудования</div>
-                  <div style={{padding:"10px 20px",fontSize:11,color:"#1f1f1f",lineHeight:1.4}}>
-                    {autoSI.map((s,i)=><div key={i} style={{padding:"1px 0"}}>— {s};</div>)}
-                  </div>
-                </div>}
-                {sv.find(s=>s.ot)&&<div style={{marginLeft:60,marginRight:0,marginBottom:32,border:"1px solid rgba(100,100,100,.3)",borderRadius:4}}>
-                  <div style={{background:"rgba(100,100,100,.12)",padding:"10px 16px",fontWeight:700,fontSize:14,color:"#1f1f1f",textAlign:"center",borderBottom:"1px solid rgba(100,100,100,.25)"}}>Разработка пакета документов по охране труда</div>
-                  <div style={{padding:"14px 20px"}}>
-                    <div style={{fontWeight:700,fontSize:12,color:"#1f1f1f",marginBottom:10,borderBottom:"1px solid rgba(100,100,100,.2)",paddingBottom:6}}>Перечень разрабатываемых документов:</div>
-                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"4px 24px",fontSize:11,color:"#1f1f1f",lineHeight:1.5}}>
-                      {OT_DOCS.map((d,i)=><div key={i} style={{padding:"3px 0",borderBottom:"1px solid rgba(100,100,100,.08)"}}>• {d}</div>)}
-                    </div>
-                  </div>
-                </div>}
-                <div className="KCN"><strong>Условия сотрудничества:</strong><br/>— 100% предоплата до начала выполнения работ.<br/>— Гос. пошлина — по мере направления документов.</div>
-                <div className="KS">Преимущества работы с нами</div>
-                <div className="KA">{ADV.map((a,i)=><div key={i} className="KAI"><h4><span style={{color:"#8b5a1e"}}>◆</span> {a.t}</h4><p>{a.d}</p></div>)}</div>
-                <div className="KCL">{CL.map(c=><span key={c} className="KCLT">{c}</span>)}</div>
-                {mgrData?.name&&<div style={{marginLeft:60,marginTop:32,paddingTop:20,borderTop:"1px solid rgba(100,100,100,.25)"}}><div style={{fontSize:16,fontWeight:700,color:"#1f1f1f",marginBottom:4}}>{mgrData.name}</div><div style={{fontSize:12,color:"#3a3a3a",marginBottom:2}}>MAVIS GROUP | Специалист отдела продаж</div>{mgrData.phone&&<div style={{fontSize:12,color:"#777"}}>{mgrData.phone}</div>}<div style={{fontSize:12,color:"#777"}}>mavis.group@mail.ru</div></div>}
-              </div>
-              <div className="AB">
-                <button className="B BS Blg" onClick={()=>setSt(2)}>← Редактировать</button>
-                <button className="B BG Blg" onClick={save}>💾 Сохранить</button>
-                <button className="B BP Blg" onClick={sEm} disabled={sn}>{sn?"⏳ Отправка...":"✉ Отправить письмо"}</button>
-                <button className="B BS Blg" onClick={dlPdf} disabled={pdfing}>{pdfing?"⏳":"📄 Скачать PDF"}</button>
-              </div>
-            </>)}
-          </div>
-        </>)}
-        {pg==="history"&&(<><div className="MH"><h2>История КП</h2></div><div className="MC">
-            <div style={{display:"flex",gap:0,marginBottom:20,borderBottom:"1px solid var(--bd)"}}>
-              {[{id:"all",label:"Все"},...INIT_MGRS.map(m=>({id:String(m.id),label:m.name.split(" ")[0]}))].map(tab=><div key={tab.id} onClick={()=>setHistTab(tab.id)} style={{padding:"10px 20px",fontSize:13,fontWeight:600,cursor:"pointer",borderBottom:histTab===tab.id?"2px solid var(--ac)":"2px solid transparent",color:histTab===tab.id?"var(--ac)":"var(--t2)",marginBottom:-1}}>{tab.label}</div>)}
-            </div>
-            <div style={{marginBottom:16}}><input className="FI" style={{width:"100%"}} placeholder="Поиск по компании..." value={histQ} onChange={e=>setHistQ(e.target.value)} /></div>
-            {(()=>{let f=hi;if(histTab!=="all")f=f.filter(k=>{const m=INIT_MGRS.find(x=>x.name===k.mgr);return m&&String(m.id)===histTab});if(histQ.trim())f=f.filter(k=>k.co.name.toLowerCase().includes(histQ.toLowerCase()));if(!f.length)return <div className="ES"><p style={{fontSize:14}}>{hi.length?"Ничего не найдено":"Пока нет КП"}</p>{!hi.length&&<button className="B BP" style={{marginTop:20}} onClick={nw}>+ Создать</button>}</div>;return f.map(k=><div key={k.id} className="HC" onClick={()=>ld(k)}><div><div style={{fontSize:12,color:"var(--ac)",fontWeight:700}}>{k.kn}</div><div style={{fontSize:15,fontWeight:700}}>{k.co.name}</div><div style={{fontSize:12,color:"var(--t2)"}}>{k.date}{k.mgr&&" · "+k.mgr}</div></div><div style={{marginLeft:"auto",fontSize:16,fontWeight:800,color:"var(--gn)",whiteSpace:"nowrap"}}>{fm(k.tT)}</div></div>)})()}
-          </div></>)}
-        
-        {pg==="settings"&&(<><div className="MH"><h2>Настройки</h2></div><div className="MC">
-          <div className="CD"><div className="CT">🔗 Битрикс24</div><div style={{padding:"12px 16px",background:"var(--s2)",borderRadius:8,fontSize:13,color:"var(--gn)",fontWeight:600}}>✓ Подключён: mavisgroup.bitrix24.by</div></div>
-          <div className="CD"><div className="CT">✉ Email</div><p style={{fontSize:13,color:"var(--t2)",lineHeight:1.6}}>Все КП отправляются с <strong style={{color:"var(--tx)"}}>{FROM_EMAIL}</strong>. Подпись выбранного менеджера подставляется автоматически.</p></div>
-          <div className="CD"><div className="CT">👤 Менеджеры</div>
-              {INIT_MGRS.map((m,i)=><div key={m.id} style={{padding:"12px 16px",background:"var(--s2)",borderRadius:8,marginBottom:8,display:"flex",alignItems:"center",gap:12}}>
-                <span style={{fontSize:14,fontWeight:700}}>{m.name}</span>
-                <span style={{fontSize:12,color:"var(--t2)",marginLeft:"auto"}}>Специалист отдела продаж</span>
-              </div>)}
-              <div style={{marginTop:12,fontSize:12,color:"var(--t2)"}}>Менеджеры зашиты в приложение. Для изменения обратитесь к разработчику.</div>
-            </div>
-            <div className="CD"><div className="CT">✉ Отправка email</div>
-              <div style={{padding:"12px 16px",background:"var(--s2)",borderRadius:8,fontSize:13}}>
-                <span style={{color:"var(--gn)",fontWeight:600}}>Отправка с: </span>
-                <span style={{color:"var(--tx)"}}>{FROM_EMAIL}</span>
-              </div>
-              <p style={{fontSize:12,color:"var(--t2)",marginTop:8,lineHeight:1.6}}>Все КП отправляются с общей почты. В подписи письма подставляется ФИО выбранного менеджера.</p>
-            </div>
-            <div className="CD"><div className="CT">📍 Реквизиты компании</div>
-              <div className="FG">
-                <div className="FGR"><span className="FL">Телефон</span><div style={{fontSize:14,color:"var(--tx)",padding:"10px 0"}}>{COMPANY_PHONE}</div></div>
-                <div className="FGR"><span className="FL">Адрес</span><div style={{fontSize:14,color:"var(--tx)",padding:"10px 0"}}>{COMPANY_ADDR}</div></div>
-              </div>
-            </div>
-        </div></>)}
-      </div>
-    </div>
-  </>);
+const sEm=async()=>{
+if(!co.email){fl("Email не указан","error");return}
+if(!mgrData){fl("Выберите менеджера","error");return}
+if(!kpRef.current){fl("Откройте предпросмотр","error");return}
+setSn(true);fl("Генерация PDF...","warn");
+try{
+const clone=kpRef.current.cloneNode(true);
+clone.querySelectorAll(".no-pdf").forEach(el=>el.remove());
+clone.querySelectorAll(".edt").forEach(el=>{el.style.cursor="default";el.style.background="transparent";el.style.border="none"});
+const wrap=document.createElement("div");
+wrap.style.cssText="position:fixed;left:-9999px;top:0;width:794px;z-index:-1;";
+clone.style.cssText="width:794px;max-width:794px;border-radius:0;padding:56px 48px 40px;margin:0;background:#faf6ec;color:#333;font-family:Manrope,sans-serif;";
+clone.querySelectorAll("*").forEach(el=>{el.style.transition="none";el.style.animation="none"});
+wrap.appendChild(clone);document.body.appendChild(wrap);
+await new Promise(r=>setTimeout(r,500));
+const canvas=await html2canvas(clone,{scale:1,useCORS:true,backgroundColor:"#faf6ec",logging:false,width:794});
+document.body.removeChild(wrap);
+const{jsPDF}=window.jspdf;
+const pxW=canvas.width,pxH=canvas.height,pageW=210,pageH=297,ratio=pageW/pxW;
+const totalMmH=pxH*ratio;
+const pdf=new jsPDF("p","mm","a4");
+pdf.setFillColor(250,246,236);pdf.rect(0,0,pageW,pageH,"F");
+if(totalMmH<=pageH*1.3){
+const fitH=Math.min(totalMmH,pageH);const fitW=(fitH/totalMmH)*pageW;
+pdf.addImage(canvas.toDataURL("image/jpeg",0.45),"JPEG",(pageW-fitW)/2,0,fitW,fitH);
+}else{
+const pagePxH=Math.floor(pageH/ratio);let pg=0,srcY=0;
+while(srcY<pxH&&pg<10){
+if(pg>0){pdf.addPage();pdf.setFillColor(250,246,236);pdf.rect(0,0,pageW,pageH,"F")}
+const sl=Math.min(pagePxH,pxH-srcY);const pc=document.createElement("canvas");
+pc.width=pxW;pc.height=sl;pc.getContext("2d").drawImage(canvas,0,srcY,pxW,sl,0,0,pxW,sl);
+pdf.addImage(pc.toDataURL("image/jpeg",0.45),"JPEG",0,0,pageW,sl*ratio);
+srcY+=pagePxH;pg++;if(pxH-srcY<pagePxH*0.15)break;
+}
+}
+const b64=pdf.output("datauristring").split(",")[1];
+const pdfName=("КП_"+co.name).replace(/[^a-zA-Zа-яА-ЯёЁ0-9_-]/g,"_").substring(0,50)+".pdf";
+console.log("PDF size:",Math.round(b64.length/1024),"KB");
+fl("Отправка письма...","warn");
+const subj="Коммерческое предложение"+(ttl?" — "+ttl:"")+" | MAVIS GROUP";
+const body="Добрый день!\n\nНаправляем Вам коммерческое предложение"+(ttl?" — "+ttl:"")+".\nПодробности в прикреплённом файле.\n\n--\n"+mgrData.name+"\nMAVIS GROUP | Специалист отдела продаж\nТелефон: "+COMPANY_PHONE+"\nАдрес: "+COMPANY_ADDR+"\nEmail: "+FROM_EMAIL;
+const baseFields={
+OWNER_TYPE_ID:4,OWNER_ID:co.bx||0,
+TYPE_ID:4,SUBJECT:subj,
+DESCRIPTION:body,DESCRIPTION_TYPE:1,
+DIRECTION:2,COMPLETED:"Y",
+SETTINGS:{MESSAGE_FROM:FROM_EMAIL},
+COMMUNICATIONS:[{VALUE:co.email,ENTITY_ID:co.bx||0,ENTITY_TYPE_ID:4,TYPE:"EMAIL"}]
+};
+let ok=false;
+const formats=[
+{name:"fileData obj",FILES:[{fileData:[pdfName,b64]}]},
+{name:"nested array",FILES:[[pdfName,b64]]},
+{name:"object keys",FILES:{"n0":[pdfName,b64]}},
+];
+for(const fmt of formats){
+if(ok)break;
+console.log("Trying format:",fmt.name);
+try{
+const r=await fetch(BX+"/crm.activity.add.json",{
+method:"POST",headers:{"Content-Type":"application/json"},
+body:JSON.stringify({fields:{...baseFields,...fmt}})
+});
+const d=await r.json();
+console.log("Result for",fmt.name,":",JSON.stringify(d).substring(0,200));
+if(d.result&&!d.error){
+fl("КП с PDF отправлено на "+co.email+"!"); save(); ok=true;
+}
+}catch(e){console.log("Format",fmt.name,"error:",e.message)}
+}
+if(!ok){
+fl("Битрикс не принял вложение. Откройте консоль (F12) для деталей.","error");
+}
+}catch(e){fl("Ошибка: "+e.message,"error");console.error(e)}
+setSn(false);
+}
+
+
+const CSS=`@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&family=Playfair+Display:wght@400;500;600;700&display=swap');*{margin:0;padding:0;box-sizing:border-box}:root{--bg:#0f1117;--sf:#1a1d27;--s2:#232734;--bd:#2d3143;--tx:#e4e6ef;--t2:#8b90a5;--ac:#4f7df5;--a2:#3d6ae0;--gn:#34c77b;--rd:#f5574f;--or:#f5a623}body{font-family:'Manrope',sans-serif;background:var(--bg);color:var(--tx)}.A{display:flex;height:100vh;overflow:hidden}.SB{width:260px;min-width:260px;background:var(--sf);border-right:1px solid var(--bd);display:flex;flex-direction:column}.SL{padding:24px 20px 20px;border-bottom:1px solid var(--bd)}.SL h1{font-family:'Playfair Display',serif;font-size:22px;font-weight:700;color:#fff}.SL>span{font-size:11px;color:var(--t2);letter-spacing:2px;text-transform:uppercase;display:block;margin-top:2px}.SN{flex:1;padding:12px 10px}.NI{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:10px;cursor:pointer;font-size:14px;font-weight:500;color:var(--t2);transition:all .2s;margin-bottom:2px}.NI:hover{background:var(--s2);color:var(--tx)}.NI.on{background:var(--ac);color:#fff}.NI .ic{font-size:18px;width:24px;text-align:center}.NI .badge{margin-left:auto;background:var(--ac);color:#fff;font-size:11px;padding:2px 8px;border-radius:10px;font-weight:700}.NI.on .badge{background:rgba(255,255,255,.25)}.MN{flex:1;overflow-y:auto}.MH{position:sticky;top:0;z-index:10;background:rgba(15,17,23,.85);backdrop-filter:blur(20px);border-bottom:1px solid var(--bd);padding:18px 32px;display:flex;align-items:center;justify-content:space-between}.MH h2{font-size:18px;font-weight:700}.MC{padding:28px 32px;max-width:1100px}.STP{display:flex;margin-bottom:28px}.SI{display:flex;align-items:center;gap:10px;padding:10px 20px;background:var(--sf);border:1px solid var(--bd);font-size:13px;font-weight:600;color:var(--t2);cursor:pointer;transition:all .2s}.SI:first-child{border-radius:10px 0 0 10px}.SI:last-child{border-radius:0 10px 10px 0}.SI.on{background:var(--ac);border-color:var(--ac);color:#fff}.SI.ok{background:var(--s2);border-color:var(--gn);color:var(--gn)}.SNM{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;background:var(--s2);color:var(--t2)}.SI.on .SNM{background:rgba(255,255,255,.2);color:#fff}.SI.ok .SNM{background:var(--gn);color:#fff}.CD{background:var(--sf);border:1px solid var(--bd);border-radius:12px;padding:24px;margin-bottom:20px}.CT{font-size:15px;font-weight:700;margin-bottom:16px;display:flex;align-items:center;gap:8px}.FG{display:grid;grid-template-columns:1fr 1fr;gap:16px}.FGR{display:flex;flex-direction:column;gap:6px}.FGR.fu{grid-column:1/-1}.FL{font-size:12px;font-weight:600;color:var(--t2);text-transform:uppercase;letter-spacing:.5px}.FI{background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:10px 14px;font-size:14px;color:var(--tx);outline:none;font-family:'Manrope',sans-serif;transition:border-color .2s}.FI:focus{border-color:var(--ac)}.FI::placeholder{color:var(--t2);opacity:.6}.B{padding:10px 20px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:none;display:inline-flex;align-items:center;gap:8px;transition:all .2s;font-family:'Manrope',sans-serif}.BP{background:var(--ac);color:#fff}.BP:hover{background:var(--a2);transform:translateY(-1px)}.BS{background:var(--s2);color:var(--tx);border:1px solid var(--bd)}.BS:hover{border-color:var(--t2)}.BG{background:var(--gn);color:#fff}.BG:hover{opacity:.9}.BR{background:var(--rd);color:#fff}.Bsm{padding:6px 12px;font-size:12px}.Blg{padding:14px 28px;font-size:15px}.B:disabled{opacity:.5;cursor:not-allowed;transform:none!important}.SR{display:flex;gap:10px;margin-bottom:16px}.SR .FI{flex:1}.BXR{background:var(--s2);border:1px solid var(--bd);border-radius:8px;margin-bottom:16px;overflow:hidden}.BXI{padding:12px 16px;cursor:pointer;border-bottom:1px solid var(--bd);transition:background .15s;display:flex;justify-content:space-between;align-items:center}.BXI:last-child{border-bottom:none}.BXI:hover{background:var(--ac)}.CG{margin-bottom:12px}.CH{display:flex;align-items:center;gap:10px;padding:14px 18px;background:var(--s2);border-radius:10px;cursor:pointer;font-weight:700;font-size:14px;border:1px solid transparent}.CH:hover{border-color:var(--bd)}.CH.op{border-color:var(--ac);border-radius:10px 10px 0 0}.CH .aw{margin-left:auto;transition:transform .2s;color:var(--t2)}.CH.op .aw{transform:rotate(90deg)}.CS{border:1px solid var(--bd);border-top:none;border-radius:0 0 10px 10px;overflow:hidden}.SVI{display:flex;align-items:center;gap:12px;padding:12px 18px;border-bottom:1px solid var(--bd);font-size:13px}.SVI:last-child{border-bottom:none}.SVI:hover{background:var(--s2)}.SVN{flex:1}.SVA{color:var(--gn);font-size:12px;font-weight:600}.TBL{width:100%;border-collapse:collapse}.TBL th{text-align:left;font-size:11px;font-weight:700;color:var(--t2);text-transform:uppercase;padding:10px 12px;border-bottom:2px solid var(--bd)}.TBL td{padding:12px;border-bottom:1px solid var(--bd);font-size:13px;vertical-align:top}.NI2{width:100px;background:var(--bg);border:1px solid var(--bd);border-radius:6px;padding:6px 10px;color:var(--tx);font-size:13px;font-family:'Manrope',sans-serif;text-align:right;outline:none}.NI2:focus{border-color:var(--ac)}.CIp{width:120px;margin-top:4px;font-size:11px;padding:4px 8px;background:var(--bg);border:1px solid var(--bd);border-radius:6px;color:var(--t2);font-family:'Manrope',sans-serif;outline:none}.CIp:focus{border-color:var(--ac)}.TR td{font-weight:700;font-size:14px;border-top:2px solid var(--ac)}.GR td{font-weight:800;font-size:16px;color:var(--ac)}.KP{background:#faf6ec;border-radius:8px;padding:48px 40px;color:#333;position:relative;overflow:hidden;font-family:'Manrope',sans-serif;box-shadow:0 4px 24px rgba(0,0,0,.15)}.KY{position:absolute;top:32px;left:32px;font-size:64px;font-weight:800;writing-mode:vertical-rl;color:rgba(80,80,80,.12);letter-spacing:8px;font-family:'Manrope',sans-serif}.KH{margin-left:60px;margin-bottom:36px}.KH h1,.KH h2{font-size:28px;font-weight:800;letter-spacing:4px;font-family:'Manrope',sans-serif;color:#8b5a1e;line-height:1.2;margin:0;text-transform:uppercase}.KH .br2{font-size:13px;font-weight:700;letter-spacing:3px;color:#555;margin-top:8px}.KD{font-size:13px;color:#555;margin-left:60px;margin-bottom:8px;font-weight:500}.KC{margin-left:60px;margin-bottom:32px;padding:18px 24px;background:rgba(255,255,255,.5);border-radius:10px;border-left:3px solid #8b5a1e}.KC h3{font-size:20px;font-weight:700;color:#1f1f1f}.KC p{font-size:13px;color:#2a2a2a;font-weight:500}.KS{margin-left:60px;font-size:17px;font-weight:800;margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid rgba(100,100,100,.25);font-family:'Manrope',sans-serif;color:#1f1f1f;letter-spacing:0.5px}.KT{margin-left:60px;width:calc(100% - 60px);border-collapse:collapse;margin-bottom:32px}.KT th{text-align:left;font-size:11px;font-weight:700;text-transform:uppercase;color:#777;padding:10px 14px;border-bottom:1px solid rgba(139,115,72,.3);letter-spacing:1px}.KT td{padding:12px 14px;font-size:13px;border-bottom:1px solid rgba(100,100,100,.15);color:#1f1f1f;font-weight:500}.KT .TT td{font-weight:700;border-top:2px solid rgba(139,115,72,.5);border-bottom:none}.KT .TG td{font-weight:800;font-size:16px;color:#8b5a1e;padding-top:16px}.KCN{margin-left:60px;font-size:13px;color:#2a2a2a;line-height:1.8;margin-bottom:32px;font-weight:500;white-space:pre-wrap}.KA{margin-left:60px}.KAI{margin-bottom:16px;position:relative}.KAI h4{font-size:14px;font-weight:700;display:flex;align-items:center;gap:8px;color:#1f1f1f}.KAI p{font-size:12px;color:#3a3a3a;line-height:1.5;font-weight:500}.KCL{margin-left:60px;display:flex;gap:12px;flex-wrap:wrap;margin-top:24px}.KCLT{padding:6px 16px;border:1px solid rgba(100,100,100,.3);border-radius:20px;font-size:12px;font-weight:700;color:#1f1f1f;background:rgba(255,255,255,.5)}.HC{background:var(--sf);border:1px solid var(--bd);border-radius:12px;padding:18px 22px;cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:16px;margin-bottom:12px}.HC:hover{border-color:var(--ac);transform:translateY(-2px)}.AB{display:flex;gap:10px;flex-wrap:wrap;margin-top:24px;padding-top:20px;border-top:1px solid var(--bd)}.NF{position:fixed;top:20px;right:20px;z-index:1000;padding:14px 24px;border-radius:10px;font-size:14px;font-weight:600;animation:sIn .3s ease;box-shadow:0 8px 24px rgba(0,0,0,.3)}.NF.success{background:var(--gn);color:#fff}.NF.error{background:var(--rd);color:#fff}.NF.warn{background:var(--or);color:#fff}@keyframes sIn{from{transform:translateX(100px);opacity:0}to{transform:translateX(0);opacity:1}}.ES{text-align:center;padding:60px 20px;color:var(--t2)}.TG2{display:inline-block;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700;background:rgba(79,125,245,.15);color:var(--ac)}::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--bd);border-radius:3px}.edt:hover{background:rgba(212,166,71,.18)!important;outline:1px dashed rgba(139,90,30,.4)}.edt-line{display:flex;align-items:center;gap:6px}.del-btn{background:#f5574f;color:#fff;border:none;border-radius:50%;width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;font-size:11px;line-height:1;flex-shrink:0;opacity:0;transition:opacity .15s}.kp-list-item:hover .del-btn{opacity:1}.kp-add-row{display:flex;gap:6px;margin-top:8px;padding-top:8px;border-top:1px dashed rgba(139,90,30,.3)}.kp-add-row input{flex:1;background:#fff;border:1px solid rgba(139,90,30,.3);border-radius:4px;padding:4px 8px;font-size:11px;color:#333;font-family:'Manrope',sans-serif;outline:none}.kp-add-row input:focus{border-color:#8b5a1e}.kp-add-btn{background:#8b5a1e;color:#fff;border:none;border-radius:4px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Manrope',sans-serif}`;
+
+
+// MANAGER SELECTION SCREEN
+if(!mgrData){
+const filled=mgrs.filter(m=>m.name.trim());
+return(<><style>{CSS}</style>
+{showInstallHelp&&<div style={{position:"fixed",inset:0,zIndex:9999,background:"rgba(0,0,0,.7)",display:"flex",alignItems:"center",justifyContent:"center",padding:20}} onClick={()=>setShowInstallHelp(false)}>
+<div style={{background:"var(--sf)",border:"1px solid var(--bd)",borderRadius:16,padding:"32px 28px",maxWidth:480,width:"100%",color:"var(--tx)"}} onClick={e=>e.stopPropagation()}>
+<h3 style={{fontSize:18,fontWeight:700,marginBottom:16}}>📲 Как установить на рабочий стол</h3>
+<div style={{marginBottom:20}}><p style={{fontWeight:700,color:"var(--ac)",marginBottom:6}}>Google Chrome / Edge:</p><p style={{fontSize:13,color:"var(--t2)",lineHeight:1.6}}>Откройте эту же ссылку в Chrome → в адресной строке справа нажмите ⊕ «Установить»</p></div>
+<div style={{marginBottom:20}}><p style={{fontWeight:700,color:"var(--ac)",marginBottom:6}}>Яндекс Браузер:</p><p style={{fontSize:13,color:"var(--t2)",lineHeight:1.6}}>Меню ☰ → Дополнительные инструменты → Создать ярлык → ✓ Открывать в отдельном окне → Создать</p></div>
+<div style={{marginBottom:24}}><p style={{fontWeight:700,color:"var(--ac)",marginBottom:6}}>Телефон (iOS / Android):</p><p style={{fontSize:13,color:"var(--t2)",lineHeight:1.6}}>Откройте ссылку → Поделиться → На экран «Домой»</p></div>
+<button className="B BP Blg" style={{width:"100%",justifyContent:"center"}} onClick={()=>setShowInstallHelp(false)}>Понятно</button>
+</div>
+</div>}
+<div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100vh",background:"var(--bg)",fontFamily:"'Manrope',sans-serif"}}>
+<div style={{textAlign:"center",maxWidth:440,width:"100%",padding:"0 20px"}}>
+<h1 style={{fontFamily:"'Playfair Display',serif",fontSize:28,color:"#fff",marginBottom:4}}>MAVIS</h1>
+<p style={{color:"var(--t2)",fontSize:12,letterSpacing:3,marginBottom:36}}>КП ГЕНЕРАТОР</p>
+{filled.length>0?(<>
+<p style={{color:"var(--tx)",fontSize:15,fontWeight:600,marginBottom:16}}>Кто работает сегодня?</p>
+{filled.map((m,i)=>{const idx=mgrs.indexOf(m);return(
+<div key={m.id} onClick={()=>setCurMgr(idx)} style={{background:"var(--sf)",border:"1px solid var(--bd)",borderRadius:12,padding:"16px 20px",cursor:"pointer",marginBottom:10,textAlign:"left",display:"flex",alignItems:"center",gap:14,transition:"border-color .2s"}} onMouseOver={e=>e.currentTarget.style.borderColor="#4f7df5"} onMouseOut={e=>e.currentTarget.style.borderColor="var(--bd)"}>
+<div style={{width:42,height:42,borderRadius:"50%",background:"var(--ac)",display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontWeight:700,fontSize:17,flexShrink:0}}>{m.name.charAt(0)}</div>
+<div><div style={{fontWeight:600,fontSize:15}}>{m.name}</div>{m.phone&&<div style={{fontSize:12,color:"var(--t2)",marginTop:2}}>{m.phone}</div>}</div>
+</div>
+)})}
+</>):(<p style={{color:"var(--or)",fontSize:14,marginBottom:16}}>Сначала заполните имена менеджеров в настройках ↓</p>)}
+<button className="B BS" style={{marginTop:16}} onClick={()=>{setCurMgr(0);setPg("settings")}}>⚙ Настроить менеджеров</button>
+<div style={{marginTop:12}}><button className="B BP" style={{width:"100%",justifyContent:"center"}} onClick={doInstall}>⊕ Установить на рабочий стол</button></div>
+</div>
+</div>
+</>);
+}
+
+return(<><style>{CSS}</style>
+{showInstallHelp&&<div style={{position:"fixed",inset:0,zIndex:9999,background:"rgba(0,0,0,.7)",display:"flex",alignItems:"center",justifyContent:"center",padding:20}} onClick={()=>setShowInstallHelp(false)}>
+<div style={{background:"var(--sf)",border:"1px solid var(--bd)",borderRadius:16,padding:"32px 28px",maxWidth:480,width:"100%",color:"var(--tx)"}} onClick={e=>e.stopPropagation()}>
+<h3 style={{fontSize:18,fontWeight:700,marginBottom:16}}>📲 Как установить на рабочий стол</h3>
+<div style={{marginBottom:20}}><p style={{fontWeight:700,color:"var(--ac)",marginBottom:6}}>Google Chrome / Edge:</p><p style={{fontSize:13,color:"var(--t2)",lineHeight:1.6}}>Откройте эту же ссылку в Chrome → в адресной строке справа нажмите ⊕ «Установить»</p></div>
+<div style={{marginBottom:20}}><p style={{fontWeight:700,color:"var(--ac)",marginBottom:6}}>Яндекс Браузер:</p><p style={{fontSize:13,color:"var(--t2)",lineHeight:1.6}}>Меню ☰ → Дополнительные инструменты → Создать ярлык → ✓ Открывать в отдельном окне → Создать</p></div>
+<div style={{marginBottom:24}}><p style={{fontWeight:700,color:"var(--ac)",marginBottom:6}}>Телефон (iOS / Android):</p><p style={{fontSize:13,color:"var(--t2)",lineHeight:1.6}}>Откройте ссылку → Поделиться → На экран «Домой»</p></div>
+<button className="B BP Blg" style={{width:"100%",justifyContent:"center"}} onClick={()=>setShowInstallHelp(false)}>Понятно</button>
+</div>
+</div>}
+{nf&&<div className={"NF "+nf.t}>{nf.m}</div>}
+<div className="A">
+<div className="SB">
+<div className="SL"><h1>MAVIS</h1><span>КП Генератор</span></div>
+<div className="SN">
+<div className={`NI ${pg==="create"?"on":""}`} onClick={()=>setPg("create")}><span className="ic">✦</span> Новое КП</div>
+<div className={`NI ${pg==="history"?"on":""}`} onClick={()=>setPg("history")}><span className="ic">☰</span> История{hi.length>0&&<span className="badge">{hi.length}</span>}</div>
+<div className={`NI ${pg==="settings"?"on":""}`} onClick={()=>setPg("settings")}><span className="ic">⚙</span> Настройки</div>
+<div style={{marginTop:8,borderTop:"1px solid var(--bd)",paddingTop:8}}>
+<div className="NI" onClick={doInstall} style={{color:installed?"var(--gn)":"var(--ac)",border:"1px dashed",borderColor:installed?"var(--gn)":"var(--bd)"}}>
+<span className="ic">{installed?"✓":"⊕"}</span> {installed?"Установлено":"Установить"}
+</div>
+</div>
+</div>
+<div style={{padding:"12px 14px",borderTop:"1px solid var(--bd)",display:"flex",alignItems:"center",gap:10,cursor:"pointer"}} onClick={()=>setCurMgr(-1)}>
+<div style={{width:32,height:32,borderRadius:"50%",background:"var(--ac)",display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontWeight:700,fontSize:13}}>{mgrData?.name?.charAt(0)||"?"}</div>
+<div><div style={{fontSize:12,fontWeight:600,color:"var(--tx)"}}>{mgrData?.name||"Менеджер"}</div><div style={{fontSize:10,color:"var(--t2)"}}>Сменить →</div></div>
+</div>
+</div>
+<div className="MN">
+
+{pg==="create"&&(<>
+<div className="MH"><h2>{kn}</h2><button className="B BS Bsm" onClick={nw}>+ Новое КП</button></div>
+<div className="MC">
+<div className="STP">
+<div className={`SI ${st===1?"on":st>1?"ok":""}`} onClick={()=>setSt(1)}><span className="SNM">{st>1?"✓":"1"}</span> Компания</div>
+<div className={`SI ${st===2?"on":st>2?"ok":""}`} onClick={()=>st>1&&setSt(2)}><span className="SNM">{st>2?"✓":"2"}</span> Услуги</div>
+<div className={`SI ${st===3?"on":""}`} onClick={()=>st>2&&setSt(3)}><span className="SNM">3</span> Предпросмотр</div>
+</div>
+{st===1&&(<>
+<div className="CD"><div className="CT">🔍 Поиск в Битрикс24</div><div className="SR"><input className="FI" placeholder="Введите название компании..." value={bq} onChange={e=>setBq(e.target.value)} onKeyDown={e=>e.key==="Enter"&&sBx()} /><button className="B BP" onClick={sBx} disabled={bl}>{bl?"⏳":"Найти"}</button></div>
+{br.length>0&&<div className="BXR">{br.map(c=><div key={c.id} className="BXI" onClick={()=>pBx(c)}><div><div style={{fontWeight:600,fontSize:14}}>{c.name}</div><div style={{fontSize:12,color:"var(--t2)"}}>{c.email}{c.phone?" · "+c.phone:""}</div></div><span style={{fontSize:12,opacity:.5}}>→</span></div>)}</div>}
+</div>
+<div className="CD"><div className="CT">📝 Данные компании {co.bx&&<span className="TG2">Битрикс #{co.bx}</span>}</div><div className="FG">
+<div className="FGR fu"><span className="FL">Название компании *</span><input className="FI" placeholder='ООО «Название»' value={co.name} onChange={e=>setCo(p=>({...p,name:e.target.value}))} /></div>
+<div className="FGR"><span className="FL">ФИО директора</span><input className="FI" placeholder="Иванов И.И." value={co.dir} onChange={e=>setCo(p=>({...p,dir:e.target.value}))} /></div>
+<div className="FGR"><span className="FL">Email</span><input className="FI" type="email" placeholder="info@company.by" value={co.email} onChange={e=>setCo(p=>({...p,email:e.target.value}))} /></div>
+<div className="FGR"><span className="FL">Телефон</span><input className="FI" placeholder="+375 29 XXX-XX-XX" value={co.phone} onChange={e=>setCo(p=>({...p,phone:e.target.value}))} /></div>
+<div className="FGR"><span className="FL">Дата КП</span><input className="FI" type="text" placeholder="15 апреля 2026" value={kpDate} onChange={e=>setKpDate(e.target.value)} /></div>
+<div className="FGR"><span className="FL">Заголовок КП</span><input className="FI" placeholder="Получение аттестата соответствия" value={ttl} onChange={e=>setTtl(e.target.value)} /></div>
+</div></div>
+<div style={{display:"flex",justifyContent:"flex-end"}}><button className="B BP Blg" onClick={()=>{if(!co.name){fl("Укажите компанию","error");return}setSt(2)}}>Далее: Услуги →</button></div>
+</>)}
+{st===2&&(<>
+<div className="CD"><div className="CT">✏️ Добавить свою услугу</div><div className="SR"><input className="FI" placeholder="Введите название услуги..." value={cn} onChange={e=>setCn(e.target.value)} onKeyDown={e=>e.key==="Enter"&&aC()} /><button className="B BG" onClick={aC}>+ Добавить</button></div></div>
+<div className="CD"><div className="CT">📂 Или из каталога</div><input className="FI" style={{width:"100%",marginBottom:14}} placeholder="🔍 Поиск по услугам..." value={catSearch} onChange={e=>setCatSearch(e.target.value)} />{(catSearch.trim()?[{c:"Результаты поиска",i:"🔎",s:CAT.flatMap(cat=>cat.s).filter(s=>s.n.toLowerCase().includes(catSearch.toLowerCase()))}]:CAT).map(cat=><div key={cat.c} className="CG"><div className={`CH ${(catSearch.trim()||ec===cat.c)?"op":""}`} onClick={()=>!catSearch.trim()&&setEc(ec===cat.c?null:cat.c)}><span>{cat.i}</span> {cat.c}<span style={{marginLeft:"auto",fontSize:12,color:"var(--t2)"}}>{cat.s.length}</span><span className="aw">▸</span></div>{(catSearch.trim()||ec===cat.c)&&<div className="CS">{cat.s.length===0?<div className="SVI" style={{color:"var(--t2)",fontStyle:"italic"}}>Ничего не найдено</div>:cat.s.map(s=>{const a=sv.some(x=>x.id===s.id);return<div key={s.id} className="SVI"><div className="SVN">{s.n}</div>{a?<span className="SVA">✓</span>:<button className="B BP Bsm" onClick={()=>aS(s)}>+</button>}</div>})}</div>}</div>)}</div>
+{sv.length>0&&<div className="CD"><div className="CT">✅ Услуги ({sv.length})</div><div style={{overflowX:"auto"}}><table className="TBL"><thead><tr><th style={{width:30}}>№</th><th>Наименование</th><th style={{width:70}}>Кол-во</th><th style={{width:120}}>Подготовка</th><th style={{width:120}}>Пошлины</th><th style={{width:150}}>Доп. расходы</th><th style={{width:40}}></th></tr></thead><tbody>
+{sv.map((s,i)=>{const hasWork=s.spk||s.att||s.spec;const isExp=expandedSvc===s.id;return <React.Fragment key={s.id}>
+<tr><td style={{color:"var(--t2)"}}>{i+1}</td>
+<td><div style={{display:"flex",alignItems:"center",gap:8}}>
+{hasWork&&<span style={{cursor:"pointer",userSelect:"none",fontSize:14,color:isExp?"var(--ac)":"var(--t2)",transition:"transform .2s",display:"inline-block",transform:isExp?"rotate(90deg)":"none"}} onClick={()=>setExpandedSvc(isExp?null:s.id)}>▸</span>}
+<input className="FI" style={{flex:1,background:"transparent",border:"none",padding:0,fontSize:13,color:"var(--tx)"}} value={s.cn||s.n} onChange={e=>uS(s.id,"cn",e.target.value)} />
+</div>
+{hasWork&&(s.workTypes||[]).length>0&&!isExp&&<div style={{fontSize:11,color:"var(--gn)",marginTop:4}}>✓ Видов работ: {(s.workTypes||[]).length}</div>}
+</td>
+<td><input type="number" className="NI2" style={{width:60,textAlign:"center"}} min={1} value={s.qty||1} onChange={e=>uS(s.id,"qty",Math.max(1,+e.target.value||1))} /></td>
+<td><input type="number" className="NI2" placeholder="0" value={s.prep||""} onChange={e=>uS(s.id,"prep",e.target.value===""?0:+e.target.value)} /></td>
+<td><input type="number" className="NI2" placeholder="0" value={s.fee||""} onChange={e=>uS(s.id,"fee",e.target.value===""?0:+e.target.value)} /></td>
+<td><input type="number" className="NI2" placeholder="0" value={s.extra||""} onChange={e=>uS(s.id,"extra",e.target.value===""?0:+e.target.value)} /><input className="CIp" placeholder="Комментарий..." value={s.ec||""} onChange={e=>uS(s.id,"ec",e.target.value)} /></td>
+<td><button className="B BR Bsm" onClick={()=>rS(s.id)}>✕</button></td>
+</tr>
+{hasWork&&isExp&&<tr><td colSpan={7} style={{background:"var(--s2)",padding:"16px 20px"}}>
+<div style={{fontWeight:700,fontSize:13,marginBottom:12,color:"var(--ac)"}}>{s.spec?"👷 Выбор специалистов":("📋 Виды работ "+(s.spk?"для СПК":"для Аттестации"))}</div>
+{s.spec?<div>
+<div style={{background:"var(--bg)",borderRadius:8,padding:"10px",maxHeight:380,overflowY:"auto",marginBottom:10,border:"1px solid var(--bd)"}}>
+{SPECIALISTS.map(sp=>{const added=(s.specs||[]).includes(sp);return<div key={sp} onClick={()=>{if(added){setSv(p=>p.map(x=>x.id===s.id?{...x,specs:(x.specs||[]).filter(z=>z!==sp)}:x))}else{setSv(p=>p.map(x=>x.id===s.id?{...x,specs:[...(x.specs||[]),sp]}:x))}}} style={{padding:"6px 10px",borderRadius:6,cursor:"pointer",fontSize:12,display:"flex",gap:10,alignItems:"flex-start",background:added?"rgba(52,199,123,.1)":"transparent",marginBottom:2,lineHeight:1.4}}><span style={{fontSize:14,flexShrink:0,color:added?"var(--gn)":"var(--t2)",marginTop:-2}}>{added?"✓":"☐"}</span><span style={{flex:1}}>{sp}</span></div>})}
+</div>
+{(s.specs||[]).length>0&&<div style={{fontSize:11,color:"var(--gn)",fontWeight:600}}>✓ Выбрано: {(s.specs||[]).length}</div>}
+</div>:<><div style={{display:"flex",gap:10,marginBottom:12}}>
+<button className="B BP Bsm" onClick={()=>setShowWorkPicker(!showWorkPicker)}>{showWorkPicker?"Скрыть каталог":"📂 Выбрать из каталога"}</button>
+<input className="FI" style={{flex:1,fontSize:12,padding:"6px 10px"}} placeholder="Или впишите свой..." value={customWork} onChange={e=>setCustomWork(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&customWork.trim()){updWork(s.id,p=>[...p,{code:"",name:customWork.trim(),custom:true}]);setCustomWork("")}}} />
+<button className="B BG Bsm" onClick={()=>{if(customWork.trim()){updWork(s.id,p=>[...p,{code:"",name:customWork.trim(),custom:true}]);setCustomWork("")}}}>+</button>
+</div>
+{showWorkPicker&&<div style={{background:"var(--bg)",borderRadius:8,padding:"10px",maxHeight:350,overflowY:"auto",marginBottom:12,border:"1px solid var(--bd)"}}>
+<input className="FI" style={{width:"100%",marginBottom:10,fontSize:12,padding:"6px 10px"}} placeholder="🔍 Поиск..." value={workSearch} onChange={e=>setWorkSearch(e.target.value)} />
+{WORK_TYPES.filter(w=>!workSearch.trim()||(w.code+" "+w.name).toLowerCase().includes(workSearch.toLowerCase())).map(w=>{const added=(s.workTypes||[]).find(x=>x.code===w.code);return <div key={w.code} onClick={()=>{if(added){updWork(s.id,p=>p.filter(x=>x.code!==w.code))}else{updWork(s.id,p=>[...p,{code:w.code,name:w.name}])}}} style={{padding:"6px 10px",borderRadius:6,cursor:"pointer",fontSize:12,display:"flex",gap:10,alignItems:"flex-start",background:added?"rgba(52,199,123,.1)":"transparent",marginBottom:2}}><span style={{fontSize:14,flexShrink:0,color:added?"var(--gn)":"var(--t2)",marginTop:-2}}>{added?"✓":"☐"}</span><span style={{fontWeight:700,color:"var(--ac)",minWidth:40}}>{w.code}</span><span style={{flex:1}}>{w.name}</span></div>})}
+</div>}
+{(s.workTypes||[]).length>0&&<div style={{background:"var(--bg)",border:"1px solid var(--bd)",borderRadius:8,padding:"10px 14px",marginBottom:10}}>
+<div style={{fontSize:11,color:"var(--t2)",marginBottom:6,fontWeight:600}}>Выбрано ({(s.workTypes||[]).length}):</div>
+{(s.workTypes||[]).map((w,i)=><div key={i} style={{display:"flex",gap:8,padding:"4px 0",fontSize:12,alignItems:"flex-start",borderBottom:i<(s.workTypes||[]).length-1?"1px solid var(--bd)":"none"}}>{w.code&&<span style={{color:"var(--ac)",fontWeight:700,minWidth:40}}>{w.code}</span>}<span style={{flex:1}}>{w.name}</span><button className="B BR" style={{padding:"1px 6px",fontSize:10}} onClick={()=>updWork(s.id,p=>p.filter((_,j)=>j!==i))}>✕</button></div>)}
+</div>}
+{(()=>{const si=new Set();(s.workTypes||[]).forEach(w=>{const wt=WORK_TYPES.find(x=>x.code===w.code);if(wt&&SI_GROUPS[wt.si])SI_GROUPS[wt.si].forEach(x=>si.add(x))});const siArr=Array.from(si);const spk=new Set(),att=new Set();(s.workTypes||[]).forEach(w=>{const m=SPEC_MAP[w.code];if(m){if(s.spk&&m.spk)spk.add(m.spk);if(s.att&&m.att&&m.att!=="-")att.add(m.att)}});const spkArr=Array.from(spk),attArr=Array.from(att);return<React.Fragment>
+{siArr.length>0&&<div style={{marginBottom:10,padding:"10px 14px",background:"rgba(79,125,245,.08)",borderRadius:8,border:"1px solid rgba(79,125,245,.2)"}}>
+<div style={{fontSize:11,color:"var(--ac)",marginBottom:4,fontWeight:700}}>🔧 Автоматически подобранные СИ ({siArr.length}):</div>
+<div style={{fontSize:11,color:"var(--tx)",lineHeight:1.6}}>{siArr.join(" · ")}</div>
+</div>}
+{(spkArr.length>0||attArr.length>0)&&<div style={{padding:"10px 14px",background:"rgba(52,199,123,.08)",borderRadius:8,border:"1px solid rgba(52,199,123,.2)"}}>
+<div style={{fontSize:11,color:"var(--gn)",marginBottom:6,fontWeight:700}}>👷 Необходимые специалисты:</div>
+{spkArr.length>0&&<div style={{marginBottom:attArr.length?6:0}}>
+<div style={{fontSize:10,color:"var(--t2)",marginBottom:2,fontWeight:600,textTransform:"uppercase",letterSpacing:.5}}>Для СПК:</div>
+<div style={{fontSize:11,color:"var(--tx)",lineHeight:1.6}}>{spkArr.map((sp,k)=><div key={k}>• {sp}</div>)}</div>
+</div>}
+{attArr.length>0&&<div>
+<div style={{fontSize:10,color:"var(--t2)",marginBottom:2,fontWeight:600,textTransform:"uppercase",letterSpacing:.5}}>Для аттестата:</div>
+<div style={{fontSize:11,color:"var(--tx)",lineHeight:1.6}}>{attArr.map((sp,k)=><div key={k}>• {sp}</div>)}</div>
+</div>}
+</div>}
+</React.Fragment>})()}</>}
+{s.spk&&<div style={{marginTop:12,paddingTop:12,borderTop:"1px solid var(--bd)"}}>
+<div style={{fontWeight:700,fontSize:12,marginBottom:8,color:"var(--gn)"}}>👷 Дополнительные специалисты для СПК:</div>
+{(s.spkSpecs||[]).map((sp,k)=><div key={k} style={{display:"flex",gap:8,alignItems:"center",padding:"5px 10px",fontSize:12,background:"var(--bg)",borderRadius:6,marginBottom:4,border:"1px solid var(--bd)"}}>
+<span style={{flex:1,color:"var(--tx)"}}>{sp}</span>
+<button className="B BR" style={{padding:"1px 6px",fontSize:10}} onClick={()=>updSpkSpecs(s.id,p=>p.filter((_,j)=>j!==k))}>✕</button>
+</div>)}
+<div style={{display:"flex",gap:8,marginTop:8}}>
+<input className="FI" style={{flex:1,fontSize:12,padding:"6px 10px"}} placeholder="Добавить специалиста для СПК..." value={customSpkSpec} onChange={e=>setCustomSpkSpec(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&customSpkSpec.trim()){updSpkSpecs(s.id,p=>[...p,customSpkSpec.trim()]);setCustomSpkSpec("")}}} />
+<button className="B BG Bsm" onClick={()=>{if(customSpkSpec.trim()){updSpkSpecs(s.id,p=>[...p,customSpkSpec.trim()]);setCustomSpkSpec("")}}}>+</button>
+</div>
+</div>}
+{s.att&&<div style={{marginTop:12,paddingTop:12,borderTop:"1px solid var(--bd)"}}>
+<div style={{fontWeight:700,fontSize:12,marginBottom:8,color:"var(--gn)"}}>👷 Обязательные специалисты для аттестации:</div>
+{(s.attSpecs||[]).map((sp,k)=><div key={k} style={{display:"flex",gap:8,alignItems:"center",padding:"5px 10px",fontSize:12,background:"var(--bg)",borderRadius:6,marginBottom:4,border:"1px solid var(--bd)"}}>
+<span style={{flex:1,color:"var(--tx)"}}>{sp}</span>
+<button className="B BR" style={{padding:"1px 6px",fontSize:10}} onClick={()=>updAttSpecs(s.id,p=>p.filter((_,j)=>j!==k))}>✕</button>
+</div>)}
+<div style={{display:"flex",gap:8,marginTop:8}}>
+<input className="FI" style={{flex:1,fontSize:12,padding:"6px 10px"}} placeholder="Добавить специалиста..." value={customSpec} onChange={e=>setCustomSpec(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&customSpec.trim()){updAttSpecs(s.id,p=>[...p,customSpec.trim()]);setCustomSpec("")}}} />
+<button className="B BG Bsm" onClick={()=>{if(customSpec.trim()){updAttSpecs(s.id,p=>[...p,customSpec.trim()]);setCustomSpec("")}}}>+</button>
+</div>
+</div>}
+</td></tr>}
+</React.Fragment>})}
+<tr className="TR"><td></td><td style={{textAlign:"right"}}>Итого:</td><td></td><td>{fm(tP)}</td><td>{fm(tF)}</td><td>{fm(tE)}</td><td></td></tr>
+<tr className="GR"><td></td><td style={{textAlign:"right"}}>ОБЩАЯ СУММА:</td><td colSpan={4}>{fm(tT)}</td><td></td></tr>
+</tbody></table></div></div>}
+
+{/* НОВЫЙ блок: Общее редактирование СИ и специалистов */}
+{(autoSI.length>0||autoSPEC.spk.length>0||autoSPEC.att.length>0||baseAutoSI.length>0||baseAutoSPEC.spk.length>0||baseAutoSPEC.att.length>0)&&<div className="CD"><div className="CT">🛠 Итоговые списки в КП (можно редактировать)</div>
+
+{(baseAutoSI.length>0||extraSI.length>0)&&<div style={{marginBottom:20,padding:"12px 14px",background:"var(--s2)",borderRadius:8,border:"1px solid var(--bd)"}}>
+<div style={{fontSize:12,fontWeight:700,color:"var(--ac)",marginBottom:10}}>🔧 Перечень оборудования (СИ) — {autoSI.length} поз.:</div>
+{baseAutoSI.map((s,k)=>{const removed=removedSI.includes(s);return <div key={"si-base-"+k} style={{display:"flex",gap:8,alignItems:"center",padding:"4px 8px",fontSize:11,background:removed?"rgba(245,87,79,.1)":"var(--bg)",borderRadius:5,marginBottom:3,border:"1px solid var(--bd)",textDecoration:removed?"line-through":"none",opacity:removed?.5:1}}>
+<span style={{flex:1}}>{s}</span>
+{removed?<button className="B BS" style={{padding:"1px 6px",fontSize:10}} onClick={()=>setRemovedSI(p=>p.filter(x=>x!==s))}>↶</button>:<button className="B BR" style={{padding:"1px 6px",fontSize:10}} onClick={()=>setRemovedSI(p=>[...p,s])}>✕</button>}
+</div>})}
+{extraSI.map((s,k)=><div key={"si-extra-"+k} style={{display:"flex",gap:8,alignItems:"center",padding:"4px 8px",fontSize:11,background:"rgba(52,199,123,.1)",borderRadius:5,marginBottom:3,border:"1px solid var(--gn)"}}>
+<span style={{flex:1,fontWeight:600}}>{s} <span style={{color:"var(--gn)",fontSize:9}}>(добавлено)</span></span>
+<button className="B BR" style={{padding:"1px 6px",fontSize:10}} onClick={()=>setExtraSI(p=>p.filter((_,j)=>j!==k))}>✕</button>
+</div>)}
+<div style={{display:"flex",gap:6,marginTop:8}}>
+<input className="FI" style={{flex:1,fontSize:11,padding:"5px 8px"}} placeholder="Добавить своё СИ..." value={customSi} onChange={e=>setCustomSi(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&customSi.trim()){setExtraSI(p=>[...p,customSi.trim()]);setCustomSi("")}}} />
+<button className="B BG" style={{padding:"5px 12px",fontSize:11}} onClick={()=>{if(customSi.trim()){setExtraSI(p=>[...p,customSi.trim()]);setCustomSi("")}}}>+</button>
+</div>
+</div>}
+
+{(baseAutoSPEC.spk.length>0||extraSpkSpecs.length>0)&&<div style={{marginBottom:20,padding:"12px 14px",background:"var(--s2)",borderRadius:8,border:"1px solid var(--bd)"}}>
+<div style={{fontSize:12,fontWeight:700,color:"var(--gn)",marginBottom:10}}>👷 Специалисты для СПК — {autoSPEC.spk.length} поз.:</div>
+{baseAutoSPEC.spk.map((s,k)=>{const removed=removedSpkSpecs.includes(s);return <div key={"spk-base-"+k} style={{display:"flex",gap:8,alignItems:"center",padding:"4px 8px",fontSize:11,background:removed?"rgba(245,87,79,.1)":"var(--bg)",borderRadius:5,marginBottom:3,border:"1px solid var(--bd)",textDecoration:removed?"line-through":"none",opacity:removed?.5:1}}>
+<span style={{flex:1}}>{s}</span>
+{removed?<button className="B BS" style={{padding:"1px 6px",fontSize:10}} onClick={()=>setRemovedSpkSpecs(p=>p.filter(x=>x!==s))}>↶</button>:<button className="B BR" style={{padding:"1px 6px",fontSize:10}} onClick={()=>setRemovedSpkSpecs(p=>[...p,s])}>✕</button>}
+</div>})}
+{extraSpkSpecs.map((s,k)=><div key={"spk-extra-"+k} style={{display:"flex",gap:8,alignItems:"center",padding:"4px 8px",fontSize:11,background:"rgba(52,199,123,.1)",borderRadius:5,marginBottom:3,border:"1px solid var(--gn)"}}>
+<span style={{flex:1,fontWeight:600}}>{s} <span style={{color:"var(--gn)",fontSize:9}}>(добавлено)</span></span>
+<button className="B BR" style={{padding:"1px 6px",fontSize:10}} onClick={()=>setExtraSpkSpecs(p=>p.filter((_,j)=>j!==k))}>✕</button>
+</div>)}
+<div style={{display:"flex",gap:6,marginTop:8}}>
+<input className="FI" style={{flex:1,fontSize:11,padding:"5px 8px"}} placeholder="Добавить специалиста для СПК..." value={customSpkSpec} onChange={e=>setCustomSpkSpec(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&customSpkSpec.trim()){setExtraSpkSpecs(p=>[...p,customSpkSpec.trim()]);setCustomSpkSpec("")}}} />
+<button className="B BG" style={{padding:"5px 12px",fontSize:11}} onClick={()=>{if(customSpkSpec.trim()){setExtraSpkSpecs(p=>[...p,customSpkSpec.trim()]);setCustomSpkSpec("")}}}>+</button>
+</div>
+</div>}
+
+{(baseAutoSPEC.att.length>0||extraAttSpecs.length>0)&&<div style={{padding:"12px 14px",background:"var(--s2)",borderRadius:8,border:"1px solid var(--bd)"}}>
+<div style={{fontSize:12,fontWeight:700,color:"var(--gn)",marginBottom:10}}>👷 Специалисты для аттестата — {autoSPEC.att.length} поз.:</div>
+{baseAutoSPEC.att.map((s,k)=>{const removed=removedAttSpecs.includes(s);return <div key={"att-base-"+k} style={{display:"flex",gap:8,alignItems:"center",padding:"4px 8px",fontSize:11,background:removed?"rgba(245,87,79,.1)":"var(--bg)",borderRadius:5,marginBottom:3,border:"1px solid var(--bd)",textDecoration:removed?"line-through":"none",opacity:removed?.5:1}}>
+<span style={{flex:1}}>{s}</span>
+{removed?<button className="B BS" style={{padding:"1px 6px",fontSize:10}} onClick={()=>setRemovedAttSpecs(p=>p.filter(x=>x!==s))}>↶</button>:<button className="B BR" style={{padding:"1px 6px",fontSize:10}} onClick={()=>setRemovedAttSpecs(p=>[...p,s])}>✕</button>}
+</div>})}
+{extraAttSpecs.map((s,k)=><div key={"att-extra-"+k} style={{display:"flex",gap:8,alignItems:"center",padding:"4px 8px",fontSize:11,background:"rgba(52,199,123,.1)",borderRadius:5,marginBottom:3,border:"1px solid var(--gn)"}}>
+<span style={{flex:1,fontWeight:600}}>{s} <span style={{color:"var(--gn)",fontSize:9}}>(добавлено)</span></span>
+<button className="B BR" style={{padding:"1px 6px",fontSize:10}} onClick={()=>setExtraAttSpecs(p=>p.filter((_,j)=>j!==k))}>✕</button>
+</div>)}
+<div style={{display:"flex",gap:6,marginTop:8}}>
+<input className="FI" style={{flex:1,fontSize:11,padding:"5px 8px"}} placeholder="Добавить специалиста для аттестата..." value={customSpec} onChange={e=>setCustomSpec(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&customSpec.trim()){setExtraAttSpecs(p=>[...p,customSpec.trim()]);setCustomSpec("")}}} />
+<button className="B BG" style={{padding:"5px 12px",fontSize:11}} onClick={()=>{if(customSpec.trim()){setExtraAttSpecs(p=>[...p,customSpec.trim()]);setCustomSpec("")}}}>+</button>
+</div>
+</div>}
+</div>}
+
+<div style={{display:"flex",justifyContent:"space-between"}}><button className="B BS Blg" onClick={()=>setSt(1)}>← Компания</button><button className="B BP Blg" onClick={()=>{if(!sv.length){fl("Добавьте услугу","error");return}setSt(3)}}>Предпросмотр →</button></div>
+</>)}
+
+
+{st===3&&(<>
+<div style={{background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:8,padding:"10px 14px",marginBottom:16,fontSize:12,color:"var(--t2)",display:"flex",alignItems:"center",gap:8}}>
+<span style={{color:"var(--ac)",fontSize:14}}>✏️</span>
+<span>Кликните на любой текст в КП, чтобы изменить его прямо здесь. Enter — сохранить, Esc — отмена.</span>
+</div>
+<div className="KP" ref={kpRef}>
+<div className="KY">2026</div>
+<div className="KH"><h1>КОММЕРЧЕСКОЕ</h1><h2>ПРЕДЛОЖЕНИЕ</h2><div className="br2">MAVIS GROUP</div></div>
+<div className="KD">Предложение о сотрудничестве от <EditableField value={kpDate} onChange={setKpDate} /></div>
+<div className="KC"><h3><EditableField value={co.name} onChange={v=>setCo(p=>({...p,name:v}))} placeholder="Название компании" /></h3>{(co.dir||true)&&<p><EditableField value={co.dir} onChange={v=>setCo(p=>({...p,dir:v}))} placeholder="ФИО директора (опционально)" /></p>}</div>
+
+{sv.filter(s=>(s.workTypes||[]).length>0).map(s=><div key={"wt_"+s.id} style={{marginLeft:60,marginBottom:16,padding:"16px 20px",background:"rgba(255,255,255,.6)",borderRadius:8,border:"1px solid rgba(100,100,100,.2)"}}>
+<div style={{fontSize:13,fontWeight:700,marginBottom:10,color:"#1f1f1f"}}>Виды работ {s.spk?"для СПК":s.att?"для Аттестации":""} ({s.cn||s.n}):</div>
+<div style={{fontSize:11,color:"#1f1f1f",lineHeight:1.6,fontWeight:500}}>
+{(s.workTypes||[]).map((w,i)=><div key={i} className="kp-list-item" style={{padding:"2px 0",display:"flex",alignItems:"center",gap:6}}>
+<span style={{flex:1}}>— <EditableField value={w.name} onChange={nv=>updWork(s.id,p=>p.map((x,j)=>j===i?{...x,name:nv}:x))} /></span>
+<button className="del-btn no-pdf" onClick={()=>updWork(s.id,p=>p.filter((_,j)=>j!==i))}>✕</button>
+</div>)}
+<div className="kp-add-row no-pdf">
+<input placeholder="Добавить вид работ..." onKeyDown={e=>{if(e.key==="Enter"&&e.target.value.trim()){updWork(s.id,p=>[...p,{code:"",name:e.target.value.trim(),custom:true}]);e.target.value=""}}} />
+<button className="kp-add-btn" onClick={e=>{const inp=e.target.previousSibling;if(inp.value.trim()){updWork(s.id,p=>[...p,{code:"",name:inp.value.trim(),custom:true}]);inp.value=""}}}>+</button>
+</div>
+</div>
+</div>)}
+
+{ttl&&<div className="KS"><EditableField value={ttl} onChange={setTtl} placeholder="Заголовок" /></div>}
+<table className="KT"><thead><tr><th>№</th><th>Услуга</th><th>Наши услуги</th><th>Пошлины</th><th>Доп. расходы</th></tr></thead><tbody>
+{sv.map((s,i)=><tr key={s.id}><td style={{color:"#777"}}>{i+1}</td><td>{s.id!=="tnpa"&&s.id!=="tech_cards"&&<div style={{fontSize:10,color:"#8b5a1e",fontWeight:700,marginBottom:2,letterSpacing:1}}>ЭТАП {i+1}</div>}<EditableField value={s.cn||s.n} onChange={v=>uS(s.id,"cn",v)} />{(s.qty||1)>1&&<span style={{color:"#777"}}> × {s.qty}</span>}</td><td>{fm(s.prep*(s.qty||1))}</td><td>{fm(s.fee*(s.qty||1))}</td><td>{fm(s.extra*(s.qty||1))}{s.ec&&<div style={{fontSize:11,color:"#777",marginTop:2}}><EditableField value={s.ec} onChange={v=>uS(s.id,"ec",v)} /></div>}</td></tr>)}
+<tr className="TT"><td></td><td>Итого:</td><td>{fm(tP)}</td><td>{fm(tF)}</td><td>{fm(tE)}</td></tr>
+<tr className="TG"><td></td><td>ОБЩАЯ СУММА:</td><td colSpan={3}>{fm(tT)}</td></tr>
+</tbody></table>
+
+{(autoSPEC.spk.length>0||autoSPEC.att.length>0)&&<div style={{marginLeft:60,marginRight:0,marginBottom:32,border:"1px solid rgba(100,100,100,.3)",borderRadius:4}}>
+<div style={{background:"rgba(100,100,100,.12)",padding:"10px 16px",fontWeight:700,fontSize:14,color:"#1f1f1f",textAlign:"center",borderBottom:"1px solid rgba(100,100,100,.25)"}}>Необходимые специалисты</div>
+<div style={{padding:"14px 20px",fontSize:12,color:"#1f1f1f",lineHeight:1.8}}>
+{autoSPEC.spk.length>0&&<div style={{marginBottom:autoSPEC.att.length>0?12:0}}>
+<div style={{fontWeight:700,marginBottom:6,color:"#8b5a1e"}}>Для свидетельства о тех. компетентности:</div>
+{autoSPEC.spk.map((sp,i)=>{const isExtra=extraSpkSpecs.includes(sp);return <div key={i} className="kp-list-item" style={{display:"flex",alignItems:"center",gap:6,padding:"1px 0"}}>
+<span style={{flex:1}}>— <EditableField value={sp} onChange={nv=>{
+if(isExtra){setExtraSpkSpecs(p=>p.map((x,j)=>x===sp?nv:x))}
+else{setRemovedSpkSpecs(p=>[...p,sp]);setExtraSpkSpecs(p=>[...p,nv])}
+}} />;</span>
+<button className="del-btn no-pdf" onClick={()=>{
+if(isExtra){setExtraSpkSpecs(p=>p.filter(x=>x!==sp))}
+else{setRemovedSpkSpecs(p=>[...p,sp])}
+}}>✕</button>
+</div>})}
+<div className="kp-add-row no-pdf"><input placeholder="Добавить специалиста для СПК..." onKeyDown={e=>{if(e.key==="Enter"&&e.target.value.trim()){setExtraSpkSpecs(p=>[...p,e.target.value.trim()]);e.target.value=""}}} /><button className="kp-add-btn" onClick={e=>{const inp=e.target.previousSibling;if(inp.value.trim()){setExtraSpkSpecs(p=>[...p,inp.value.trim()]);inp.value=""}}}>+</button></div>
+</div>}
+{autoSPEC.att.length>0&&<div>
+<div style={{fontWeight:700,marginBottom:6,color:"#8b5a1e"}}>Для аттестата соответствия:</div>
+{autoSPEC.att.map((sp,i)=>{const isExtra=extraAttSpecs.includes(sp);return <div key={i} className="kp-list-item" style={{display:"flex",alignItems:"center",gap:6,padding:"1px 0"}}>
+<span style={{flex:1}}>— <EditableField value={sp} onChange={nv=>{
+if(isExtra){setExtraAttSpecs(p=>p.map((x,j)=>x===sp?nv:x))}
+else{setRemovedAttSpecs(p=>[...p,sp]);setExtraAttSpecs(p=>[...p,nv])}
+}} />;</span>
+<button className="del-btn no-pdf" onClick={()=>{
+if(isExtra){setExtraAttSpecs(p=>p.filter(x=>x!==sp))}
+else{setRemovedAttSpecs(p=>[...p,sp])}
+}}>✕</button>
+</div>})}
+<div className="kp-add-row no-pdf"><input placeholder="Добавить специалиста для аттестата..." onKeyDown={e=>{if(e.key==="Enter"&&e.target.value.trim()){setExtraAttSpecs(p=>[...p,e.target.value.trim()]);e.target.value=""}}} /><button className="kp-add-btn" onClick={e=>{const inp=e.target.previousSibling;if(inp.value.trim()){setExtraAttSpecs(p=>[...p,inp.value.trim()]);inp.value=""}}}>+</button></div>
+</div>}
+</div>
+</div>}
+
+{autoSI.length>0&&<div style={{marginLeft:60,marginRight:0,marginBottom:32,border:"1px solid rgba(100,100,100,.3)",borderRadius:4}}>
+<div style={{background:"rgba(100,100,100,.12)",padding:"10px 16px",fontWeight:700,fontSize:14,color:"#1f1f1f",textAlign:"center",borderBottom:"1px solid rgba(100,100,100,.25)"}}>Перечень необходимого оборудования</div>
+<div style={{padding:"10px 20px",fontSize:11,color:"#1f1f1f",lineHeight:1.4}}>
+{autoSI.map((s,i)=>{const isExtra=extraSI.includes(s);return <div key={i} className="kp-list-item" style={{padding:"1px 0",display:"flex",alignItems:"center",gap:6}}>
+<span style={{flex:1}}>— <EditableField value={s} onChange={nv=>{
+if(isExtra){setExtraSI(p=>p.map((x,j)=>x===s?nv:x))}
+else{setRemovedSI(p=>[...p,s]);setExtraSI(p=>[...p,nv])}
+}} />;</span>
+<button className="del-btn no-pdf" onClick={()=>{
+if(isExtra){setExtraSI(p=>p.filter(x=>x!==s))}
+else{setRemovedSI(p=>[...p,s])}
+}}>✕</button>
+</div>})}
+<div className="kp-add-row no-pdf"><input placeholder="Добавить СИ..." onKeyDown={e=>{if(e.key==="Enter"&&e.target.value.trim()){setExtraSI(p=>[...p,e.target.value.trim()]);e.target.value=""}}} /><button className="kp-add-btn" onClick={e=>{const inp=e.target.previousSibling;if(inp.value.trim()){setExtraSI(p=>[...p,inp.value.trim()]);inp.value=""}}}>+</button></div>
+</div>
+</div>}
+
+{sv.find(s=>s.ot)&&<div style={{marginLeft:60,marginRight:0,marginBottom:32,border:"1px solid rgba(100,100,100,.3)",borderRadius:4}}>
+<div style={{background:"rgba(100,100,100,.12)",padding:"10px 16px",fontWeight:700,fontSize:14,color:"#1f1f1f",textAlign:"center",borderBottom:"1px solid rgba(100,100,100,.25)"}}>Разработка пакета документов по охране труда</div>
+<div style={{padding:"14px 20px"}}>
+<div style={{fontWeight:700,fontSize:12,color:"#1f1f1f",marginBottom:10,borderBottom:"1px solid rgba(100,100,100,.2)",paddingBottom:6}}>Перечень разрабатываемых документов:</div>
+<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"4px 24px",fontSize:11,color:"#1f1f1f",lineHeight:1.5}}>
+{OT_DOCS.map((d,i)=><div key={i} style={{padding:"3px 0",borderBottom:"1px solid rgba(100,100,100,.08)"}}>• {d}</div>)}
+</div>
+</div>
+</div>}
+
+<div className="KCN"><strong>Условия сотрудничества:</strong><br/><EditableField value={condText} onChange={setCondText} multiline /></div>
+<div className="KS">Преимущества работы с нами</div>
+<div className="KA">{advList.map((a,i)=><div key={i} className="KAI"><h4><span style={{color:"#8b5a1e"}}>◆</span> <EditableField value={a.t} onChange={nv=>setAdvList(p=>p.map((x,j)=>j===i?{...x,t:nv}:x))} /></h4><p><EditableField value={a.d} onChange={nv=>setAdvList(p=>p.map((x,j)=>j===i?{...x,d:nv}:x))} multiline /></p></div>)}</div>
+<div className="KCL">{CL.map(c=><span key={c} className="KCLT">{c}</span>)}</div>
+{mgrData?.name&&<div style={{marginLeft:60,marginTop:32,paddingTop:20,borderTop:"1px solid rgba(100,100,100,.25)"}}><div style={{fontSize:16,fontWeight:700,color:"#1f1f1f",marginBottom:4}}>{mgrData.name}</div><div style={{fontSize:12,color:"#3a3a3a",marginBottom:2}}>MAVIS GROUP | Специалист отдела продаж</div>{mgrData.phone&&<div style={{fontSize:12,color:"#777"}}>{mgrData.phone}</div>}<div style={{fontSize:12,color:"#777"}}>mavis.group@mail.ru</div></div>}
+</div>
+<div className="AB">
+<button className="B BS Blg" onClick={()=>setSt(2)}>← Редактировать</button>
+<button className="B BG Blg" onClick={save}>💾 Сохранить</button>
+<button className="B BP Blg" onClick={sEm} disabled={sn}>{sn?"⏳ Отправка...":"✉ Отправить письмо"}</button>
+<button className="B BS Blg" onClick={dlPdf} disabled={pdfing}>{pdfing?"⏳":"📄 Скачать PDF"}</button>
+</div>
+</>)}
+</div>
+</>)}
+
+{pg==="history"&&(<><div className="MH"><h2>История КП</h2></div><div className="MC">
+<div style={{display:"flex",gap:0,marginBottom:20,borderBottom:"1px solid var(--bd)"}}>
+{[{id:"all",label:"Все"},...INIT_MGRS.map(m=>({id:String(m.id),label:m.name.split(" ")[0]}))].map(tab=><div key={tab.id} onClick={()=>setHistTab(tab.id)} style={{padding:"10px 20px",fontSize:13,fontWeight:600,cursor:"pointer",borderBottom:histTab===tab.id?"2px solid var(--ac)":"2px solid transparent",color:histTab===tab.id?"var(--ac)":"var(--t2)",marginBottom:-1}}>{tab.label}</div>)}
+</div>
+<div style={{marginBottom:16}}><input className="FI" style={{width:"100%"}} placeholder="Поиск по компании..." value={histQ} onChange={e=>setHistQ(e.target.value)} /></div>
+{(()=>{let f=hi;if(histTab!=="all")f=f.filter(k=>{const m=INIT_MGRS.find(x=>x.name===k.mgr);return m&&String(m.id)===histTab});if(histQ.trim())f=f.filter(k=>k.co.name.toLowerCase().includes(histQ.toLowerCase()));if(!f.length)return <div className="ES"><p style={{fontSize:14}}>{hi.length?"Ничего не найдено":"Пока нет КП"}</p>{!hi.length&&<button className="B BP" style={{marginTop:20}} onClick={nw}>+ Создать</button>}</div>;return f.map(k=><div key={k.id} className="HC" onClick={()=>ld(k)}><div><div style={{fontSize:12,color:"var(--ac)",fontWeight:700}}>{k.kn}</div><div style={{fontSize:15,fontWeight:700}}>{k.co.name}</div><div style={{fontSize:12,color:"var(--t2)"}}>{k.date}{k.mgr&&" · "+k.mgr}</div></div><div style={{marginLeft:"auto",fontSize:16,fontWeight:800,color:"var(--gn)",whiteSpace:"nowrap"}}>{fm(k.tT)}</div></div>)})()}
+</div></>)}
+
+{pg==="settings"&&(<><div className="MH"><h2>Настройки</h2></div><div className="MC">
+<div className="CD"><div className="CT">🔗 Битрикс24</div><div style={{padding:"12px 16px",background:"var(--s2)",borderRadius:8,fontSize:13,color:"var(--gn)",fontWeight:600}}>✓ Подключён: mavisgroup.bitrix24.by</div></div>
+<div className="CD"><div className="CT">✉ Email</div><p style={{fontSize:13,color:"var(--t2)",lineHeight:1.6}}>Все КП отправляются с <strong style={{color:"var(--tx)"}}>{FROM_EMAIL}</strong>. Подпись выбранного менеджера подставляется автоматически.</p></div>
+<div className="CD"><div className="CT">👤 Менеджеры</div>
+{INIT_MGRS.map((m,i)=><div key={m.id} style={{padding:"12px 16px",background:"var(--s2)",borderRadius:8,marginBottom:8,display:"flex",alignItems:"center",gap:12}}>
+<span style={{fontSize:14,fontWeight:700}}>{m.name}</span>
+<span style={{fontSize:12,color:"var(--t2)",marginLeft:"auto"}}>Специалист отдела продаж</span>
+</div>)}
+<div style={{marginTop:12,fontSize:12,color:"var(--t2)"}}>Менеджеры зашиты в приложение. Для изменения обратитесь к разработчику.</div>
+</div>
+<div className="CD"><div className="CT">📍 Реквизиты компании</div>
+<div className="FG">
+<div className="FGR"><span className="FL">Телефон</span><div style={{fontSize:14,color:"var(--tx)",padding:"10px 0"}}>{COMPANY_PHONE}</div></div>
+<div className="FGR"><span className="FL">Адрес</span><div style={{fontSize:14,color:"var(--tx)",padding:"10px 0"}}>{COMPANY_ADDR}</div></div>
+</div>
+</div>
+</div></>)}
+</div>
+</div>
+</>);
 }
 const root=ReactDOM.createRoot(document.getElementById('root'));root.render(React.createElement(App));
-</script><script>
+</script>
+<script>
 if('serviceWorker' in navigator){
-  window.addEventListener('load',()=>{
-    navigator.serviceWorker.register('sw.js').then(r=>console.log('SW registered')).catch(e=>console.log('SW error:',e));
-  });
+window.addEventListener('load',()=>{
+navigator.serviceWorker.register('sw.js').then(r=>console.log('SW registered')).catch(e=>console.log('SW error:',e));
+});
 }
 </script>
 </body></html>
