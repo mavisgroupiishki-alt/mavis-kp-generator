@@ -166,7 +166,9 @@ const[customSi,setCustomSi]=useState("");
 const ci=useRef(1);const kpRef=useRef(null);
 const fl=(m,t="success")=>{setNf({m,t});setTimeout(()=>setNf(null),3500)};
 
-React.useEffect(()=>{try{localStorage.setItem("mavis_kp_history",JSON.stringify(hi));}catch(e){}},[hi]);
+// Автосохранение КП в историю при открытии превью (silent)
+React.useEffect(()=>{if(st===3&&co.name&&sv.length>0&&mgrData){const id=setTimeout(()=>save(true),500);return()=>clearTimeout(id)}},[st]);
+React.useEffect(()=>{try{localStorage.setItem("mavis_kp_history",JSON.stringify(hi));}catch(e){console.error("LocalStorage save error:",e);if(e&&e.name==="QuotaExceededError"){fl("Превышен лимит хранилища! Сделайте экспорт и удалите старые КП.","error")}else{fl("Не удалось сохранить историю в браузер","error")}}},[hi]);
 
 // Bitrix
 const sBx=async()=>{if(!bq.trim())return;setBl(true);try{const r=await fetch(BX+"/crm.company.list.json?filter[%25TITLE]="+encodeURIComponent(bq)+"&select[]=TITLE&select[]=EMAIL&select[]=PHONE");const d=await r.json();const res=(d.result||[]).map(c=>({id:c.ID,name:c.TITLE||"",email:c.EMAIL?.[0]?.VALUE||"",phone:c.PHONE?.[0]?.VALUE||""}));setBr(res);if(!res.length)fl("Не найдено","warn")}catch(e){fl("Ошибка Битрикс24","error")}setBl(false)};
@@ -197,9 +199,17 @@ const uS=(id,f,v)=>setSv(p=>p.map(s=>s.id===id?{...s,[f]:v}:s));
 const tP=sv.reduce((a,s)=>a+(+s.prep||0)*(s.qty||1),0),tF=sv.reduce((a,s)=>a+(+s.fee||0)*(s.qty||1),0),tE=sv.reduce((a,s)=>a+(+s.extra||0)*(s.qty||1),0),tT=tP+tF+tE;
 
 // History
-const save=()=>{const k={id:Date.now(),kn,date:kpDate,co:{...co},sv:[...sv],ttl,tP,tF,tE,tT,mgr:mgrData?.name||"",extraSI,removedSI,extraSpkSpecs,removedSpkSpecs,extraAttSpecs,removedAttSpecs,condText,advList};setHi(p=>[k,...p]);fl("КП сохранено")};
+const save=(silent)=>{const k={id:Date.now(),kn,date:kpDate,co:{...co},sv:[...sv],ttl,tP,tF,tE,tT,mgr:mgrData?.name||"",extraSI,removedSI,extraSpkSpecs,removedSpkSpecs,extraAttSpecs,removedAttSpecs,condText,advList};setHi(p=>{const exists=p.findIndex(x=>x.kn===kn);if(exists>=0){const arr=[...p];arr[exists]={...k,id:p[exists].id};return arr}return [k,...p]});if(!silent)fl("КП сохранено")};
 const nw=()=>{setSt(1);setCo({name:"",dir:"",email:"",phone:"",bx:""});setSv([]);setTtl("");setKpDate(td());setKn(mkn());setExtraSI([]);setRemovedSI([]);setExtraSpkSpecs([]);setRemovedSpkSpecs([]);setExtraAttSpecs([]);setRemovedAttSpecs([]);setCondText("— 100% предоплата до начала выполнения работ.\n— Гос. пошлина — по мере направления документов.");setAdvList(ADV.map(a=>({...a})));setPg("create")};
 const ld=k=>{setCo(k.co);setSv(k.sv);setTtl(k.ttl);if(k.date)setKpDate(k.date);setKn(k.kn);setExtraSI(k.extraSI||[]);setRemovedSI(k.removedSI||[]);setExtraSpkSpecs(k.extraSpkSpecs||[]);setRemovedSpkSpecs(k.removedSpkSpecs||[]);setExtraAttSpecs(k.extraAttSpecs||[]);setRemovedAttSpecs(k.removedAttSpecs||[]);if(k.condText)setCondText(k.condText);if(k.advList)setAdvList(k.advList);setSt(3);setPg("create")};
+// Удаление из истории
+const delHist=(id,companyName)=>{if(!window.confirm("Удалить КП «"+companyName+"» из истории? Это действие нельзя отменить."))return;setHi(p=>p.filter(x=>x.id!==id));fl("КП удалено из истории","warn")};
+// Скачать PDF из карточки истории (открываем КП в фоне, генерируем, удаляем)
+const dlHistPdf=async(k)=>{ld(k);fl("Открываю КП для генерации PDF...","warn");const tryPdf=async(retries)=>{if(!kpRef.current&&retries>0){setTimeout(()=>tryPdf(retries-1),300);return}try{await dlPdf()}catch(e){console.error(e);fl("Ошибка генерации PDF: "+e.message,"error")}};setTimeout(()=>tryPdf(5),500)};
+// Экспорт всей истории в JSON-файл
+const exportHist=()=>{const blob=new Blob([JSON.stringify(hi,null,2)],{type:"application/json"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download="mavis_kp_history_"+new Date().toISOString().slice(0,10)+".json";a.click();URL.revokeObjectURL(url);fl("История экспортирована ("+hi.length+" КП)")};
+// Импорт истории из JSON
+const importHist=(file)=>{const r=new FileReader();r.onload=(e)=>{try{const arr=JSON.parse(e.target.result);if(!Array.isArray(arr))throw new Error("Неверный формат");setHi(p=>{const merged=[...arr];p.forEach(k=>{if(!merged.find(x=>x.id===k.id))merged.push(k)});merged.sort((a,b)=>(b.id||0)-(a.id||0));return merged});fl("Импортировано: "+arr.length+" КП")}catch(err){fl("Ошибка импорта: "+err.message,"error")}};r.readAsText(file)};
 
 // PDF
 const genPdfBlob=async()=>{
@@ -246,7 +256,7 @@ const link=document.createElement("a");
 link.href="data:application/pdf;base64,"+b64;
 link.download=pdfName;
 link.click();
-fl("PDF сохранён!");save();
+save(true);fl("PDF скачан, КП сохранено в истории");
 }catch(e){fl("Ошибка PDF: "+e.message,"error");console.error(e)}
 setPdfing(false);
 };
@@ -317,7 +327,7 @@ body:JSON.stringify({fields:{...baseFields,...fmt}})
 const d=await r.json();
 console.log("Result for",fmt.name,":",JSON.stringify(d).substring(0,200));
 if(d.result&&!d.error){
-fl("КП с PDF отправлено на "+co.email+"!"); save(); ok=true;
+save(true);fl("КП с PDF отправлено на "+co.email+", сохранено в истории");ok=true;
 }
 }catch(e){console.log("Format",fmt.name,"error:",e.message)}
 }
@@ -670,8 +680,23 @@ else{setRemovedSI(p=>[...p,s])}
 <div style={{display:"flex",gap:0,marginBottom:20,borderBottom:"1px solid var(--bd)"}}>
 {[{id:"all",label:"Все"},...INIT_MGRS.map(m=>({id:String(m.id),label:m.name.split(" ")[0]}))].map(tab=><div key={tab.id} onClick={()=>setHistTab(tab.id)} style={{padding:"10px 20px",fontSize:13,fontWeight:600,cursor:"pointer",borderBottom:histTab===tab.id?"2px solid var(--ac)":"2px solid transparent",color:histTab===tab.id?"var(--ac)":"var(--t2)",marginBottom:-1}}>{tab.label}</div>)}
 </div>
-<div style={{marginBottom:16}}><input className="FI" style={{width:"100%"}} placeholder="Поиск по компании..." value={histQ} onChange={e=>setHistQ(e.target.value)} /></div>
-{(()=>{let f=hi;if(histTab!=="all")f=f.filter(k=>{const m=INIT_MGRS.find(x=>x.name===k.mgr);return m&&String(m.id)===histTab});if(histQ.trim())f=f.filter(k=>k.co.name.toLowerCase().includes(histQ.toLowerCase()));if(!f.length)return <div className="ES"><p style={{fontSize:14}}>{hi.length?"Ничего не найдено":"Пока нет КП"}</p>{!hi.length&&<button className="B BP" style={{marginTop:20}} onClick={nw}>+ Создать</button>}</div>;return f.map(k=><div key={k.id} className="HC" onClick={()=>ld(k)}><div><div style={{fontSize:12,color:"var(--ac)",fontWeight:700}}>{k.kn}</div><div style={{fontSize:15,fontWeight:700}}>{k.co.name}</div><div style={{fontSize:12,color:"var(--t2)"}}>{k.date}{k.mgr&&" · "+k.mgr}</div></div><div style={{marginLeft:"auto",fontSize:16,fontWeight:800,color:"var(--gn)",whiteSpace:"nowrap"}}>{fm(k.tT)}</div></div>)})()}
+<div style={{marginBottom:16,display:"flex",gap:10,alignItems:"center"}}>
+<input className="FI" style={{flex:1}} placeholder="🔍 Поиск по компании, номеру КП, услугам..." value={histQ} onChange={e=>setHistQ(e.target.value)} />
+<span style={{fontSize:12,color:"var(--t2)",whiteSpace:"nowrap"}}>{hi.length} КП всего</span>
+</div>
+{(()=>{let f=hi;if(histTab!=="all")f=f.filter(k=>{const m=INIT_MGRS.find(x=>x.name===k.mgr);return m&&String(m.id)===histTab});if(histQ.trim()){const q=histQ.toLowerCase();f=f.filter(k=>(k.co.name||"").toLowerCase().includes(q)||(k.kn||"").toLowerCase().includes(q)||(k.ttl||"").toLowerCase().includes(q)||(k.sv||[]).some(s=>(s.cn||s.n||"").toLowerCase().includes(q)))}if(!f.length)return <div className="ES"><p style={{fontSize:14}}>{hi.length?"Ничего не найдено":"Пока нет КП"}</p>{!hi.length&&<button className="B BP" style={{marginTop:20}} onClick={nw}>+ Создать</button>}</div>;return f.map(k=><div key={k.id} className="HC" style={{cursor:"default"}}>
+<div style={{flex:1,cursor:"pointer"}} onClick={()=>ld(k)}>
+<div style={{fontSize:12,color:"var(--ac)",fontWeight:700}}>{k.kn}</div>
+<div style={{fontSize:15,fontWeight:700}}>{k.co.name}</div>
+<div style={{fontSize:12,color:"var(--t2)"}}>{k.date}{k.mgr&&" · "+k.mgr}{k.sv&&k.sv.length>0&&" · "+k.sv.length+" услуг"}</div>
+</div>
+<div style={{display:"flex",alignItems:"center",gap:10,flexShrink:0}}>
+<div style={{fontSize:16,fontWeight:800,color:"var(--gn)",whiteSpace:"nowrap"}}>{fm(k.tT)}</div>
+<button className="B BP Bsm" onClick={()=>ld(k)} title="Открыть КП">📂</button>
+<button className="B BS Bsm" onClick={()=>dlHistPdf(k)} title="Скачать PDF">📄</button>
+<button className="B BR Bsm" onClick={()=>delHist(k.id,k.co.name)} title="Удалить">✕</button>
+</div>
+</div>)})()}
 </div></>)}
 
 {pg==="settings"&&(<><div className="MH"><h2>Настройки</h2></div><div className="MC">
@@ -683,6 +708,15 @@ else{setRemovedSI(p=>[...p,s])}
 <span style={{fontSize:12,color:"var(--t2)",marginLeft:"auto"}}>Специалист отдела продаж</span>
 </div>)}
 <div style={{marginTop:12,fontSize:12,color:"var(--t2)"}}>Менеджеры зашиты в приложение. Для изменения обратитесь к разработчику.</div>
+</div>
+<div className="CD"><div className="CT">💾 Резервная копия истории</div>
+<p style={{fontSize:13,color:"var(--t2)",lineHeight:1.6,marginBottom:14}}>История хранится в браузере. Если очистите кэш или перенесёте работу на другой компьютер — данные пропадут. Делайте бэкап регулярно.</p>
+<div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
+<button className="B BP" onClick={exportHist} disabled={!hi.length}>📥 Экспорт ({hi.length} КП)</button>
+<label className="B BS" style={{cursor:"pointer"}}>📤 Импорт<input type="file" accept=".json,application/json" style={{display:"none"}} onChange={e=>{if(e.target.files&&e.target.files[0]){importHist(e.target.files[0]);e.target.value=""}}} /></label>
+{hi.length>0&&<button className="B BR" onClick={()=>{if(window.confirm("Удалить ВСЮ историю КП ("+hi.length+" штук)? Это действие нельзя отменить!"))setHi([])}}>🗑 Очистить историю</button>}
+</div>
+<p style={{fontSize:11,color:"var(--t2)",marginTop:10,fontStyle:"italic"}}>Импорт объединит файл с текущей историей (без дублей по id).</p>
 </div>
 <div className="CD"><div className="CT">📍 Реквизиты компании</div>
 <div className="FG">
