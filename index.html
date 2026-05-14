@@ -13,6 +13,8 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
 </head>
 <body>
 <div id="root"></div>
@@ -26,7 +28,7 @@ const COMPANY_ADDR="г. Минск, ул. Домбровская 9, офис 12.
 const CAT=[
 {c:"Строительство",i:"🏗",s:[{id:"spk",n:"СПК (свидетельство о подтв. компетентности)",spk:true},{id:"attest",att:true,n:"Аттестация в строительстве"},{id:"attest_gen",att:true,n:"Аттестация подряд + ген.подряд"},{id:"attest_proj",att:true,n:"Аттестация проектирование + ген.проект"},{id:"attest_confirm",n:"Подтверждение аттестации"},{id:"spec_find",spec:true,n:"Подбор основного специалиста"},{id:"spec_find_part",spec:true,n:"Подбор совместителя"},{id:"spec_attest",n:"Аттестация специалиста"},{id:"period_spk",n:"Периодика СПК"},{id:"period_iso",n:"Периодика ISO 9001"},{id:"period_iso_suot",n:"Периодика ISO + СУОТ"},{id:"period_cert",n:"Периодика Сертификаты"}]},
 {c:"Системы менеджмента",i:"📋",s:[{id:"iso9001_rb",n:"ISO 9001 (РБ)"},{id:"iso9001_int",n:"ISO 9001 (международный)"},{id:"iso45001",n:"СУОТ ISO 45001"},{id:"iso9001_45001",n:"ISO 9001 + СУОТ ISO 45001 (комплекс)"},{id:"iso27001_rb",n:"ISO 27001 (РБ)"},{id:"iso27001_int",n:"ISO 27001 (международный)"},{id:"iso9001_27001_int",n:"ISO 9001 + ISO 27001 (международный)"},{id:"ohrana_truda",ot:true,n:"Разработка документов по охране труда"}]},
-{c:"Лицензирование",i:"📜",s:[{id:"lic_mvd",n:"Лицензия МВД"},{id:"lic_mchs",n:"Лицензия МЧС"},{id:"osp_stroy",n:"ОСП на стройплощадку"},{id:"osp_zavod",n:"ОСП на заводские условия + стройплощадку"},{id:"attest_svarshik",n:"Аттестация сварщика"},{id:"lic_gos_bur",n:"Лицензия Госпромнадзора (бурение)"},{id:"lic_gos_kotly",n:"Лицензия Госпромнадзора (котлы)"},{id:"lic_gos_lift",n:"Лицензия Госпромнадзора (лифты)"},{id:"lic_gos_gas",n:"Лицензия Госпромнадзора (газ)"}]},
+{c:"Лицензирование",i:"📜",s:[{id:"lic_mvd",n:"Лицензия МВД (монтаж, наладка, тех. обслуживание средств и систем охраны)",lic:"mvd"},{id:"lic_mchs",n:"Лицензия МЧС (монтаж, наладка и тех. обслуживание)",lic:"mchs"},{id:"prof_obuch",n:"Профессиональное обучение 1 сотрудника"},{id:"exp_organ",n:"Экспертиза органа (для МЧС)"},{id:"osp_stroy",n:"ОСП на стройплощадку"},{id:"osp_zavod",n:"ОСП на заводские условия + стройплощадку"},{id:"attest_svarshik",n:"Аттестация сварщика"},{id:"lic_gos_bur",n:"Лицензия Госпромнадзора (бурение)"},{id:"lic_gos_kotly",n:"Лицензия Госпромнадзора (котлы)"},{id:"lic_gos_lift",n:"Лицензия Госпромнадзора (лифты)"},{id:"lic_gos_gas",n:"Лицензия Госпромнадзора (газ)"}]},
 {c:"Продукция",i:"🏭",s:[{id:"osp",n:"ОСП (освидетельствование сварочного производства)"},{id:"tech_svid",n:"Техническое свидетельство"},{id:"cert_prod",n:"Сертификация продукции (1-й)"},{id:"cert_prod_next",n:"Сертификация продукции (след.)"},{id:"cert_metal",n:"Сертификат на металлоконструкции (1-й)"},{id:"cert_metal_next",n:"Сертификат на металлоконструкции (след.)"},{id:"cert_okna",n:"Сертификат окна/двери"},{id:"tech_reglament",n:"Разработка тех. регламента"},{id:"tech_usloviya",n:"Разработка ТУ"},{id:"plity_beton",n:"Плиты бетонные (СТБ 1071)"},{id:"dor_znaki",n:"Дорожные знаки (СТБ 1140)"},{id:"declaration",n:"Декларация"}]}
 ];
 const ADV=[{t:"Сертификация, которую примут на любом объекте",d:"Работаем только с аккредитованными органами РБ и ЕАЭС."},{t:"Фиксированные сроки",d:"Чёткое планирование. Вы знаете дату получения документов."},{t:"После получения — не исчезаем",d:"Предупреждаем о продлении заранее, сопровождаем по льготным условиям."},{t:"Ваш персональный эксперт",d:"Личный эксперт ведёт сделку от звонка до получения документов."},{t:"Более 1000 компаний",d:"Нам доверяют крупнейшие строительные организации Беларуси."}];
@@ -53,6 +55,30 @@ const SPECIALISTS=[
 "инженер по сметной работе (сметчик)",
 "главный инженер"
 ];
+const LIC_DATA={
+mvd:{
+title:"Лицензия МВД (охранная деятельность)",
+specs:["3 электромонтера ОПС 3–6 разряда — в штате по основному месту работы"],
+docs:["справка о судимости","справка о несостоянии на профучёте в ОВД/РУВД","справка из суда по проверке на дееспособность","справка о несостоянии на наркологическом и психиатрическом учёте","справка о прохождении медкомиссии (не нужна для ГИПов и инженеров-проектировщиков)"],
+exam:"Сдача экзамена в УП «Охрана» — после подачи документов.",
+equipment:{
+"Средства измерения":["мультиметр / мегаомметр","тестер ёмкости АКБ","имитатор разбития стекла","индикатор скрытой проводки","индикатор напряжения","рулетка измерительная"],
+"Инструмент":["комплект рабочего и слесарного инструмента (отвёртки, ключи и т.д.)","электропаяльник бытовой","перфоратор (электродрель)","фонарь электрический","лестница-стремянка"],
+"Электрозащитные средства":["диэлектрические перчатки","слесарно-монтажный инструмент с изолирующими рукоятками","диэлектрические боты","диэлектрический коврик"]
+},
+term:"Срок получения — 1,5–3 месяца."
+},
+mchs:{
+title:"Лицензия МЧС (пожарная безопасность)",
+specs:["1 ИТР (высшее или среднее специальное техническое образование) — аттестованный, в штате","2 электромонтера ОПС 7 разряда — аттестованные, в штате","Для пожаротушения: монтажник санитарно-технических систем и оборудования 7-го разряда ИЛИ монтажник гидроагрегатов 4-го разряда","Для дымоудаления: слесарь по ремонту и обслуживанию систем вентиляции и кондиционирования 4–5 разрядов ИЛИ монтажник систем вентиляции и пневмотранспорта 6-го разряда","Для огнезащиты: маляр (для красок) 3 разряда / штукатур (для штукатурок) 5 разряда / пропитчик (для пропитки древесины) 3 разряда"],
+docs:["копии дипломов и удостоверений по разрядам","трудовые книжки сотрудников","приказы о приёме на работу","документы об аттестации"],
+exam:"Сдача экзамена + экспертиза органа (примерно 900 руб).",
+equipment:{
+"Виды работ":["пожарная сигнализация","пожарная эвакуация","пожаротушение","дымоудаление","огнезащита (нанесение огнезащитных составов)"]
+},
+term:"Срок получения — 1,5–3 месяца."
+}
+};
 const OT_DOCS=[
 "Приказы","Перечни","Инструкции","Журналы","Документы, описывающие риски","Документы по проверке знаний","Программа проведения внутренних аудитов","Формы документов","Политика в области охраны труда","Лист ознакомления с политикой системы менеджмента здоровья и безопасности","Цели организации в области охраны труда и мероприятия по их достижению","Лист ознакомления с целями системы менеджмента здоровья и безопасности","План мероприятий по охране труда","Положение о службе охраны труда организации","График учебно-тренировочных занятий работающих при возникновении аварийных ситуаций или аварий","Программа вводного инструктажа по охране труда, пожарной безопасности","Схема прохождения информации при возникновении аварий, аварийных ситуаций","Реестр законодательных и других применяемых требований в области охраны труда","Оценка возможностей организации в области OH&S","Реестр рисков и Мероприятия по управлению рисками","SWOT-анализ","Состав обязательной исходной информации для оценки системы менеджмента здоровья и безопасности при профессиональной деятельности","Отчет о результативности функционирования системы менеджмента здоровья и безопасности при профессиональной деятельности","Организационная структура","Перечень оборудования и технических устройств, представляющих повышенную опасность","Разрешений на производство строительно-монтажных работ","Организационная структура службы охраны труда","Перечень документов и записей системы управления охраной труда","Управление операциями СТП OH&S 8.1-02","Памятка по ведению документов"
 ];
@@ -83,6 +109,83 @@ return <textarea ref={ref} value={draft} onChange={e=>setDraft(e.target.value)} 
 return <input ref={ref} type="text" value={draft} onChange={e=>setDraft(e.target.value)} onBlur={save} onKeyDown={e=>{if(e.key==="Enter"){e.preventDefault();save()}else if(e.key==="Escape")cancel()}} placeholder={placeholder} style={{...baseStyle,background:"#fff8d5",border:"1px solid #d4a647",outline:"none",fontFamily:"inherit",fontSize:"inherit",fontWeight:"inherit",color:"inherit",width:"100%"}} />
 }
 return <span onClick={()=>setEditing(true)} style={baseStyle} className="edt" title="Кликните, чтобы изменить">{value||<em style={{color:"#aaa"}}>{placeholder||"—"}</em>}</span>;
+}
+
+// === LicEditor: блок редактирования требований лицензии (МВД/МЧС) на шаге 2 ===
+function LicEditor({svc,setSv}){
+const[newSpec,setNewSpec]=useState("");
+const[newDoc,setNewDoc]=useState("");
+const[newEquipKey,setNewEquipKey]=useState("");
+const[newEquipVal,setNewEquipVal]=useState({});
+const upd=(field,fn)=>setSv(p=>p.map(x=>x.id===svc.id?{...x,[field]:fn(x[field])}:x));
+const updEq=(group,fn)=>setSv(p=>p.map(x=>{if(x.id!==svc.id)return x;const eq={...(x.licEquipment||{})};eq[group]=fn(eq[group]||[]);return{...x,licEquipment:eq}}));
+const renameGroup=(oldKey,newKey)=>{if(!newKey.trim()||oldKey===newKey)return;setSv(p=>p.map(x=>{if(x.id!==svc.id)return x;const eq={};Object.keys(x.licEquipment||{}).forEach(k=>{eq[k===oldKey?newKey:k]=x.licEquipment[k]});return{...x,licEquipment:eq}}))};
+const delGroup=(key)=>{if(!window.confirm("Удалить группу «"+key+"»?"))return;setSv(p=>p.map(x=>{if(x.id!==svc.id)return x;const eq={...(x.licEquipment||{})};delete eq[key];return{...x,licEquipment:eq}}))};
+const addGroup=()=>{if(!newEquipKey.trim())return;setSv(p=>p.map(x=>x.id===svc.id?{...x,licEquipment:{...(x.licEquipment||{}),[newEquipKey.trim()]:[]}}:x));setNewEquipKey("")};
+return <div style={{fontSize:12,color:"var(--tx)"}}>
+
+{/* Специалисты */}
+<div style={{background:"var(--bg)",border:"1px solid var(--bd)",borderRadius:8,padding:"10px 14px",marginBottom:10}}>
+<div style={{fontSize:11,color:"var(--gn)",marginBottom:8,fontWeight:700,textTransform:"uppercase",letterSpacing:.5}}>👷 Специалисты в штате:</div>
+{(svc.licSpecs||[]).map((sp,i)=><div key={i} style={{display:"flex",gap:8,padding:"4px 0",alignItems:"flex-start",borderBottom:i<svc.licSpecs.length-1?"1px solid var(--bd)":"none"}}>
+<span style={{flex:1,lineHeight:1.4}}>— {sp}</span>
+<button className="B BR" style={{padding:"1px 6px",fontSize:10}} onClick={()=>upd("licSpecs",p=>p.filter((_,j)=>j!==i))}>✕</button>
+</div>)}
+<div style={{display:"flex",gap:6,marginTop:8}}>
+<input className="FI" style={{flex:1,fontSize:11,padding:"5px 8px"}} placeholder="Добавить специалиста..." value={newSpec} onChange={e=>setNewSpec(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&newSpec.trim()){upd("licSpecs",p=>[...p,newSpec.trim()]);setNewSpec("")}}} />
+<button className="B BG" style={{padding:"5px 12px",fontSize:11}} onClick={()=>{if(newSpec.trim()){upd("licSpecs",p=>[...p,newSpec.trim()]);setNewSpec("")}}}>+</button>
+</div>
+</div>
+
+{/* Справки */}
+<div style={{background:"var(--bg)",border:"1px solid var(--bd)",borderRadius:8,padding:"10px 14px",marginBottom:10}}>
+<div style={{fontSize:11,color:"var(--gn)",marginBottom:8,fontWeight:700,textTransform:"uppercase",letterSpacing:.5}}>📄 Необходимые справки:</div>
+{(svc.licDocs||[]).map((d,i)=><div key={i} style={{display:"flex",gap:8,padding:"4px 0",alignItems:"flex-start",borderBottom:i<svc.licDocs.length-1?"1px solid var(--bd)":"none"}}>
+<span style={{flex:1,lineHeight:1.4}}>— {d}</span>
+<button className="B BR" style={{padding:"1px 6px",fontSize:10}} onClick={()=>upd("licDocs",p=>p.filter((_,j)=>j!==i))}>✕</button>
+</div>)}
+<div style={{display:"flex",gap:6,marginTop:8}}>
+<input className="FI" style={{flex:1,fontSize:11,padding:"5px 8px"}} placeholder="Добавить справку..." value={newDoc} onChange={e=>setNewDoc(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&newDoc.trim()){upd("licDocs",p=>[...p,newDoc.trim()]);setNewDoc("")}}} />
+<button className="B BG" style={{padding:"5px 12px",fontSize:11}} onClick={()=>{if(newDoc.trim()){upd("licDocs",p=>[...p,newDoc.trim()]);setNewDoc("")}}}>+</button>
+</div>
+</div>
+
+{/* Экзамен */}
+<div style={{background:"var(--bg)",border:"1px solid var(--bd)",borderRadius:8,padding:"10px 14px",marginBottom:10}}>
+<div style={{fontSize:11,color:"var(--gn)",marginBottom:8,fontWeight:700,textTransform:"uppercase",letterSpacing:.5}}>📝 Экзамен:</div>
+<textarea className="FI" style={{width:"100%",fontSize:11,minHeight:50,fontFamily:"Manrope,sans-serif"}} placeholder="Описание экзамена..." value={svc.licExam||""} onChange={e=>setSv(p=>p.map(x=>x.id===svc.id?{...x,licExam:e.target.value}:x))} />
+</div>
+
+{/* Срок получения */}
+<div style={{background:"var(--bg)",border:"1px solid var(--bd)",borderRadius:8,padding:"10px 14px",marginBottom:10}}>
+<div style={{fontSize:11,color:"var(--gn)",marginBottom:8,fontWeight:700,textTransform:"uppercase",letterSpacing:.5}}>⏱ Срок:</div>
+<input className="FI" style={{width:"100%",fontSize:11,padding:"5px 8px"}} placeholder="Срок получения..." value={svc.licTerm||""} onChange={e=>setSv(p=>p.map(x=>x.id===svc.id?{...x,licTerm:e.target.value}:x))} />
+</div>
+
+{/* Оборудование/виды работ — группы */}
+<div style={{background:"var(--bg)",border:"1px solid var(--bd)",borderRadius:8,padding:"10px 14px"}}>
+<div style={{fontSize:11,color:"var(--gn)",marginBottom:10,fontWeight:700,textTransform:"uppercase",letterSpacing:.5}}>🔧 Оборудование / Виды работ (по группам):</div>
+{Object.entries(svc.licEquipment||{}).map(([group,items],gi)=><div key={gi} style={{marginBottom:10,padding:"8px 10px",background:"var(--s2)",borderRadius:6,border:"1px solid var(--bd)"}}>
+<div style={{display:"flex",gap:6,marginBottom:6,alignItems:"center"}}>
+<input className="FI" style={{flex:1,fontSize:11,padding:"4px 8px",fontWeight:700}} value={group} onChange={e=>renameGroup(group,e.target.value)} />
+<button className="B BR" style={{padding:"1px 6px",fontSize:10}} onClick={()=>delGroup(group)}>✕ группу</button>
+</div>
+{items.map((it,i)=><div key={i} style={{display:"flex",gap:6,padding:"2px 0",alignItems:"center"}}>
+<span style={{flex:1,fontSize:11,lineHeight:1.4}}>— {it}</span>
+<button className="B BR" style={{padding:"1px 5px",fontSize:9}} onClick={()=>updEq(group,p=>p.filter((_,j)=>j!==i))}>✕</button>
+</div>)}
+<div style={{display:"flex",gap:4,marginTop:6}}>
+<input className="FI" style={{flex:1,fontSize:11,padding:"4px 8px"}} placeholder="Добавить позицию..." value={newEquipVal[group]||""} onChange={e=>setNewEquipVal(p=>({...p,[group]:e.target.value}))} onKeyDown={e=>{if(e.key==="Enter"&&newEquipVal[group]?.trim()){updEq(group,p=>[...p,newEquipVal[group].trim()]);setNewEquipVal(p=>({...p,[group]:""}))}}} />
+<button className="B BG" style={{padding:"4px 10px",fontSize:11}} onClick={()=>{const v=newEquipVal[group];if(v?.trim()){updEq(group,p=>[...p,v.trim()]);setNewEquipVal(p=>({...p,[group]:""}))}}}>+</button>
+</div>
+</div>)}
+<div style={{display:"flex",gap:6,marginTop:8,paddingTop:8,borderTop:"1px dashed var(--bd)"}}>
+<input className="FI" style={{flex:1,fontSize:11,padding:"5px 8px"}} placeholder="Новая группа (например: «Средства измерения»)" value={newEquipKey} onChange={e=>setNewEquipKey(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")addGroup()}} />
+<button className="B BP" style={{padding:"5px 12px",fontSize:11}} onClick={addGroup}>+ Группа</button>
+</div>
+</div>
+
+</div>
 }
 
 function App(){
@@ -184,7 +287,17 @@ if(s.id==="attest_gen"){
 autoAttSpecs=["руководитель в области строительства (директор или заместитель директора с высшим строительным образованием и опытом 5 лет)","главный инженер (в должности заместитель директора — главный инженер закроет руководителя в области строительства)","инженер по сметной работе (сметчик)","прорабы или мастера по направлениям из подрядного аттестата"];
 }
 }
-const newOnes=[{...s,prep:0,fee:0,extra:0,qty:1,cn:"",ec:"",workTypes:[],specs:[],attSpecs:autoAttSpecs,spkSpecs:[],siManual:[]}];
+// Лицензии — копируем требования из LIC_DATA в редактируемые поля услуги
+let licSpecs=[],licDocs=[],licEquipment={},licExam="",licTerm="";
+if(s.lic&&LIC_DATA[s.lic]){
+const L=LIC_DATA[s.lic];
+licSpecs=[...L.specs];
+licDocs=[...L.docs];
+licEquipment=JSON.parse(JSON.stringify(L.equipment));
+licExam=L.exam;
+licTerm=L.term;
+}
+const newOnes=[{...s,prep:0,fee:0,extra:0,qty:1,cn:"",ec:"",workTypes:[],specs:[],attSpecs:autoAttSpecs,spkSpecs:[],siManual:[],licSpecs,licDocs,licEquipment,licExam,licTerm}];
 if(s.spk){
 if(!sv.find(x=>x.id==="tnpa"))newOnes.push({id:"tnpa",n:"Доступ к базе ТНПА",prep:0,fee:0,extra:250,qty:1,cn:"",ec:"",workTypes:[],specs:[],attSpecs:[],spkSpecs:[],siManual:[]});
 if(!sv.find(x=>x.id==="tech_cards"))newOnes.push({id:"tech_cards",n:"Тех. карты (по видам работ)",prep:0,fee:0,extra:300,qty:1,cn:"",ec:"",workTypes:[],specs:[],attSpecs:[],spkSpecs:[],siManual:[]});
@@ -206,43 +319,98 @@ const ld=k=>{setCo(k.co);setSv(k.sv);setTtl(k.ttl);if(k.date)setKpDate(k.date);s
 const delHist=(id,companyName)=>{if(!window.confirm("Удалить КП «"+companyName+"» из истории? Это действие нельзя отменить."))return;setHi(p=>p.filter(x=>x.id!==id));fl("КП удалено из истории","warn")};
 // Скачать PDF из карточки истории (открываем КП в фоне, генерируем, удаляем)
 const dlHistPdf=async(k)=>{ld(k);fl("Открываю КП для генерации PDF...","warn");const tryPdf=async(retries)=>{if(!kpRef.current&&retries>0){setTimeout(()=>tryPdf(retries-1),300);return}try{await dlPdf()}catch(e){console.error(e);fl("Ошибка генерации PDF: "+e.message,"error")}};setTimeout(()=>tryPdf(5),500)};
+const dlHistDocx=async(k)=>{ld(k);fl("Открываю КП для генерации Word...","warn");setTimeout(async()=>{try{await dlDocx()}catch(e){console.error(e);fl("Ошибка генерации Word: "+e.message,"error")}},500)};
 // Экспорт всей истории в JSON-файл
 const exportHist=()=>{const blob=new Blob([JSON.stringify(hi,null,2)],{type:"application/json"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download="mavis_kp_history_"+new Date().toISOString().slice(0,10)+".json";a.click();URL.revokeObjectURL(url);fl("История экспортирована ("+hi.length+" КП)")};
 // Импорт истории из JSON
 const importHist=(file)=>{const r=new FileReader();r.onload=(e)=>{try{const arr=JSON.parse(e.target.result);if(!Array.isArray(arr))throw new Error("Неверный формат");setHi(p=>{const merged=[...arr];p.forEach(k=>{if(!merged.find(x=>x.id===k.id))merged.push(k)});merged.sort((a,b)=>(b.id||0)-(a.id||0));return merged});fl("Импортировано: "+arr.length+" КП")}catch(err){fl("Ошибка импорта: "+err.message,"error")}};r.readAsText(file)};
 
-// PDF
-const genPdfBlob=async()=>{
+// PDF — поблочная укладка, чтобы не было разрывов посередине блоков
+const genPdfBlob=async(quality)=>{
+const q=quality||{scale:1.5,jpeg:0.7};
+// 1) Клонируем КП в скрытый контейнер с фиксированной шириной 794px (=A4 при 96dpi)
 const clone=kpRef.current.cloneNode(true);
-// убираем кнопки удаления и подсказки редактирования из клона
 clone.querySelectorAll(".no-pdf").forEach(el=>el.remove());
 clone.querySelectorAll(".edt").forEach(el=>{el.style.cursor="default";el.style.background="transparent";el.style.border="none"});
+clone.querySelectorAll("input,textarea").forEach(el=>{const sp=document.createElement("span");sp.textContent=el.value||el.placeholder||"";sp.style.cssText=el.style.cssText;el.parentNode&&el.parentNode.replaceChild(sp,el)});
 const wrap=document.createElement("div");
-wrap.style.cssText="position:fixed;left:-9999px;top:0;width:794px;z-index:-1;";
-clone.style.cssText="width:794px;max-width:794px;border-radius:0;padding:56px 48px 40px;margin:0;background:#faf6ec;color:#333;font-family:Manrope,sans-serif;";
+wrap.style.cssText="position:fixed;left:-9999px;top:0;width:794px;z-index:-1;background:#faf6ec;";
+clone.style.cssText="width:794px;max-width:794px;border-radius:0;padding:0;margin:0;background:#faf6ec;color:#333;font-family:Manrope,sans-serif;position:relative;";
 clone.querySelectorAll("*").forEach(el=>{el.style.transition="none";el.style.animation="none"});
 wrap.appendChild(clone);document.body.appendChild(wrap);
-await new Promise(r=>setTimeout(r,600));
-const canvas=await html2canvas(clone,{scale:1.5,useCORS:true,backgroundColor:"#faf6ec",logging:false,width:794});
+await new Promise(r=>setTimeout(r,500));
+
+// 2) Параметры страницы A4
+const pageW=210,pageH=297;
+const marginTop=18,marginBottom=14,marginX=12;
+const contentW=pageW-marginX*2;
+const usableH=pageH-marginTop-marginBottom;
+
+// 3) Находим все смысловые блоки
+const blockEls=Array.from(clone.querySelectorAll("[data-block]"));
+// Если ничего не размечено — фоллбэк: один блок = весь КП
+const blocks=blockEls.length?blockEls:[clone];
+
+// 4) Снимаем каждый блок отдельным canvas, и считаем высоту в мм
+const px2mm=(px)=>px*(contentW/(794-96)); // 794 - 2*48 padding ≈ 698 эффективная ширина
+// Фактически проще: html2canvas даёт canvas в пикселях @ scale. mmHeight = (pxHeight/scale) * (contentW / blockCSSwidth)
+const items=[];
+for(const el of blocks){
+const c=await html2canvas(el,{scale:q.scale,useCORS:true,backgroundColor:"#faf6ec",logging:false});
+// CSS-ширина оригинала
+const cssW=el.getBoundingClientRect().width;
+const cssH=el.getBoundingClientRect().height;
+// Масштаб в PDF: уменьшаем до contentW
+const ratio=contentW/cssW;
+const heightMm=cssH*ratio*(72/96)*(96/72); // прямое cssH*ratio в мм; cssH в px @96dpi → 1мм = 3.7795px
+const heightMmCorrect=(cssH/3.7795)*ratio;
+items.push({canvas:c,heightMm:heightMmCorrect,el});
+}
+
 document.body.removeChild(wrap);
+
+// 5) Собираем PDF постранично
 const{jsPDF}=window.jspdf;
-const pxW=canvas.width,pxH=canvas.height,pageW=210,pageH=297,ratio=pageW/pxW,pagePxH=Math.floor(pageH/ratio);
-const totalMmH=pxH*ratio;
 const pdf=new jsPDF("p","mm","a4");
-pdf.setFillColor(250,246,236);pdf.rect(0,0,pageW,pageH,"F");
-if(totalMmH<=pageH*1.3){
-const fitH=Math.min(totalMmH,pageH);const fitW=(fitH/totalMmH)*pageW;const offsetX=(pageW-fitW)/2;
-pdf.addImage(canvas.toDataURL("image/jpeg",0.7),"JPEG",offsetX,0,fitW,fitH);
+const fillBg=()=>{pdf.setFillColor(250,246,236);pdf.rect(0,0,pageW,pageH,"F")};
+fillBg();
+let y=marginTop;
+let isFirstPage=true;
+
+// Декоративный «2026» на первой странице
+const drawYearMark=()=>{pdf.setTextColor(180,180,180);pdf.setFontSize(8);pdf.text("2026",6,pageH/2,{angle:90})};
+drawYearMark();
+
+for(const it of items){
+const blockH=it.heightMm;
+// Если блок не помещается на текущей странице — новый лист
+// Исключение: если блок сам выше страницы — кладём, всё равно режется
+if(y+blockH>pageH-marginBottom&&blockH<=usableH){
+pdf.addPage();fillBg();y=marginTop;isFirstPage=false;
+}
+// Если блок выше страницы — режем его постранично (редкий случай: ОТ-документы / огромная таблица)
+if(blockH>usableH){
+// Преобразуем canvas в imgData, разрезаем
+const pxRatio=blockH/it.canvas.height; // мм на пиксель
+const usablePx=usableH/pxRatio;
+let sourceY=0;
+while(sourceY<it.canvas.height){
+const sliceH=Math.min(usablePx,it.canvas.height-sourceY);
+const pc=document.createElement("canvas");
+pc.width=it.canvas.width;pc.height=sliceH;
+pc.getContext("2d").drawImage(it.canvas,0,sourceY,it.canvas.width,sliceH,0,0,it.canvas.width,sliceH);
+const sliceMm=sliceH*pxRatio;
+if(y+sliceMm>pageH-marginBottom){pdf.addPage();fillBg();y=marginTop;isFirstPage=false}
+pdf.addImage(pc.toDataURL("image/jpeg",q.jpeg),"JPEG",marginX,y,contentW,sliceMm);
+y+=sliceMm;
+sourceY+=sliceH;
+}
 }else{
-let page=0,srcY=0;
-while(srcY<pxH&&page<10){
-if(page>0){pdf.addPage();pdf.setFillColor(250,246,236);pdf.rect(0,0,pageW,pageH,"F");}
-const sliceH=Math.min(pagePxH,pxH-srcY);const pc=document.createElement("canvas");
-pc.width=pxW;pc.height=sliceH;pc.getContext("2d").drawImage(canvas,0,srcY,pxW,sliceH,0,0,pxW,sliceH);
-pdf.addImage(pc.toDataURL("image/jpeg",0.7),"PNG",0,0,pageW,sliceH*ratio);
-srcY+=pagePxH;page++;if(pxH-srcY<pagePxH*0.15)break;
+pdf.addImage(it.canvas.toDataURL("image/jpeg",q.jpeg),"JPEG",marginX,y,contentW,blockH);
+y+=blockH+3; // 3мм отступ между блоками
 }
 }
+
 return pdf.output("datauristring").split(",")[1];
 };
 
@@ -261,42 +429,198 @@ save(true);fl("PDF скачан, КП сохранено в истории");
 setPdfing(false);
 };
 
+// === Генерация DOCX (Word) ===
+const[docxing,setDocxing]=useState(false);
+const dlDocx=async()=>{
+if(!window.docx){fl("Библиотека DOCX не загружена. Обновите страницу (Ctrl+Shift+R).","error");return}
+setDocxing(true);fl("Генерация Word-файла...","warn");
+try{
+const D=window.docx;
+const {Document,Packer,Paragraph,TextRun,Table,TableRow,TableCell,WidthType,AlignmentType,BorderStyle,HeadingLevel,ShadingType,PageOrientation,LevelFormat}=D;
+const BROWN="8b5a1e";const DARK="1f1f1f";const GREY="555555";const LIGHT="dddddd";
+const border={style:BorderStyle.SINGLE,size:4,color:"AAAAAA"};
+const noBorder={style:BorderStyle.NONE,size:0,color:"FFFFFF"};
+const allNoBorder={top:noBorder,bottom:noBorder,left:noBorder,right:noBorder,insideHorizontal:noBorder,insideVertical:noBorder};
+const allBorder={top:border,bottom:border,left:border,right:border,insideHorizontal:border,insideVertical:border};
+const p=(opts)=>new Paragraph(opts);
+const t=(text,opts)=>new TextRun({text:String(text||""),font:"Calibri",size:22,color:DARK,...(opts||{})});
+const spacer=(h)=>p({spacing:{after:h||120},children:[]});
+
+const children=[];
+
+// 1) Шапка
+children.push(p({alignment:AlignmentType.LEFT,spacing:{after:60},children:[new TextRun({text:"КОММЕРЧЕСКОЕ ПРЕДЛОЖЕНИЕ",font:"Calibri",size:36,bold:true,color:BROWN,characterSpacing:60})]}));
+children.push(p({alignment:AlignmentType.LEFT,spacing:{after:240},children:[new TextRun({text:"MAVIS GROUP",font:"Calibri",size:18,bold:true,color:GREY,characterSpacing:40})]}));
+children.push(p({spacing:{after:120},children:[t("Предложение о сотрудничестве от "+kpDate,{color:GREY})]}));
+
+// 2) Компания
+children.push(p({spacing:{before:120,after:80},children:[new TextRun({text:co.name||"",font:"Calibri",size:30,bold:true,color:DARK})]}));
+if(co.dir)children.push(p({spacing:{after:240},children:[t(co.dir,{color:GREY})]}));
+
+// 3) Виды работ для каждой услуги
+sv.filter(s=>(s.workTypes||[]).length>0).forEach(s=>{
+children.push(p({spacing:{before:200,after:80},children:[new TextRun({text:"Виды работ "+(s.spk?"для СПК":s.att?"для Аттестации":"")+" ("+(s.cn||s.n)+"):",font:"Calibri",size:22,bold:true,color:DARK})]}));
+(s.workTypes||[]).forEach(w=>{
+children.push(p({spacing:{after:30},children:[t("— "+w.name)]}));
+});
+});
+
+// 4) Заголовок КП
+if(ttl){
+children.push(p({spacing:{before:240,after:120},children:[new TextRun({text:ttl,font:"Calibri",size:26,bold:true,color:DARK})]}));
+}
+
+// 5) Таблица услуг
+const tableHeader=new TableRow({tableHeader:true,children:[
+new TableCell({width:{size:7,type:WidthType.PERCENTAGE},children:[p({alignment:AlignmentType.CENTER,children:[new TextRun({text:"№",font:"Calibri",size:18,bold:true,color:GREY})]})]}),
+new TableCell({width:{size:48,type:WidthType.PERCENTAGE},children:[p({children:[new TextRun({text:"УСЛУГА",font:"Calibri",size:18,bold:true,color:GREY})]})]}),
+new TableCell({width:{size:15,type:WidthType.PERCENTAGE},children:[p({alignment:AlignmentType.RIGHT,children:[new TextRun({text:"НАШИ УСЛУГИ",font:"Calibri",size:18,bold:true,color:GREY})]})]}),
+new TableCell({width:{size:15,type:WidthType.PERCENTAGE},children:[p({alignment:AlignmentType.RIGHT,children:[new TextRun({text:"ПОШЛИНЫ",font:"Calibri",size:18,bold:true,color:GREY})]})]}),
+new TableCell({width:{size:15,type:WidthType.PERCENTAGE},children:[p({alignment:AlignmentType.RIGHT,children:[new TextRun({text:"ДОП. РАСХОДЫ",font:"Calibri",size:18,bold:true,color:GREY})]})]}),
+]});
+let stage=0;
+const rows=sv.map((s,i)=>{const isService=s.id!=="tnpa"&&s.id!=="tech_cards";if(isService)stage++;const curStage=isService?stage:null;
+const nameCell=[];
+if(curStage)nameCell.push(p({spacing:{after:30},children:[new TextRun({text:"ЭТАП "+curStage,font:"Calibri",size:16,bold:true,color:BROWN,characterSpacing:30})]}));
+nameCell.push(p({children:[t((s.cn||s.n)+((s.qty||1)>1?" × "+s.qty:""))]}));
+if(s.ec)nameCell.push(p({children:[new TextRun({text:s.ec,font:"Calibri",size:18,color:"777777",italics:true})]}));
+return new TableRow({children:[
+new TableCell({children:[p({alignment:AlignmentType.CENTER,children:[t(String(i+1),{color:GREY})]})]}),
+new TableCell({children:nameCell}),
+new TableCell({children:[p({alignment:AlignmentType.RIGHT,children:[t(fm(s.prep*(s.qty||1)))]})]}),
+new TableCell({children:[p({alignment:AlignmentType.RIGHT,children:[t(fm(s.fee*(s.qty||1)))]})]}),
+new TableCell({children:[p({alignment:AlignmentType.RIGHT,children:[t(fm(s.extra*(s.qty||1)))]})]}),
+]});
+});
+// Итого
+rows.push(new TableRow({children:[
+new TableCell({children:[p({children:[]})]}),
+new TableCell({children:[p({children:[new TextRun({text:"Итого:",font:"Calibri",size:22,bold:true,color:DARK})]})]}),
+new TableCell({children:[p({alignment:AlignmentType.RIGHT,children:[new TextRun({text:fm(tP),font:"Calibri",size:22,bold:true,color:DARK})]})]}),
+new TableCell({children:[p({alignment:AlignmentType.RIGHT,children:[new TextRun({text:fm(tF),font:"Calibri",size:22,bold:true,color:DARK})]})]}),
+new TableCell({children:[p({alignment:AlignmentType.RIGHT,children:[new TextRun({text:fm(tE),font:"Calibri",size:22,bold:true,color:DARK})]})]}),
+]}));
+// Общая сумма
+rows.push(new TableRow({children:[
+new TableCell({children:[p({children:[]})]}),
+new TableCell({children:[p({children:[new TextRun({text:"ОБЩАЯ СУММА:",font:"Calibri",size:24,bold:true,color:BROWN})]})]}),
+new TableCell({columnSpan:3,children:[p({alignment:AlignmentType.RIGHT,children:[new TextRun({text:fm(tT),font:"Calibri",size:24,bold:true,color:BROWN})]})]}),
+]}));
+
+const table=new Table({
+width:{size:100,type:WidthType.PERCENTAGE},
+rows:[tableHeader,...rows],
+borders:{top:border,bottom:border,left:noBorder,right:noBorder,insideHorizontal:border,insideVertical:noBorder},
+});
+children.push(table);
+children.push(spacer(200));
+
+// 5.5) Лицензии — требования
+sv.filter(s=>s.lic).forEach(s=>{
+children.push(p({spacing:{before:240,after:80},alignment:AlignmentType.CENTER,children:[new TextRun({text:"Требования для получения лицензии — "+(s.cn||s.n),font:"Calibri",size:22,bold:true,color:DARK})]}));
+if((s.licSpecs||[]).length>0){
+children.push(p({spacing:{before:120,after:30},children:[new TextRun({text:"Специалисты в штате по основному месту работы:",font:"Calibri",size:20,bold:true,color:BROWN})]}));
+s.licSpecs.forEach(sp=>children.push(p({spacing:{after:20},children:[t("— "+sp)]})));
+}
+if((s.licDocs||[]).length>0){
+children.push(p({spacing:{before:120,after:30},children:[new TextRun({text:"Необходимые справки для получения лицензии:",font:"Calibri",size:20,bold:true,color:BROWN})]}));
+s.licDocs.forEach(d=>children.push(p({spacing:{after:20},children:[t("— "+d)]})));
+}
+if(s.licExam){
+children.push(p({spacing:{before:120,after:20},children:[new TextRun({text:"Экзамен:",font:"Calibri",size:20,bold:true,color:BROWN})]}));
+children.push(p({spacing:{after:30},children:[t(s.licExam)]}));
+}
+if(s.licTerm){
+children.push(p({spacing:{before:120,after:20},children:[new TextRun({text:"Срок получения:",font:"Calibri",size:20,bold:true,color:BROWN})]}));
+children.push(p({spacing:{after:30},children:[t(s.licTerm)]}));
+}
+if(Object.keys(s.licEquipment||{}).length>0){
+children.push(p({spacing:{before:120,after:60},children:[new TextRun({text:"Необходимое оборудование:",font:"Calibri",size:20,bold:true,color:BROWN})]}));
+Object.entries(s.licEquipment).forEach(([group,items])=>{
+children.push(p({spacing:{before:60,after:20},children:[new TextRun({text:group+":",font:"Calibri",size:20,bold:true,color:DARK})]}));
+items.forEach(it=>children.push(p({spacing:{after:0},children:[t("— "+it,{size:20})]})));
+});
+}
+children.push(spacer(200));
+});
+
+// 6) Специалисты
+if(autoSPEC.spk.length>0||autoSPEC.att.length>0){
+children.push(p({spacing:{before:240,after:80},alignment:AlignmentType.CENTER,children:[new TextRun({text:"Необходимые специалисты",font:"Calibri",size:24,bold:true,color:DARK})]}));
+if(autoSPEC.spk.length>0){
+children.push(p({spacing:{before:60,after:30},children:[new TextRun({text:"Для свидетельства о тех. компетентности:",font:"Calibri",size:20,bold:true,color:BROWN})]}));
+autoSPEC.spk.forEach(sp=>children.push(p({spacing:{after:20},children:[t("— "+sp)]})));
+}
+if(autoSPEC.att.length>0){
+children.push(p({spacing:{before:120,after:30},children:[new TextRun({text:"Для аттестата соответствия:",font:"Calibri",size:20,bold:true,color:BROWN})]}));
+autoSPEC.att.forEach(sp=>children.push(p({spacing:{after:20},children:[t("— "+sp)]})));
+}
+}
+
+// 7) Перечень оборудования
+if(autoSI.length>0){
+children.push(p({spacing:{before:240,after:80},alignment:AlignmentType.CENTER,children:[new TextRun({text:"Перечень необходимого оборудования",font:"Calibri",size:24,bold:true,color:DARK})]}));
+autoSI.forEach(si=>children.push(p({spacing:{after:0},children:[t("— "+si,{size:20})]})));
+}
+
+// 8) ОТ-документы
+if(sv.find(s=>s.ot)){
+children.push(p({spacing:{before:240,after:80},alignment:AlignmentType.CENTER,children:[new TextRun({text:"Разработка пакета документов по охране труда",font:"Calibri",size:24,bold:true,color:DARK})]}));
+children.push(p({spacing:{after:60},children:[new TextRun({text:"Перечень разрабатываемых документов:",font:"Calibri",size:20,bold:true,color:DARK})]}));
+OT_DOCS.forEach(d=>children.push(p({spacing:{after:0},children:[t("• "+d,{size:18})]})));
+}
+
+// 9) Условия
+children.push(p({spacing:{before:240,after:60},children:[new TextRun({text:"Условия сотрудничества:",font:"Calibri",size:22,bold:true,color:DARK})]}));
+condText.split(/\n/).forEach(line=>{
+if(line.trim())children.push(p({spacing:{after:30},children:[t(line)]}));
+});
+
+// 10) Преимущества
+children.push(p({spacing:{before:240,after:80},alignment:AlignmentType.LEFT,children:[new TextRun({text:"Преимущества работы с нами",font:"Calibri",size:24,bold:true,color:DARK})]}));
+advList.forEach(a=>{
+children.push(p({spacing:{before:80,after:20},children:[new TextRun({text:"◆ "+a.t,font:"Calibri",size:22,bold:true,color:DARK})]}));
+children.push(p({spacing:{after:60},indent:{left:240},children:[t(a.d,{color:GREY,size:20})]}));
+});
+
+// 11) Клиенты
+children.push(p({spacing:{before:200,after:60},children:[new TextRun({text:"Нам доверяют:",font:"Calibri",size:20,bold:true,color:DARK})]}));
+children.push(p({spacing:{after:200},children:[t(CL.join(" · "),{color:GREY})]}));
+
+// 12) Подпись менеджера
+if(mgrData?.name){
+children.push(p({spacing:{before:240,after:60},border:{top:{style:BorderStyle.SINGLE,size:6,color:"DDDDDD"}},children:[]}));
+children.push(p({spacing:{before:120,after:30},children:[new TextRun({text:mgrData.name,font:"Calibri",size:24,bold:true,color:DARK})]}));
+children.push(p({spacing:{after:20},children:[t("MAVIS GROUP | Специалист отдела продаж",{color:GREY,size:20})]}));
+if(mgrData.phone)children.push(p({spacing:{after:20},children:[t("Телефон: "+mgrData.phone,{color:GREY,size:20})]}));
+children.push(p({spacing:{after:20},children:[t("Email: "+FROM_EMAIL,{color:GREY,size:20})]}));
+}
+
+const doc=new Document({
+creator:"MAVIS GROUP",
+title:"Коммерческое предложение "+co.name,
+sections:[{
+properties:{page:{margin:{top:850,right:1000,bottom:850,left:1000}}},
+children:children
+}],
+styles:{default:{document:{run:{font:"Calibri",size:22,color:DARK}}}}
+});
+
+const blob=await Packer.toBlob(doc);
+const docName=("Коммерческое предложение "+co.name).replace(/[^a-zA-Zа-яА-ЯёЁ0-9 _-]/g,"_").substring(0,80)+".docx";
+window.saveAs?window.saveAs(blob,docName):(()=>{const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=docName;a.click();URL.revokeObjectURL(url)})();
+save(true);fl("Word-файл скачан, КП сохранено в истории");
+}catch(e){fl("Ошибка генерации DOCX: "+e.message,"error");console.error(e)}
+setDocxing(false);
+};
+
 const sEm=async()=>{
 if(!co.email){fl("Email не указан","error");return}
 if(!mgrData){fl("Выберите менеджера","error");return}
 if(!kpRef.current){fl("Откройте предпросмотр","error");return}
 setSn(true);fl("Генерация PDF...","warn");
 try{
-const clone=kpRef.current.cloneNode(true);
-clone.querySelectorAll(".no-pdf").forEach(el=>el.remove());
-clone.querySelectorAll(".edt").forEach(el=>{el.style.cursor="default";el.style.background="transparent";el.style.border="none"});
-const wrap=document.createElement("div");
-wrap.style.cssText="position:fixed;left:-9999px;top:0;width:794px;z-index:-1;";
-clone.style.cssText="width:794px;max-width:794px;border-radius:0;padding:56px 48px 40px;margin:0;background:#faf6ec;color:#333;font-family:Manrope,sans-serif;";
-clone.querySelectorAll("*").forEach(el=>{el.style.transition="none";el.style.animation="none"});
-wrap.appendChild(clone);document.body.appendChild(wrap);
-await new Promise(r=>setTimeout(r,500));
-const canvas=await html2canvas(clone,{scale:1,useCORS:true,backgroundColor:"#faf6ec",logging:false,width:794});
-document.body.removeChild(wrap);
-const{jsPDF}=window.jspdf;
-const pxW=canvas.width,pxH=canvas.height,pageW=210,pageH=297,ratio=pageW/pxW;
-const totalMmH=pxH*ratio;
-const pdf=new jsPDF("p","mm","a4");
-pdf.setFillColor(250,246,236);pdf.rect(0,0,pageW,pageH,"F");
-if(totalMmH<=pageH*1.3){
-const fitH=Math.min(totalMmH,pageH);const fitW=(fitH/totalMmH)*pageW;
-pdf.addImage(canvas.toDataURL("image/jpeg",0.45),"JPEG",(pageW-fitW)/2,0,fitW,fitH);
-}else{
-const pagePxH=Math.floor(pageH/ratio);let pg=0,srcY=0;
-while(srcY<pxH&&pg<10){
-if(pg>0){pdf.addPage();pdf.setFillColor(250,246,236);pdf.rect(0,0,pageW,pageH,"F")}
-const sl=Math.min(pagePxH,pxH-srcY);const pc=document.createElement("canvas");
-pc.width=pxW;pc.height=sl;pc.getContext("2d").drawImage(canvas,0,srcY,pxW,sl,0,0,pxW,sl);
-pdf.addImage(pc.toDataURL("image/jpeg",0.45),"JPEG",0,0,pageW,sl*ratio);
-srcY+=pagePxH;pg++;if(pxH-srcY<pagePxH*0.15)break;
-}
-}
-const b64=pdf.output("datauristring").split(",")[1];
+const b64=await genPdfBlob({scale:1,jpeg:0.45});
 const pdfName=("КП_"+co.name).replace(/[^a-zA-Zа-яА-ЯёЁ0-9_-]/g,"_").substring(0,50)+".pdf";
 console.log("PDF size:",Math.round(b64.length/1024),"KB");
 fl("Отправка письма...","warn");
@@ -432,13 +756,14 @@ return(<><style>{CSS}</style>
 <div className="CD"><div className="CT">✏️ Добавить свою услугу</div><div className="SR"><input className="FI" placeholder="Введите название услуги..." value={cn} onChange={e=>setCn(e.target.value)} onKeyDown={e=>e.key==="Enter"&&aC()} /><button className="B BG" onClick={aC}>+ Добавить</button></div></div>
 <div className="CD"><div className="CT">📂 Или из каталога</div><input className="FI" style={{width:"100%",marginBottom:14}} placeholder="🔍 Поиск по услугам..." value={catSearch} onChange={e=>setCatSearch(e.target.value)} />{(catSearch.trim()?[{c:"Результаты поиска",i:"🔎",s:CAT.flatMap(cat=>cat.s).filter(s=>s.n.toLowerCase().includes(catSearch.toLowerCase()))}]:CAT).map(cat=><div key={cat.c} className="CG"><div className={`CH ${(catSearch.trim()||ec===cat.c)?"op":""}`} onClick={()=>!catSearch.trim()&&setEc(ec===cat.c?null:cat.c)}><span>{cat.i}</span> {cat.c}<span style={{marginLeft:"auto",fontSize:12,color:"var(--t2)"}}>{cat.s.length}</span><span className="aw">▸</span></div>{(catSearch.trim()||ec===cat.c)&&<div className="CS">{cat.s.length===0?<div className="SVI" style={{color:"var(--t2)",fontStyle:"italic"}}>Ничего не найдено</div>:cat.s.map(s=>{const a=sv.some(x=>x.id===s.id);return<div key={s.id} className="SVI"><div className="SVN">{s.n}</div>{a?<span className="SVA">✓</span>:<button className="B BP Bsm" onClick={()=>aS(s)}>+</button>}</div>})}</div>}</div>)}</div>
 {sv.length>0&&<div className="CD"><div className="CT">✅ Услуги ({sv.length})</div><div style={{overflowX:"auto"}}><table className="TBL"><thead><tr><th style={{width:30}}>№</th><th>Наименование</th><th style={{width:70}}>Кол-во</th><th style={{width:120}}>Подготовка</th><th style={{width:120}}>Пошлины</th><th style={{width:150}}>Доп. расходы</th><th style={{width:40}}></th></tr></thead><tbody>
-{sv.map((s,i)=>{const hasWork=s.spk||s.att||s.spec;const isExp=expandedSvc===s.id;return <React.Fragment key={s.id}>
+{sv.map((s,i)=>{const hasWork=s.spk||s.att||s.spec||s.lic;const isExp=expandedSvc===s.id;return <React.Fragment key={s.id}>
 <tr><td style={{color:"var(--t2)"}}>{i+1}</td>
 <td><div style={{display:"flex",alignItems:"center",gap:8}}>
 {hasWork&&<span style={{cursor:"pointer",userSelect:"none",fontSize:14,color:isExp?"var(--ac)":"var(--t2)",transition:"transform .2s",display:"inline-block",transform:isExp?"rotate(90deg)":"none"}} onClick={()=>setExpandedSvc(isExp?null:s.id)}>▸</span>}
 <input className="FI" style={{flex:1,background:"transparent",border:"none",padding:0,fontSize:13,color:"var(--tx)"}} value={s.cn||s.n} onChange={e=>uS(s.id,"cn",e.target.value)} />
 </div>
-{hasWork&&(s.workTypes||[]).length>0&&!isExp&&<div style={{fontSize:11,color:"var(--gn)",marginTop:4}}>✓ Видов работ: {(s.workTypes||[]).length}</div>}
+{hasWork&&!isExp&&!s.lic&&(s.workTypes||[]).length>0&&<div style={{fontSize:11,color:"var(--gn)",marginTop:4}}>✓ Видов работ: {(s.workTypes||[]).length}</div>}
+{hasWork&&!isExp&&s.lic&&<div style={{fontSize:11,color:"var(--gn)",marginTop:4}}>✓ Лицензия: {(s.licSpecs||[]).length} спецов · {(s.licDocs||[]).length} справок</div>}
 </td>
 <td><input type="number" className="NI2" style={{width:60,textAlign:"center"}} min={1} value={s.qty||1} onChange={e=>uS(s.id,"qty",Math.max(1,+e.target.value||1))} /></td>
 <td><input type="number" className="NI2" placeholder="0" value={s.prep||""} onChange={e=>uS(s.id,"prep",e.target.value===""?0:+e.target.value)} /></td>
@@ -447,8 +772,8 @@ return(<><style>{CSS}</style>
 <td><button className="B BR Bsm" onClick={()=>rS(s.id)}>✕</button></td>
 </tr>
 {hasWork&&isExp&&<tr><td colSpan={7} style={{background:"var(--s2)",padding:"16px 20px"}}>
-<div style={{fontWeight:700,fontSize:13,marginBottom:12,color:"var(--ac)"}}>{s.spec?"👷 Выбор специалистов":("📋 Виды работ "+(s.spk?"для СПК":"для Аттестации"))}</div>
-{s.spec?<div>
+<div style={{fontWeight:700,fontSize:13,marginBottom:12,color:"var(--ac)"}}>{s.spec?"👷 Выбор специалистов":s.lic?"📋 Требования к лицензии":("📋 Виды работ "+(s.spk?"для СПК":"для Аттестации"))}</div>
+{s.lic?<LicEditor svc={s} setSv={setSv} />:s.spec?<div>
 <div style={{background:"var(--bg)",borderRadius:8,padding:"10px",maxHeight:380,overflowY:"auto",marginBottom:10,border:"1px solid var(--bd)"}}>
 {SPECIALISTS.map(sp=>{const added=(s.specs||[]).includes(sp);return<div key={sp} onClick={()=>{if(added){setSv(p=>p.map(x=>x.id===s.id?{...x,specs:(x.specs||[]).filter(z=>z!==sp)}:x))}else{setSv(p=>p.map(x=>x.id===s.id?{...x,specs:[...(x.specs||[]),sp]}:x))}}} style={{padding:"6px 10px",borderRadius:6,cursor:"pointer",fontSize:12,display:"flex",gap:10,alignItems:"flex-start",background:added?"rgba(52,199,123,.1)":"transparent",marginBottom:2,lineHeight:1.4}}><span style={{fontSize:14,flexShrink:0,color:added?"var(--gn)":"var(--t2)",marginTop:-2}}>{added?"✓":"☐"}</span><span style={{flex:1}}>{sp}</span></div>})}
 </div>
@@ -574,11 +899,11 @@ return(<><style>{CSS}</style>
 </div>
 <div className="KP" ref={kpRef}>
 <div className="KY">2026</div>
-<div className="KH"><h1>КОММЕРЧЕСКОЕ</h1><h2>ПРЕДЛОЖЕНИЕ</h2><div className="br2">MAVIS GROUP</div></div>
+<div data-block="header"><div className="KH"><h1>КОММЕРЧЕСКОЕ</h1><h2>ПРЕДЛОЖЕНИЕ</h2><div className="br2">MAVIS GROUP</div></div>
 <div className="KD">Предложение о сотрудничестве от <EditableField value={kpDate} onChange={setKpDate} /></div>
-<div className="KC"><h3><EditableField value={co.name} onChange={v=>setCo(p=>({...p,name:v}))} placeholder="Название компании" /></h3>{(co.dir||true)&&<p><EditableField value={co.dir} onChange={v=>setCo(p=>({...p,dir:v}))} placeholder="ФИО директора (опционально)" /></p>}</div>
+<div className="KC"><h3><EditableField value={co.name} onChange={v=>setCo(p=>({...p,name:v}))} placeholder="Название компании" /></h3>{(co.dir||true)&&<p><EditableField value={co.dir} onChange={v=>setCo(p=>({...p,dir:v}))} placeholder="ФИО директора (опционально)" /></p>}</div></div>
 
-{sv.filter(s=>(s.workTypes||[]).length>0).map(s=><div key={"wt_"+s.id} style={{marginLeft:60,marginBottom:16,padding:"16px 20px",background:"rgba(255,255,255,.6)",borderRadius:8,border:"1px solid rgba(100,100,100,.2)"}}>
+{sv.filter(s=>(s.workTypes||[]).length>0).map(s=><div data-block="work-types" key={"wt_"+s.id} style={{marginLeft:60,marginBottom:16,padding:"16px 20px",background:"rgba(255,255,255,.6)",borderRadius:8,border:"1px solid rgba(100,100,100,.2)"}}>
 <div style={{fontSize:13,fontWeight:700,marginBottom:10,color:"#1f1f1f"}}>Виды работ {s.spk?"для СПК":s.att?"для Аттестации":""} ({s.cn||s.n}):</div>
 <div style={{fontSize:11,color:"#1f1f1f",lineHeight:1.6,fontWeight:500}}>
 {(s.workTypes||[]).map((w,i)=><div key={i} className="kp-list-item" style={{padding:"2px 0",display:"flex",alignItems:"center",gap:6}}>
@@ -592,14 +917,62 @@ return(<><style>{CSS}</style>
 </div>
 </div>)}
 
-{ttl&&<div className="KS"><EditableField value={ttl} onChange={setTtl} placeholder="Заголовок" /></div>}
+<div data-block="services-table">{ttl&&<div className="KS"><EditableField value={ttl} onChange={setTtl} placeholder="Заголовок" /></div>}
 <table className="KT"><thead><tr><th>№</th><th>Услуга</th><th>Наши услуги</th><th>Пошлины</th><th>Доп. расходы</th></tr></thead><tbody>
 {(()=>{let stage=0;return sv.map((s,i)=>{const isService=s.id!=="tnpa"&&s.id!=="tech_cards";if(isService)stage++;const curStage=isService?stage:null;return <tr key={s.id}><td style={{color:"#777"}}>{i+1}</td><td>{curStage&&<div style={{fontSize:10,color:"#8b5a1e",fontWeight:700,marginBottom:2,letterSpacing:1}}>ЭТАП {curStage}</div>}<EditableField value={s.cn||s.n} onChange={v=>uS(s.id,"cn",v)} />{(s.qty||1)>1&&<span style={{color:"#777"}}> × {s.qty}</span>}</td><td>{fm(s.prep*(s.qty||1))}</td><td>{fm(s.fee*(s.qty||1))}</td><td>{fm(s.extra*(s.qty||1))}{s.ec&&<div style={{fontSize:11,color:"#777",marginTop:2}}><EditableField value={s.ec} onChange={v=>uS(s.id,"ec",v)} /></div>}</td></tr>})})()}
 <tr className="TT"><td></td><td>Итого:</td><td>{fm(tP)}</td><td>{fm(tF)}</td><td>{fm(tE)}</td></tr>
 <tr className="TG"><td></td><td>ОБЩАЯ СУММА:</td><td colSpan={3}>{fm(tT)}</td></tr>
-</tbody></table>
+</tbody></table></div>
 
-{(autoSPEC.spk.length>0||autoSPEC.att.length>0)&&<div style={{marginLeft:60,marginRight:0,marginBottom:32,border:"1px solid rgba(100,100,100,.3)",borderRadius:4}}>
+{sv.filter(s=>s.lic).map(s=>{const updLic=(field,fn)=>setSv(p=>p.map(x=>x.id===s.id?{...x,[field]:fn(x[field])}:x));const updLicEq=(group,fn)=>setSv(p=>p.map(x=>{if(x.id!==s.id)return x;const eq={...(x.licEquipment||{})};eq[group]=fn(eq[group]||[]);return{...x,licEquipment:eq}}));return <div key={"lic_"+s.id} data-block="lic" style={{marginLeft:60,marginRight:0,marginBottom:32,border:"1px solid rgba(100,100,100,.3)",borderRadius:4}}>
+<div style={{background:"rgba(100,100,100,.12)",padding:"10px 16px",fontWeight:700,fontSize:14,color:"#1f1f1f",textAlign:"center",borderBottom:"1px solid rgba(100,100,100,.25)"}}>Требования для получения лицензии — <EditableField value={s.cn||s.n} onChange={v=>uS(s.id,"cn",v)} /></div>
+<div style={{padding:"14px 20px",fontSize:12,color:"#1f1f1f",lineHeight:1.7}}>
+
+{(s.licSpecs||[]).length>0&&<div style={{marginBottom:12}}>
+<div style={{fontWeight:700,marginBottom:6,color:"#8b5a1e"}}>Специалисты в штате по основному месту работы:</div>
+{(s.licSpecs||[]).map((sp,i)=><div key={i} className="kp-list-item" style={{display:"flex",alignItems:"flex-start",gap:6,padding:"1px 0"}}>
+<span style={{flex:1}}>— <EditableField value={sp} onChange={nv=>updLic("licSpecs",p=>p.map((x,j)=>j===i?nv:x))} /></span>
+<button className="del-btn no-pdf" onClick={()=>updLic("licSpecs",p=>p.filter((_,j)=>j!==i))}>✕</button>
+</div>)}
+<div className="kp-add-row no-pdf"><input placeholder="Добавить специалиста..." onKeyDown={e=>{if(e.key==="Enter"&&e.target.value.trim()){updLic("licSpecs",p=>[...p,e.target.value.trim()]);e.target.value=""}}} /><button className="kp-add-btn" onClick={e=>{const inp=e.target.previousSibling;if(inp.value.trim()){updLic("licSpecs",p=>[...p,inp.value.trim()]);inp.value=""}}}>+</button></div>
+</div>}
+
+{(s.licDocs||[]).length>0&&<div style={{marginBottom:12}}>
+<div style={{fontWeight:700,marginBottom:6,color:"#8b5a1e"}}>Необходимые справки для получения лицензии:</div>
+{(s.licDocs||[]).map((d,i)=><div key={i} className="kp-list-item" style={{display:"flex",alignItems:"flex-start",gap:6,padding:"1px 0"}}>
+<span style={{flex:1}}>— <EditableField value={d} onChange={nv=>updLic("licDocs",p=>p.map((x,j)=>j===i?nv:x))} /></span>
+<button className="del-btn no-pdf" onClick={()=>updLic("licDocs",p=>p.filter((_,j)=>j!==i))}>✕</button>
+</div>)}
+<div className="kp-add-row no-pdf"><input placeholder="Добавить справку..." onKeyDown={e=>{if(e.key==="Enter"&&e.target.value.trim()){updLic("licDocs",p=>[...p,e.target.value.trim()]);e.target.value=""}}} /><button className="kp-add-btn" onClick={e=>{const inp=e.target.previousSibling;if(inp.value.trim()){updLic("licDocs",p=>[...p,inp.value.trim()]);inp.value=""}}}>+</button></div>
+</div>}
+
+{s.licExam&&<div style={{marginBottom:12}}>
+<div style={{fontWeight:700,marginBottom:4,color:"#8b5a1e"}}>Экзамен:</div>
+<div><EditableField value={s.licExam} onChange={v=>uS(s.id,"licExam",v)} multiline /></div>
+</div>}
+
+{s.licTerm&&<div style={{marginBottom:12}}>
+<div style={{fontWeight:700,marginBottom:4,color:"#8b5a1e"}}>Срок получения:</div>
+<div><EditableField value={s.licTerm} onChange={v=>uS(s.id,"licTerm",v)} /></div>
+</div>}
+
+{Object.keys(s.licEquipment||{}).length>0&&<div>
+<div style={{fontWeight:700,marginBottom:8,color:"#8b5a1e"}}>Необходимое оборудование:</div>
+<table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
+<tbody><tr style={{verticalAlign:"top"}}>{Object.entries(s.licEquipment||{}).map(([group,items],gi)=><td key={gi} style={{border:"1px solid rgba(100,100,100,.25)",padding:"8px 10px",width:(100/Object.keys(s.licEquipment).length)+"%",verticalAlign:"top"}}>
+<div style={{fontWeight:700,marginBottom:4,fontSize:11}}><EditableField value={group} onChange={nv=>{if(nv&&nv!==group){setSv(p=>p.map(x=>{if(x.id!==s.id)return x;const eq={};Object.keys(x.licEquipment||{}).forEach(k=>{eq[k===group?nv:k]=x.licEquipment[k]});return{...x,licEquipment:eq}}))}}} /></div>
+{items.map((it,i)=><div key={i} className="kp-list-item" style={{display:"flex",alignItems:"flex-start",gap:4,padding:"1px 0",fontSize:11,lineHeight:1.4}}>
+<span style={{flex:1}}>— <EditableField value={it} onChange={nv=>updLicEq(group,p=>p.map((x,j)=>j===i?nv:x))} /></span>
+<button className="del-btn no-pdf" onClick={()=>updLicEq(group,p=>p.filter((_,j)=>j!==i))}>✕</button>
+</div>)}
+<div className="kp-add-row no-pdf"><input placeholder="+" onKeyDown={e=>{if(e.key==="Enter"&&e.target.value.trim()){updLicEq(group,p=>[...p,e.target.value.trim()]);e.target.value=""}}} /><button className="kp-add-btn" onClick={e=>{const inp=e.target.previousSibling;if(inp.value.trim()){updLicEq(group,p=>[...p,inp.value.trim()]);inp.value=""}}}>+</button></div>
+</td>)}</tr></tbody></table>
+</div>}
+
+</div>
+</div>})}
+
+{(autoSPEC.spk.length>0||autoSPEC.att.length>0)&&<div data-block="specs" style={{marginLeft:60,marginRight:0,marginBottom:32,border:"1px solid rgba(100,100,100,.3)",borderRadius:4}}>
 <div style={{background:"rgba(100,100,100,.12)",padding:"10px 16px",fontWeight:700,fontSize:14,color:"#1f1f1f",textAlign:"center",borderBottom:"1px solid rgba(100,100,100,.25)"}}>Необходимые специалисты</div>
 <div style={{padding:"14px 20px",fontSize:12,color:"#1f1f1f",lineHeight:1.8}}>
 {autoSPEC.spk.length>0&&<div style={{marginBottom:autoSPEC.att.length>0?12:0}}>
@@ -633,7 +1006,7 @@ else{setRemovedAttSpecs(p=>[...p,sp])}
 </div>
 </div>}
 
-{autoSI.length>0&&<div style={{marginLeft:60,marginRight:0,marginBottom:32,border:"1px solid rgba(100,100,100,.3)",borderRadius:4}}>
+{autoSI.length>0&&<div data-block="si" style={{marginLeft:60,marginRight:0,marginBottom:32,border:"1px solid rgba(100,100,100,.3)",borderRadius:4}}>
 <div style={{background:"rgba(100,100,100,.12)",padding:"10px 16px",fontWeight:700,fontSize:14,color:"#1f1f1f",textAlign:"center",borderBottom:"1px solid rgba(100,100,100,.25)"}}>Перечень необходимого оборудования</div>
 <div style={{padding:"10px 20px",fontSize:11,color:"#1f1f1f",lineHeight:1.4}}>
 {autoSI.map((s,i)=>{const isExtra=extraSI.includes(s);return <div key={i} className="kp-list-item" style={{padding:"1px 0",display:"flex",alignItems:"center",gap:6}}>
@@ -650,7 +1023,7 @@ else{setRemovedSI(p=>[...p,s])}
 </div>
 </div>}
 
-{sv.find(s=>s.ot)&&<div style={{marginLeft:60,marginRight:0,marginBottom:32,border:"1px solid rgba(100,100,100,.3)",borderRadius:4}}>
+{sv.find(s=>s.ot)&&<div data-block="ot" style={{marginLeft:60,marginRight:0,marginBottom:32,border:"1px solid rgba(100,100,100,.3)",borderRadius:4}}>
 <div style={{background:"rgba(100,100,100,.12)",padding:"10px 16px",fontWeight:700,fontSize:14,color:"#1f1f1f",textAlign:"center",borderBottom:"1px solid rgba(100,100,100,.25)"}}>Разработка пакета документов по охране труда</div>
 <div style={{padding:"14px 20px"}}>
 <div style={{fontWeight:700,fontSize:12,color:"#1f1f1f",marginBottom:10,borderBottom:"1px solid rgba(100,100,100,.2)",paddingBottom:6}}>Перечень разрабатываемых документов:</div>
@@ -660,17 +1033,18 @@ else{setRemovedSI(p=>[...p,s])}
 </div>
 </div>}
 
-<div className="KCN"><strong>Условия сотрудничества:</strong><br/><EditableField value={condText} onChange={setCondText} multiline /></div>
-<div className="KS">Преимущества работы с нами</div>
+<div data-block="conditions" className="KCN"><strong>Условия сотрудничества:</strong><br/><EditableField value={condText} onChange={setCondText} multiline /></div>
+<div data-block="advantages"><div className="KS">Преимущества работы с нами</div>
 <div className="KA">{advList.map((a,i)=><div key={i} className="KAI"><h4><span style={{color:"#8b5a1e"}}>◆</span> <EditableField value={a.t} onChange={nv=>setAdvList(p=>p.map((x,j)=>j===i?{...x,t:nv}:x))} /></h4><p><EditableField value={a.d} onChange={nv=>setAdvList(p=>p.map((x,j)=>j===i?{...x,d:nv}:x))} multiline /></p></div>)}</div>
-<div className="KCL">{CL.map(c=><span key={c} className="KCLT">{c}</span>)}</div>
-{mgrData?.name&&<div style={{marginLeft:60,marginTop:32,paddingTop:20,borderTop:"1px solid rgba(100,100,100,.25)"}}><div style={{fontSize:16,fontWeight:700,color:"#1f1f1f",marginBottom:4}}>{mgrData.name}</div><div style={{fontSize:12,color:"#3a3a3a",marginBottom:2}}>MAVIS GROUP | Специалист отдела продаж</div>{mgrData.phone&&<div style={{fontSize:12,color:"#777"}}>{mgrData.phone}</div>}<div style={{fontSize:12,color:"#777"}}>mavis.group@mail.ru</div></div>}
+</div><div data-block="clients" className="KCL">{CL.map(c=><span key={c} className="KCLT">{c}</span>)}</div>
+{mgrData?.name&&<div data-block="signature" style={{marginLeft:60,marginTop:32,paddingTop:20,borderTop:"1px solid rgba(100,100,100,.25)"}}><div style={{fontSize:16,fontWeight:700,color:"#1f1f1f",marginBottom:4}}>{mgrData.name}</div><div style={{fontSize:12,color:"#3a3a3a",marginBottom:2}}>MAVIS GROUP | Специалист отдела продаж</div>{mgrData.phone&&<div style={{fontSize:12,color:"#777"}}>{mgrData.phone}</div>}<div style={{fontSize:12,color:"#777"}}>mavis.group@mail.ru</div></div>}
 </div>
 <div className="AB">
 <button className="B BS Blg" onClick={()=>setSt(2)}>← Редактировать</button>
 <button className="B BG Blg" onClick={save}>💾 Сохранить</button>
 <button className="B BP Blg" onClick={sEm} disabled={sn}>{sn?"⏳ Отправка...":"✉ Отправить письмо"}</button>
-<button className="B BS Blg" onClick={dlPdf} disabled={pdfing}>{pdfing?"⏳":"📄 Скачать PDF"}</button>
+<button className="B BS Blg" onClick={dlPdf} disabled={pdfing||docxing}>{pdfing?"⏳":"📄 PDF"}</button>
+<button className="B BS Blg" onClick={dlDocx} disabled={pdfing||docxing}>{docxing?"⏳":"📝 Word"}</button>
 </div>
 </>)}
 </div>
@@ -694,6 +1068,7 @@ else{setRemovedSI(p=>[...p,s])}
 <div style={{fontSize:16,fontWeight:800,color:"var(--gn)",whiteSpace:"nowrap"}}>{fm(k.tT)}</div>
 <button className="B BP Bsm" onClick={()=>ld(k)} title="Открыть КП">📂</button>
 <button className="B BS Bsm" onClick={()=>dlHistPdf(k)} title="Скачать PDF">📄</button>
+<button className="B BS Bsm" onClick={()=>dlHistDocx(k)} title="Скачать Word">📝</button>
 <button className="B BR Bsm" onClick={()=>delHist(k.id,k.co.name)} title="Удалить">✕</button>
 </div>
 </div>)})()}
