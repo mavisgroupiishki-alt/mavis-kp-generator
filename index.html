@@ -205,12 +205,18 @@ const[loading,setLoading]=useState(false);
 const[results,setResults]=useState(null);
 const[err,setErr]=useState("");
 const[tab,setTab]=useState("search"); // search | cards | history | settings
+const[searchMode,setSearchMode]=useState("company"); // company | person
 // Состояние расширения
 const[extReady,setExtReady]=useState(false);
 const[extVersion,setExtVersion]=useState(null);
-// Фильтр: какие источники показывать в результатах (по умолчанию все)
-const[enabledSrc,setEnabledSrc]=useState(()=>{try{const s=localStorage.getItem("mavis_reg_enabled");return s?JSON.parse(s):REG_SOURCES.map(s=>s.id);}catch(e){return REG_SOURCES.map(s=>s.id);}});
+// Фильтр: какие источники показывать в результатах (по умолчанию все кроме spec — он отдельный режим)
+const[enabledSrc,setEnabledSrc]=useState(()=>{try{const s=localStorage.getItem("mavis_reg_enabled");return s?JSON.parse(s):REG_SOURCES.filter(s=>s.id!=="spec").map(s=>s.id);}catch(e){return REG_SOURCES.filter(s=>s.id!=="spec").map(s=>s.id);}});
 React.useEffect(()=>{try{localStorage.setItem("mavis_reg_enabled",JSON.stringify(enabledSrc))}catch(e){}},[enabledSrc]);
+React.useEffect(()=>{
+if(searchMode==="person"&&!enabledSrc.includes("spec")){setEnabledSrc(p=>[...p,"spec"])}
+if(searchMode==="company"&&enabledSrc.length===0){setEnabledSrc(REG_SOURCES.filter(s=>s.id!=="spec").map(s=>s.id))}
+// eslint-disable-next-line
+},[searchMode]);
 
 // === Детекция расширения через postMessage ===
 React.useEffect(()=>{
@@ -265,10 +271,12 @@ if(!extReady){setErr("Сначала установите расширение M
 if(!q.trim()||q.trim().length<2){setErr("Введите минимум 2 символа");return}
 setErr("");setLoading(true);setResults(null);
 try{
-const data=await callExtension("SEARCH",{query:q.trim(),sources:enabledSrc},90000);
+// В режиме "по ФИО" — ищем только в реестре специалистов; в "по компании" — во всех остальных
+const sources=searchMode==="person"?["spec"]:enabledSrc.filter(s=>s!=="spec");
+if(sources.length===0){setErr("Выберите хотя бы один реестр в фильтре");setLoading(false);return}
+const data=await callExtension("SEARCH",{query:q.trim(),sources},120000);
 setResults(data);
-// Сохраняем в историю
-setRegHist(p=>{const summary={};REG_SOURCES.forEach(s=>{summary[s.id]=data.sources?.[s.id]?.count||0});const entry={id:Date.now(),q:q.trim(),ts:new Date().toISOString(),summary};return[entry,...p.filter(x=>x.q!==entry.q)].slice(0,50)});
+setRegHist(p=>{const summary={};REG_SOURCES.forEach(s=>{summary[s.id]=data.sources?.[s.id]?.count||0});const entry={id:Date.now(),q:q.trim(),mode:searchMode,ts:new Date().toISOString(),summary};return[entry,...p.filter(x=>x.q!==entry.q||x.mode!==entry.mode)].slice(0,50)});
 }catch(e){setErr("Ошибка: "+e.message)}
 setLoading(false);
 };
@@ -320,13 +328,17 @@ return(<><style>{CSS}</style>
 <button className="B BP" onClick={()=>setTab("settings")}>📖 Инструкция по установке</button>
 </div>}
 <div className="CD">
-<div className="CT">🔍 Введите название компании</div>
+<div style={{display:"flex",gap:8,marginBottom:14}}>
+<button className="B" style={{flex:1,padding:"10px 14px",background:searchMode==="company"?"var(--ac)":"var(--s2)",color:searchMode==="company"?"#fff":"var(--t2)",border:"1px solid "+(searchMode==="company"?"var(--ac)":"var(--bd)"),borderRadius:8,fontSize:13,fontWeight:600,cursor:"pointer"}} onClick={()=>setSearchMode("company")}>🏢 По названию компании</button>
+<button className="B" style={{flex:1,padding:"10px 14px",background:searchMode==="person"?"var(--ac)":"var(--s2)",color:searchMode==="person"?"#fff":"var(--t2)",border:"1px solid "+(searchMode==="person"?"var(--ac)":"var(--bd)"),borderRadius:8,fontSize:13,fontWeight:600,cursor:"pointer"}} onClick={()=>setSearchMode("person")}>👤 По ФИО специалиста</button>
+</div>
+<div className="CT">🔍 {searchMode==="company"?"Название компании":"Фамилия специалиста"}</div>
 <div className="SR">
-<input className="FI" style={{flex:1}} placeholder='Например: "Минскметрострой"' value={q} onChange={e=>setQ(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")search()}} disabled={!extReady} />
+<input className="FI" style={{flex:1}} placeholder={searchMode==="company"?'Например: "Минскметрострой"':'Например: "Петров"'} value={q} onChange={e=>setQ(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")search()}} disabled={!extReady} />
 <button className="B BP" onClick={search} disabled={loading||!extReady}>{loading?"⏳ Поиск...":"Найти"}</button>
 </div>
 {err&&<div style={{marginTop:12,padding:"10px 14px",background:"rgba(245,87,79,.12)",border:"1px solid var(--rd)",borderRadius:8,color:"var(--rd)",fontSize:13}}>{err}</div>}
-<p style={{fontSize:12,color:"var(--t2)",marginTop:10}}>Расширение откроет 6 фоновых вкладок и автоматически считает данные из реестров: СПК, Аттестаты юр.лиц, Аттестаты специалистов, ISO/СУОТ, ОСП, Лицензии. Это займёт 10-30 секунд.</p>
+<p style={{fontSize:12,color:"var(--t2)",marginTop:10}}>{searchMode==="company"?"Поиск по 5 реестрам: СПК, Аттестаты юр.лиц, ISO/СУОТ, ОСП, Лицензии. Это займёт 10-50 секунд.":"Поиск по реестру квалификационных аттестатов специалистов (rcuk.bsc.by) по фамилии."}</p>
 </div>
 
 {results&&<>
@@ -335,17 +347,17 @@ return(<><style>{CSS}</style>
 <button className="B BG" onClick={saveAsCard}>+ В картотеку</button>
 </div>
 
-{/* Фильтр чекбоксы — какие источники показать */}
+{/* Фильтр чекбоксы — какие источники показать (зависит от режима) */}
 <div className="CD" style={{padding:"12px 16px"}}>
 <div style={{fontSize:11,color:"var(--t2)",marginBottom:8,fontWeight:600,textTransform:"uppercase",letterSpacing:.5}}>Показать реестры:</div>
 <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
-{REG_SOURCES.map(s=>{const on=enabledSrc.includes(s.id);const cnt=results.sources?.[s.id]?.count||0;return <div key={s.id} onClick={()=>setEnabledSrc(p=>on?p.filter(x=>x!==s.id):[...p,s.id])} style={{padding:"6px 12px",borderRadius:6,cursor:"pointer",fontSize:12,fontWeight:600,background:on?"var(--ac)":"var(--s2)",color:on?"#fff":"var(--t2)",border:"1px solid "+(on?"var(--ac)":"var(--bd)"),transition:"all .15s"}}>
+{REG_SOURCES.filter(s=>searchMode==="person"?s.id==="spec":s.id!=="spec").map(s=>{const on=enabledSrc.includes(s.id);const cnt=results.sources?.[s.id]?.count||0;return <div key={s.id} onClick={()=>setEnabledSrc(p=>on?p.filter(x=>x!==s.id):[...p,s.id])} style={{padding:"6px 12px",borderRadius:6,cursor:"pointer",fontSize:12,fontWeight:600,background:on?"var(--ac)":"var(--s2)",color:on?"#fff":"var(--t2)",border:"1px solid "+(on?"var(--ac)":"var(--bd)"),transition:"all .15s"}}>
 {on?"✓":"☐"} {s.label} <span style={{opacity:.7}}>({cnt})</span>
 </div>})}
 </div>
 </div>
 
-{REG_SOURCES.filter(s=>enabledSrc.includes(s.id)).map(srcDef=>{const src=srcDef.id;const s=results.sources?.[src];if(!s)return null;return <div key={src} className="CD">
+{REG_SOURCES.filter(s=>{if(searchMode==="person")return s.id==="spec";if(s.id==="spec")return false;return enabledSrc.includes(s.id)}).map(srcDef=>{const src=srcDef.id;const s=results.sources?.[src];if(!s)return null;return <div key={src} className="CD">
 <div className="CT">{srcDef.label} <span style={{fontSize:11,color:"var(--t2)",fontWeight:400}}>— {s.source_name||srcDef.full}</span></div>
 {s.error?<div style={{padding:"10px 14px",background:"rgba(245,166,35,.12)",borderRadius:8,fontSize:13,color:"var(--or)"}}>⚠ {s.error}</div>:s.count===0?<div style={{padding:"10px 14px",background:"var(--s2)",borderRadius:8,fontSize:13,color:"var(--t2)"}}>Не найдено</div>:<div>
 <div style={{fontSize:12,color:"var(--gn)",marginBottom:8,fontWeight:600}}>Найдено: {s.count}</div>
