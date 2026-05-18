@@ -327,44 +327,39 @@ const importHist=(file)=>{const r=new FileReader();r.onload=(e)=>{try{const arr=
 
 // PDF — поблочная укладка, чтобы не было разрывов посередине блоков
 const genPdfBlob=async(quality)=>{
-const q=quality||{scale:1.5,jpeg:0.7};
-// 1) Клонируем КП в скрытый контейнер с фиксированной шириной 794px (=A4 при 96dpi)
+const q=quality||{scale:2,jpeg:0.85};
+// 1) Клонируем КП — оставляем его родной padding (внутренние поля КП — это и есть наши поля страницы)
 const clone=kpRef.current.cloneNode(true);
 clone.querySelectorAll(".no-pdf").forEach(el=>el.remove());
-clone.querySelectorAll(".edt").forEach(el=>{el.style.cursor="default";el.style.background="transparent";el.style.border="none"});
+clone.querySelectorAll(".edt").forEach(el=>{el.style.cursor="default";el.style.background="transparent";el.style.border="none";el.title=""});
 clone.querySelectorAll("input,textarea").forEach(el=>{const sp=document.createElement("span");sp.textContent=el.value||el.placeholder||"";sp.style.cssText=el.style.cssText;el.parentNode&&el.parentNode.replaceChild(sp,el)});
+// Wrap-контейнер фиксированной ширины 794px = 210мм A4 при 96dpi
 const wrap=document.createElement("div");
-wrap.style.cssText="position:fixed;left:-9999px;top:0;width:794px;z-index:-1;background:#faf6ec;";
-clone.style.cssText="width:794px;max-width:794px;border-radius:0;padding:0;margin:0;background:#faf6ec;color:#333;font-family:Manrope,sans-serif;position:relative;";
+wrap.style.cssText="position:fixed;left:-9999px;top:0;width:794px;z-index:-1;background:#faf6ec;font-family:Manrope,sans-serif;";
+// Клон с padding 0 — блоки сами имеют свои отступы (margin-left:60px у внутренних блоков, etc.)
+clone.style.cssText="width:794px;max-width:794px;min-width:794px;box-sizing:border-box;border-radius:0;margin:0;padding:24px 0 24px;background:#faf6ec;color:#333;font-family:Manrope,sans-serif;position:relative;";
 clone.querySelectorAll("*").forEach(el=>{el.style.transition="none";el.style.animation="none"});
 wrap.appendChild(clone);document.body.appendChild(wrap);
-await new Promise(r=>setTimeout(r,500));
+// Ждём загрузки шрифтов и рендера
+if(document.fonts&&document.fonts.ready)await document.fonts.ready;
+await new Promise(r=>setTimeout(r,400));
 
-// 2) Параметры страницы A4
+// 2) Параметры страницы A4: 210×297 мм. Содержимое от края до края — паддинги внутри клона уже создают поля
 const pageW=210,pageH=297;
-const marginTop=18,marginBottom=14,marginX=12;
-const contentW=pageW-marginX*2;
-const usableH=pageH-marginTop-marginBottom;
+// Конверсия: 794px клона = pageW мм. Следовательно 1px = pageW/794 мм
+const px2mm=pageW/794;
 
-// 3) Находим все смысловые блоки
+// 3) Находим смысловые блоки
 const blockEls=Array.from(clone.querySelectorAll("[data-block]"));
-// Если ничего не размечено — фоллбэк: один блок = весь КП
 const blocks=blockEls.length?blockEls:[clone];
 
-// 4) Снимаем каждый блок отдельным canvas, и считаем высоту в мм
-const px2mm=(px)=>px*(contentW/(794-96)); // 794 - 2*48 padding ≈ 698 эффективная ширина
-// Фактически проще: html2canvas даёт canvas в пикселях @ scale. mmHeight = (pxHeight/scale) * (contentW / blockCSSwidth)
+// 4) Снимаем каждый блок и считаем высоту в мм
 const items=[];
 for(const el of blocks){
-const c=await html2canvas(el,{scale:q.scale,useCORS:true,backgroundColor:"#faf6ec",logging:false});
-// CSS-ширина оригинала
-const cssW=el.getBoundingClientRect().width;
-const cssH=el.getBoundingClientRect().height;
-// Масштаб в PDF: уменьшаем до contentW
-const ratio=contentW/cssW;
-const heightMm=cssH*ratio*(72/96)*(96/72); // прямое cssH*ratio в мм; cssH в px @96dpi → 1мм = 3.7795px
-const heightMmCorrect=(cssH/3.7795)*ratio;
-items.push({canvas:c,heightMm:heightMmCorrect,el});
+const cv=await html2canvas(el,{scale:q.scale,useCORS:true,backgroundColor:"#faf6ec",logging:false});
+const cssH=el.offsetHeight;
+const heightMm=cssH*px2mm;
+items.push({canvas:cv,heightMm,el});
 }
 
 document.body.removeChild(wrap);
@@ -374,40 +369,48 @@ const{jsPDF}=window.jspdf;
 const pdf=new jsPDF("p","mm","a4");
 const fillBg=()=>{pdf.setFillColor(250,246,236);pdf.rect(0,0,pageW,pageH,"F")};
 fillBg();
-let y=marginTop;
-let isFirstPage=true;
-
-// Декоративный «2026» на первой странице
-const drawYearMark=()=>{pdf.setTextColor(180,180,180);pdf.setFontSize(8);pdf.text("2026",6,pageH/2,{angle:90})};
-drawYearMark();
+// Отступы СТРАНИЦЫ в PDF — нет (всё внутри клона уже с паддингами)
+const padTop=0;
+const padBottom=8; // небольшой запас снизу страницы
+const usableH=pageH-padTop-padBottom;
+let y=padTop;
 
 for(const it of items){
 const blockH=it.heightMm;
-// Если блок не помещается на текущей странице — новый лист
-// Исключение: если блок сам выше страницы — кладём, всё равно режется
-if(y+blockH>pageH-marginBottom&&blockH<=usableH){
-pdf.addPage();fillBg();y=marginTop;isFirstPage=false;
+// Перенос на новую страницу если не помещается (и блок сам по себе помещается на пустой странице)
+if(y>padTop&&y+blockH>pageH-padBottom&&blockH<=usableH){
+pdf.addPage();fillBg();y=padTop;
 }
-// Если блок выше страницы — режем его постранично (редкий случай: ОТ-документы / огромная таблица)
+// Если блок выше страницы — режем постранично
 if(blockH>usableH){
-// Преобразуем canvas в imgData, разрезаем
-const pxRatio=blockH/it.canvas.height; // мм на пиксель
-const usablePx=usableH/pxRatio;
+const mmPerPx=blockH/it.canvas.height;
+const remainingMm=pageH-padBottom-y;
 let sourceY=0;
+// Первая порция — кладём то что влезет на текущую страницу
+const firstSlicePx=Math.floor(remainingMm/mmPerPx);
+if(firstSlicePx>50){
+const pc=document.createElement("canvas");
+pc.width=it.canvas.width;pc.height=firstSlicePx;
+pc.getContext("2d").drawImage(it.canvas,0,0,it.canvas.width,firstSlicePx,0,0,it.canvas.width,firstSlicePx);
+const sliceMm=firstSlicePx*mmPerPx;
+pdf.addImage(pc.toDataURL("image/jpeg",q.jpeg),"JPEG",0,y,pageW,sliceMm);
+y+=sliceMm;sourceY=firstSlicePx;
+}
+// Дальше — новые страницы
 while(sourceY<it.canvas.height){
-const sliceH=Math.min(usablePx,it.canvas.height-sourceY);
+pdf.addPage();fillBg();y=padTop;
+const sliceH=Math.min(Math.floor(usableH/mmPerPx),it.canvas.height-sourceY);
 const pc=document.createElement("canvas");
 pc.width=it.canvas.width;pc.height=sliceH;
 pc.getContext("2d").drawImage(it.canvas,0,sourceY,it.canvas.width,sliceH,0,0,it.canvas.width,sliceH);
-const sliceMm=sliceH*pxRatio;
-if(y+sliceMm>pageH-marginBottom){pdf.addPage();fillBg();y=marginTop;isFirstPage=false}
-pdf.addImage(pc.toDataURL("image/jpeg",q.jpeg),"JPEG",marginX,y,contentW,sliceMm);
+const sliceMm=sliceH*mmPerPx;
+pdf.addImage(pc.toDataURL("image/jpeg",q.jpeg),"JPEG",0,y,pageW,sliceMm);
 y+=sliceMm;
 sourceY+=sliceH;
 }
 }else{
-pdf.addImage(it.canvas.toDataURL("image/jpeg",q.jpeg),"JPEG",marginX,y,contentW,blockH);
-y+=blockH+3; // 3мм отступ между блоками
+pdf.addImage(it.canvas.toDataURL("image/jpeg",q.jpeg),"JPEG",0,y,pageW,blockH);
+y+=blockH;
 }
 }
 
@@ -620,7 +623,7 @@ if(!mgrData){fl("Выберите менеджера","error");return}
 if(!kpRef.current){fl("Откройте предпросмотр","error");return}
 setSn(true);fl("Генерация PDF...","warn");
 try{
-const b64=await genPdfBlob({scale:1,jpeg:0.45});
+const b64=await genPdfBlob({scale:1.5,jpeg:0.65});
 const pdfName=("КП_"+co.name).replace(/[^a-zA-Zа-яА-ЯёЁ0-9_-]/g,"_").substring(0,50)+".pdf";
 console.log("PDF size:",Math.round(b64.length/1024),"KB");
 fl("Отправка письма...","warn");
