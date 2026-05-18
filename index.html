@@ -358,7 +358,10 @@ return(<><style>{CSS}</style>
 </div>
 
 {REG_SOURCES.filter(s=>{if(searchMode==="person")return s.id==="spec";if(s.id==="spec")return false;return enabledSrc.includes(s.id)}).map(srcDef=>{const src=srcDef.id;const s=results.sources?.[src];if(!s)return null;return <div key={src} className="CD">
-<div className="CT">{srcDef.label} <span style={{fontSize:11,color:"var(--t2)",fontWeight:400}}>— {s.source_name||srcDef.full}</span></div>
+<div className="CT" style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+<span>{srcDef.label} <span style={{fontSize:11,color:"var(--t2)",fontWeight:400}}>— {s.source_name||srcDef.full}</span></span>
+{s.debug_log&&<button className="B BS" style={{fontSize:10,padding:"4px 8px"}} onClick={()=>{const text=`Реестр: ${srcDef.full}\nURL: ${s.url}\nЗапрос: ${s.query}\nНайдено: ${s.count}\nОшибка: ${s.error||"нет"}\n\nЛог:\n${s.debug_log}`;navigator.clipboard.writeText(text).then(()=>alert("Лог скопирован в буфер обмена. Перешлите его разработчику.")).catch(()=>{const w=window.open("","_blank");w.document.write("<pre>"+text.replace(/</g,"&lt;")+"</pre>")})}}>🐞 Лог</button>}
+</div>
 {s.error?<div style={{padding:"10px 14px",background:"rgba(245,166,35,.12)",borderRadius:8,fontSize:13,color:"var(--or)"}}>⚠ {s.error}</div>:s.count===0?<div style={{padding:"10px 14px",background:"var(--s2)",borderRadius:8,fontSize:13,color:"var(--t2)"}}>Не найдено</div>:<div>
 <div style={{fontSize:12,color:"var(--gn)",marginBottom:8,fontWeight:600}}>Найдено: {s.count}</div>
 <div style={{display:"flex",flexDirection:"column",gap:8}}>
