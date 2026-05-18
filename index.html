@@ -22,6 +22,9 @@
 const{useState,useRef}=React;
 const BX="https://mavisgroup.bitrix24.by/rest/2110/ie4502ilh74981qr";
 const FROM_EMAIL="mavis.group@mail.ru";
+// АДРЕС CLOUDFLARE WORKER (Прокси для реестров). Замените на свой после деплоя.
+// Например: "https://mavis-registry.your-account.workers.dev"
+const REG_PROXY=(localStorage.getItem("mavis_reg_proxy")||"").replace(/\/+$/,"");
 const INIT_MGRS=[{id:1,name:"Роман Авсеенко",phone:"80 (44) 721 42 15"},{id:2,name:"Екатерина Халько",phone:"80 (44) 721 42 15"},{id:3,name:"Ирина Богомольцева",phone:"80 (44) 721 42 15"}];
 const COMPANY_PHONE="80 (44) 721 42 15";
 const COMPANY_ADDR="г. Минск, ул. Домбровская 9, офис 12.2.2";
@@ -188,7 +191,226 @@ return <div style={{fontSize:12,color:"var(--tx)"}}>
 </div>
 }
 
+// === Константа источников реестров (используется в RegistryView) ===
+const REG_SOURCES=[
+{id:"spk",label:"📋 СПК",full:"Свидетельства о технической компетентности (Белстройцентр)"},
+{id:"att",label:"📜 Аттестаты юр.лиц",full:"Аттестаты соответствия юридических лиц (Белстройцентр)"},
+{id:"spec",label:"👤 Аттестаты специалистов",full:"Квалификационные аттестаты специалистов (rcuk.bsc.by)"},
+{id:"iso",label:"🏆 ISO / СУОТ",full:"Сертификаты соответствия (Госстандарт)"},
+{id:"osp",label:"🔥 ОСП",full:"Освидетельствование сварочного производства (Стройтехнорм)"},
+{id:"lic",label:"📑 Лицензии",full:"Единый реестр лицензий РБ (МЧС, МВД, Госпромнадзор)"},
+];
+
+// === RegistryView: раздел поиска по реестрам разрешительных документов ===
+function RegistryView({regProxy,setRegProxy,regCards,setRegCards,regHist,setRegHist,setAppMode,CSS}){
+const[q,setQ]=useState("");
+const[loading,setLoading]=useState(false);
+const[results,setResults]=useState(null);
+const[err,setErr]=useState("");
+const[tab,setTab]=useState("search"); // search | cards | history | settings
+const[proxyDraft,setProxyDraft]=useState(regProxy);
+const[showProxyEdit,setShowProxyEdit]=useState(!regProxy);
+// Фильтр: какие источники показывать в результатах (по умолчанию все)
+const[enabledSrc,setEnabledSrc]=useState(()=>{try{const s=localStorage.getItem("mavis_reg_enabled");return s?JSON.parse(s):REG_SOURCES.map(s=>s.id);}catch(e){return REG_SOURCES.map(s=>s.id);}});
+React.useEffect(()=>{try{localStorage.setItem("mavis_reg_enabled",JSON.stringify(enabledSrc))}catch(e){}},[enabledSrc]);
+
+const daysLeft=(iso)=>{if(!iso)return null;const d=new Date(iso);const diff=Math.ceil((d-new Date())/(1000*60*60*24));return diff};
+
+const search=async()=>{
+if(!regProxy){setErr("Сначала укажите адрес Cloudflare Worker в настройках.");setTab("settings");setShowProxyEdit(true);return}
+if(!q.trim()||q.trim().length<2){setErr("Введите минимум 2 символа");return}
+setErr("");setLoading(true);setResults(null);
+try{
+const url=regProxy+"/search?q="+encodeURIComponent(q.trim())+"&source=all";
+const r=await fetch(url);
+if(!r.ok){throw new Error("HTTP "+r.status)}
+const data=await r.json();
+setResults(data);
+// Сохраняем в историю — все источники
+setRegHist(p=>{const summary={};REG_SOURCES.forEach(s=>{summary[s.id]=data.sources?.[s.id]?.count||0});const entry={id:Date.now(),q:q.trim(),ts:new Date().toISOString(),summary};return[entry,...p.filter(x=>x.q!==entry.q)].slice(0,50)});
+}catch(e){setErr("Ошибка: "+e.message+". Проверьте адрес Worker в настройках.")}
+setLoading(false);
+};
+
+const saveAsCard=()=>{
+if(!results)return;
+const card={id:Date.now(),name:q.trim(),docs:[],ts:new Date().toISOString(),notes:""};
+// Извлекаем документы из результатов — для всех источников
+REG_SOURCES.forEach(s=>{
+const src=s.id;
+const items=results.sources?.[src]?.results;
+if(Array.isArray(items)){
+items.forEach(it=>{
+const orgName=(it.organization||it.person||"").toLowerCase();
+if(!orgName||orgName.includes(q.toLowerCase().substring(0,Math.min(q.length,10)))){
+card.docs.push({source:src,number:it.cert_number||it.license_number,expiry:it.expiry_date,raw:it.raw_cells||it.raw_text});
+}
+});
+}
+});
+setRegCards(p=>[card,...p]);
+alert("Компания «"+card.name+"» добавлена в картотеку");
+};
+
+const exp=regCards.flatMap(c=>c.docs.map(d=>({...d,company:c.name,days:daysLeft(d.expiry)}))).filter(d=>d.days!==null&&d.days<=60).sort((a,b)=>a.days-b.days);
+
+return(<><style>{CSS}</style>
+<div className="A">
+<div className="SB">
+<div className="SL"><h1>MAVIS</h1><span>РЕЕСТРЫ</span></div>
+<div className="SN">
+<div className={"NI "+(tab==="search"?"on":"")} onClick={()=>setTab("search")}><span className="ic">🔍</span> Поиск</div>
+<div className={"NI "+(tab==="cards"?"on":"")} onClick={()=>setTab("cards")}><span className="ic">🗂</span> Картотека{regCards.length>0&&<span className="badge">{regCards.length}</span>}</div>
+<div className={"NI "+(tab==="history"?"on":"")} onClick={()=>setTab("history")}><span className="ic">⏱</span> История{regHist.length>0&&<span className="badge">{regHist.length}</span>}</div>
+<div className={"NI "+(tab==="settings"?"on":"")} onClick={()=>setTab("settings")}><span className="ic">⚙</span> Настройки</div>
+{exp.length>0&&<div style={{marginTop:14,padding:"10px 14px",background:"rgba(245,87,79,.12)",border:"1px solid var(--rd)",borderRadius:8,fontSize:12,color:"var(--rd)"}}>⚠ Скоро истекают: {exp.length} док.</div>}
+</div>
+<div style={{padding:"12px 14px",borderTop:"1px solid var(--bd)",display:"flex",alignItems:"center",gap:10,cursor:"pointer"}} onClick={()=>setAppMode(null)}>
+<div style={{width:32,height:32,borderRadius:"50%",background:"var(--ac)",display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontWeight:700}}>←</div>
+<div><div style={{fontSize:12,fontWeight:600,color:"var(--tx)"}}>Сменить режим</div><div style={{fontSize:10,color:"var(--t2)"}}>В КП-генератор</div></div>
+</div>
+</div>
+
+<div className="MN">
+{tab==="search"&&(<><div className="MH"><h2>Проверка компании по реестрам</h2></div><div className="MC">
+<div className="CD">
+<div className="CT">🔍 Введите название компании</div>
+<div className="SR">
+<input className="FI" style={{flex:1}} placeholder='Например: "Минскметрострой"' value={q} onChange={e=>setQ(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")search()}} />
+<button className="B BP" onClick={search} disabled={loading}>{loading?"⏳ Поиск...":"Найти"}</button>
+</div>
+{err&&<div style={{marginTop:12,padding:"10px 14px",background:"rgba(245,87,79,.12)",border:"1px solid var(--rd)",borderRadius:8,color:"var(--rd)",fontSize:13}}>{err}</div>}
+<p style={{fontSize:12,color:"var(--t2)",marginTop:10}}>Ищем сразу в трёх реестрах: СПК (Белстройцентр), Аттестаты соответствия, ISO/СУОТ (Госстандарт).</p>
+</div>
+
+{results&&<>
+<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+<h3 style={{fontSize:16,fontWeight:700}}>Результаты поиска по «{results.query}»</h3>
+<button className="B BG" onClick={saveAsCard}>+ В картотеку</button>
+</div>
+
+{/* Фильтр чекбоксы — какие источники показать */}
+<div className="CD" style={{padding:"12px 16px"}}>
+<div style={{fontSize:11,color:"var(--t2)",marginBottom:8,fontWeight:600,textTransform:"uppercase",letterSpacing:.5}}>Показать реестры:</div>
+<div style={{display:"flex",flexWrap:"wrap",gap:8}}>
+{REG_SOURCES.map(s=>{const on=enabledSrc.includes(s.id);const cnt=results.sources?.[s.id]?.count||0;return <div key={s.id} onClick={()=>setEnabledSrc(p=>on?p.filter(x=>x!==s.id):[...p,s.id])} style={{padding:"6px 12px",borderRadius:6,cursor:"pointer",fontSize:12,fontWeight:600,background:on?"var(--ac)":"var(--s2)",color:on?"#fff":"var(--t2)",border:"1px solid "+(on?"var(--ac)":"var(--bd)"),transition:"all .15s"}}>
+{on?"✓":"☐"} {s.label} <span style={{opacity:.7}}>({cnt})</span>
+</div>})}
+</div>
+</div>
+
+{REG_SOURCES.filter(s=>enabledSrc.includes(s.id)).map(srcDef=>{const src=srcDef.id;const s=results.sources?.[src];if(!s)return null;return <div key={src} className="CD">
+<div className="CT">{srcDef.label} <span style={{fontSize:11,color:"var(--t2)",fontWeight:400}}>— {s.source_name||srcDef.full}</span></div>
+{s.error?<div style={{padding:"10px 14px",background:"rgba(245,166,35,.12)",borderRadius:8,fontSize:13,color:"var(--or)"}}>⚠ {s.error}</div>:s.count===0?<div style={{padding:"10px 14px",background:"var(--s2)",borderRadius:8,fontSize:13,color:"var(--t2)"}}>Не найдено</div>:<div>
+<div style={{fontSize:12,color:"var(--gn)",marginBottom:8,fontWeight:600}}>Найдено: {s.count}</div>
+<div style={{display:"flex",flexDirection:"column",gap:8}}>
+{(Array.isArray(s.results)?s.results:[]).slice(0,20).map((r,i)=>{const dl=daysLeft(r.expiry_date);const warn=dl!==null&&dl<60;return <div key={i} style={{padding:"10px 14px",background:"var(--s2)",borderRadius:8,border:"1px solid "+(warn?"var(--or)":"var(--bd)"),fontSize:13}}>
+<div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10}}>
+<div style={{flex:1}}>
+{(r.cert_number||r.license_number)&&<div style={{fontWeight:700,color:"var(--ac)",marginBottom:2}}>{r.cert_number||r.license_number}</div>}
+<div style={{color:"var(--tx)",marginBottom:4}}>{r.organization||r.person||"—"}</div>
+{(r.specialization||r.activity||r.authority)&&<div style={{fontSize:11,color:"var(--t2)",marginBottom:2}}>{[r.specialization,r.activity,r.authority].filter(Boolean).join(" · ")}</div>}
+{r.raw_cells&&<div style={{fontSize:11,color:"var(--t2)",fontStyle:"italic"}}>{r.raw_cells.slice(0,5).join(" | ")}</div>}
+{r.raw_text&&!r.raw_cells&&<div style={{fontSize:11,color:"var(--t2)",fontStyle:"italic"}}>{r.raw_text}</div>}
+</div>
+{r.expiry_date&&<div style={{textAlign:"right",fontSize:11}}>
+<div style={{color:"var(--t2)"}}>До:</div>
+<div style={{fontWeight:700,color:warn?"var(--or)":"var(--tx)"}}>{r.expiry_date}</div>
+{dl!==null&&<div style={{fontSize:10,color:warn?"var(--or)":"var(--t2)"}}>{dl>0?"осталось "+dl+" дн.":"истёк "+(-dl)+" дн. назад"}</div>}
+</div>}
+</div>
+</div>})}
+</div>
+</div>}
+<div style={{fontSize:10,color:"var(--t2)",marginTop:8}}>Источник: <a href={s.url} target="_blank" rel="noopener" style={{color:"var(--ac)"}}>{s.url}</a></div>
+</div>})}
+</>}
+</div></>)}
+
+{tab==="cards"&&(<><div className="MH"><h2>Картотека компаний</h2></div><div className="MC">
+{exp.length>0&&<div className="CD" style={{background:"rgba(245,87,79,.05)",borderColor:"var(--rd)"}}>
+<div className="CT" style={{color:"var(--rd)"}}>⚠ Скоро истекают ({exp.length})</div>
+{exp.slice(0,10).map((d,i)=><div key={i} style={{display:"flex",justifyContent:"space-between",padding:"8px 0",borderBottom:i<exp.length-1?"1px solid var(--bd)":"none",fontSize:13}}>
+<div><strong>{d.company}</strong> — {({spk:"СПК",att:"Аттестат юр.л.",spec:"Аттестат спец.",iso:"ISO",osp:"ОСП",lic:"Лицензия"}[d.source]||d.source)} {d.number||""}</div>
+<div style={{color:d.days<0?"var(--rd)":"var(--or)",fontWeight:700}}>{d.days>0?"через "+d.days+" дн.":"истёк "+(-d.days)+" дн. назад"}</div>
+</div>)}
+</div>}
+
+{regCards.length===0?<div className="ES"><p>Картотека пуста</p><p style={{fontSize:12,marginTop:8}}>Найдите компанию в разделе «Поиск» и нажмите «+ В картотеку»</p></div>:regCards.map(c=><div key={c.id} className="CD">
+<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+<div style={{fontSize:16,fontWeight:700}}>{c.name}</div>
+<button className="B BR Bsm" onClick={()=>{if(window.confirm("Удалить «"+c.name+"» из картотеки?"))setRegCards(p=>p.filter(x=>x.id!==c.id))}}>✕</button>
+</div>
+{c.docs.length===0?<div style={{fontSize:12,color:"var(--t2)"}}>Документы не привязаны</div>:c.docs.map((d,i)=>{const dl=daysLeft(d.expiry);const warn=dl!==null&&dl<60;return <div key={i} style={{padding:"8px 12px",background:"var(--s2)",borderRadius:6,marginBottom:6,fontSize:12,border:"1px solid "+(warn?"var(--or)":"var(--bd)")}}>
+<div style={{display:"flex",justifyContent:"space-between"}}>
+<div><strong>{({spk:"СПК",att:"Аттестат юр.л.",spec:"Аттестат спец.",iso:"ISO",osp:"ОСП",lic:"Лицензия"}[d.source]||d.source)}</strong> {d.number}</div>
+{d.expiry&&<div style={{color:warn?"var(--or)":"var(--t2)"}}>до {d.expiry}{dl!==null&&" ("+(dl>0?"осталось "+dl+" дн.":"истёк")+")"}</div>}
+</div>
+</div>})}
+</div>)}
+</div></>)}
+
+{tab==="history"&&(<><div className="MH"><h2>История поисков</h2></div><div className="MC">
+{regHist.length===0?<div className="ES"><p>История пуста</p></div>:regHist.map(h=><div key={h.id} className="CD" style={{cursor:"pointer"}} onClick={()=>{setQ(h.q);setTab("search");setTimeout(search,100)}}>
+<div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+<div>
+<div style={{fontSize:15,fontWeight:700}}>{h.q}</div>
+<div style={{fontSize:11,color:"var(--t2)",marginTop:2}}>{new Date(h.ts).toLocaleString("ru-RU")}</div>
+</div>
+<div style={{fontSize:11,color:"var(--t2)",textAlign:"right",lineHeight:1.6}}>
+{REG_SOURCES.map(s=>{const cnt=h.summary?.[s.id]||0;return cnt>0?<span key={s.id} style={{display:"inline-block",marginLeft:8}}>{s.label.split(" ").slice(1).join(" ").slice(0,8)}: <strong style={{color:"var(--gn)"}}>{cnt}</strong></span>:null}).filter(Boolean)}
+{REG_SOURCES.every(s=>!h.summary?.[s.id])&&<span>Без результатов</span>}
+</div>
+</div>
+</div>)}
+{regHist.length>0&&<button className="B BS" style={{marginTop:10}} onClick={()=>{if(window.confirm("Очистить историю поисков?"))setRegHist([])}}>Очистить историю</button>}
+</div></>)}
+
+{tab==="settings"&&(<><div className="MH"><h2>Настройки</h2></div><div className="MC">
+<div className="CD">
+<div className="CT">🔗 Адрес Cloudflare Worker</div>
+<p style={{fontSize:12,color:"var(--t2)",lineHeight:1.6,marginBottom:12}}>Сюда нужно вставить адрес вашего развёрнутого Worker'а, например:<br/><code style={{color:"var(--ac)",fontSize:11}}>https://mavis-registry.your-account.workers.dev</code></p>
+{regProxy&&!showProxyEdit?<div style={{display:"flex",gap:10,alignItems:"center"}}>
+<div style={{flex:1,padding:"10px 14px",background:"var(--s2)",borderRadius:8,fontSize:13,color:"var(--gn)",fontFamily:"monospace"}}>✓ {regProxy}</div>
+<button className="B BS" onClick={()=>setShowProxyEdit(true)}>Изменить</button>
+</div>:<div>
+<input className="FI" style={{width:"100%",fontSize:13}} placeholder="https://mavis-registry.your-account.workers.dev" value={proxyDraft} onChange={e=>setProxyDraft(e.target.value)} />
+<div style={{display:"flex",gap:10,marginTop:10}}>
+<button className="B BP" onClick={()=>{setRegProxy(proxyDraft.trim().replace(/\/+$/,""));setShowProxyEdit(false)}}>Сохранить</button>
+{regProxy&&<button className="B BS" onClick={()=>{setProxyDraft(regProxy);setShowProxyEdit(false)}}>Отмена</button>}
+<button className="B BS" onClick={async()=>{const u=proxyDraft.trim().replace(/\/+$/,"");if(!u){alert("Сначала введите URL");return}try{const r=await fetch(u+"/health");const d=await r.json();alert("✓ Worker отвечает!\\n\\n"+JSON.stringify(d,null,2))}catch(e){alert("✗ Ошибка: "+e.message)}}}>Проверить</button>
+</div>
+</div>}
+</div>
+<div className="CD">
+<div className="CT">💾 Данные</div>
+<div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
+<button className="B BS" onClick={()=>{const data={cards:regCards,hist:regHist};const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download="mavis_registry_"+new Date().toISOString().slice(0,10)+".json";a.click()}}>📥 Экспорт</button>
+<label className="B BS" style={{cursor:"pointer"}}>📤 Импорт<input type="file" accept=".json" style={{display:"none"}} onChange={e=>{if(e.target.files?.[0]){const r=new FileReader();r.onload=ev=>{try{const d=JSON.parse(ev.target.result);if(d.cards)setRegCards(d.cards);if(d.hist)setRegHist(d.hist);alert("Импортировано")}catch(err){alert("Ошибка: "+err.message)}};r.readAsText(e.target.files[0])}}} /></label>
+{regCards.length>0&&<button className="B BR" onClick={()=>{if(window.confirm("Удалить всю картотеку ("+regCards.length+" компаний)?"))setRegCards([])}}>🗑 Очистить картотеку</button>}
+</div>
+</div>
+</div></>)}
+</div>
+</div>
+</>);
+}
+
 function App(){
+// === НОВОЕ: режим приложения и адрес Worker'а реестров ===
+const[appMode,setAppMode]=useState(()=>localStorage.getItem("mavis_app_mode")||null); // null | "kp" | "registry"
+const[regProxy,setRegProxy]=useState(()=>localStorage.getItem("mavis_reg_proxy")||"");
+React.useEffect(()=>{if(appMode)localStorage.setItem("mavis_app_mode",appMode);else localStorage.removeItem("mavis_app_mode")},[appMode]);
+React.useEffect(()=>{if(regProxy)localStorage.setItem("mavis_reg_proxy",regProxy);else localStorage.removeItem("mavis_reg_proxy")},[regProxy]);
+
+// Картотека компаний (для напоминаний об истекающих документах)
+const[regCards,setRegCards]=useState(()=>{try{const s=localStorage.getItem("mavis_reg_cards");return s?JSON.parse(s):[];}catch(e){return[];}});
+React.useEffect(()=>{try{localStorage.setItem("mavis_reg_cards",JSON.stringify(regCards))}catch(e){}},[regCards]);
+
+// История поисков в реестрах
+const[regHist,setRegHist]=useState(()=>{try{const s=localStorage.getItem("mavis_reg_hist");return s?JSON.parse(s):[];}catch(e){return[];}});
+React.useEffect(()=>{try{localStorage.setItem("mavis_reg_hist",JSON.stringify(regHist.slice(0,50)))}catch(e){}},[regHist]);
+
 // Manager selection
 const[mgrs,setMgrs]=useState(INIT_MGRS);
 const[curMgr,setCurMgr]=useState(-1);
@@ -669,6 +891,37 @@ setSn(false);
 const CSS=`@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&family=Playfair+Display:wght@400;500;600;700&display=swap');*{margin:0;padding:0;box-sizing:border-box}:root{--bg:#0f1117;--sf:#1a1d27;--s2:#232734;--bd:#2d3143;--tx:#e4e6ef;--t2:#8b90a5;--ac:#4f7df5;--a2:#3d6ae0;--gn:#34c77b;--rd:#f5574f;--or:#f5a623}body{font-family:'Manrope',sans-serif;background:var(--bg);color:var(--tx)}.A{display:flex;height:100vh;overflow:hidden}.SB{width:260px;min-width:260px;background:var(--sf);border-right:1px solid var(--bd);display:flex;flex-direction:column}.SL{padding:24px 20px 20px;border-bottom:1px solid var(--bd)}.SL h1{font-family:'Playfair Display',serif;font-size:22px;font-weight:700;color:#fff}.SL>span{font-size:11px;color:var(--t2);letter-spacing:2px;text-transform:uppercase;display:block;margin-top:2px}.SN{flex:1;padding:12px 10px}.NI{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:10px;cursor:pointer;font-size:14px;font-weight:500;color:var(--t2);transition:all .2s;margin-bottom:2px}.NI:hover{background:var(--s2);color:var(--tx)}.NI.on{background:var(--ac);color:#fff}.NI .ic{font-size:18px;width:24px;text-align:center}.NI .badge{margin-left:auto;background:var(--ac);color:#fff;font-size:11px;padding:2px 8px;border-radius:10px;font-weight:700}.NI.on .badge{background:rgba(255,255,255,.25)}.MN{flex:1;overflow-y:auto}.MH{position:sticky;top:0;z-index:10;background:rgba(15,17,23,.85);backdrop-filter:blur(20px);border-bottom:1px solid var(--bd);padding:18px 32px;display:flex;align-items:center;justify-content:space-between}.MH h2{font-size:18px;font-weight:700}.MC{padding:28px 32px;max-width:1100px}.STP{display:flex;margin-bottom:28px}.SI{display:flex;align-items:center;gap:10px;padding:10px 20px;background:var(--sf);border:1px solid var(--bd);font-size:13px;font-weight:600;color:var(--t2);cursor:pointer;transition:all .2s}.SI:first-child{border-radius:10px 0 0 10px}.SI:last-child{border-radius:0 10px 10px 0}.SI.on{background:var(--ac);border-color:var(--ac);color:#fff}.SI.ok{background:var(--s2);border-color:var(--gn);color:var(--gn)}.SNM{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;background:var(--s2);color:var(--t2)}.SI.on .SNM{background:rgba(255,255,255,.2);color:#fff}.SI.ok .SNM{background:var(--gn);color:#fff}.CD{background:var(--sf);border:1px solid var(--bd);border-radius:12px;padding:24px;margin-bottom:20px}.CT{font-size:15px;font-weight:700;margin-bottom:16px;display:flex;align-items:center;gap:8px}.FG{display:grid;grid-template-columns:1fr 1fr;gap:16px}.FGR{display:flex;flex-direction:column;gap:6px}.FGR.fu{grid-column:1/-1}.FL{font-size:12px;font-weight:600;color:var(--t2);text-transform:uppercase;letter-spacing:.5px}.FI{background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:10px 14px;font-size:14px;color:var(--tx);outline:none;font-family:'Manrope',sans-serif;transition:border-color .2s}.FI:focus{border-color:var(--ac)}.FI::placeholder{color:var(--t2);opacity:.6}.B{padding:10px 20px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:none;display:inline-flex;align-items:center;gap:8px;transition:all .2s;font-family:'Manrope',sans-serif}.BP{background:var(--ac);color:#fff}.BP:hover{background:var(--a2);transform:translateY(-1px)}.BS{background:var(--s2);color:var(--tx);border:1px solid var(--bd)}.BS:hover{border-color:var(--t2)}.BG{background:var(--gn);color:#fff}.BG:hover{opacity:.9}.BR{background:var(--rd);color:#fff}.Bsm{padding:6px 12px;font-size:12px}.Blg{padding:14px 28px;font-size:15px}.B:disabled{opacity:.5;cursor:not-allowed;transform:none!important}.SR{display:flex;gap:10px;margin-bottom:16px}.SR .FI{flex:1}.BXR{background:var(--s2);border:1px solid var(--bd);border-radius:8px;margin-bottom:16px;overflow:hidden}.BXI{padding:12px 16px;cursor:pointer;border-bottom:1px solid var(--bd);transition:background .15s;display:flex;justify-content:space-between;align-items:center}.BXI:last-child{border-bottom:none}.BXI:hover{background:var(--ac)}.CG{margin-bottom:12px}.CH{display:flex;align-items:center;gap:10px;padding:14px 18px;background:var(--s2);border-radius:10px;cursor:pointer;font-weight:700;font-size:14px;border:1px solid transparent}.CH:hover{border-color:var(--bd)}.CH.op{border-color:var(--ac);border-radius:10px 10px 0 0}.CH .aw{margin-left:auto;transition:transform .2s;color:var(--t2)}.CH.op .aw{transform:rotate(90deg)}.CS{border:1px solid var(--bd);border-top:none;border-radius:0 0 10px 10px;overflow:hidden}.SVI{display:flex;align-items:center;gap:12px;padding:12px 18px;border-bottom:1px solid var(--bd);font-size:13px}.SVI:last-child{border-bottom:none}.SVI:hover{background:var(--s2)}.SVN{flex:1}.SVA{color:var(--gn);font-size:12px;font-weight:600}.TBL{width:100%;border-collapse:collapse}.TBL th{text-align:left;font-size:11px;font-weight:700;color:var(--t2);text-transform:uppercase;padding:10px 12px;border-bottom:2px solid var(--bd)}.TBL td{padding:12px;border-bottom:1px solid var(--bd);font-size:13px;vertical-align:top}.NI2{width:100px;background:var(--bg);border:1px solid var(--bd);border-radius:6px;padding:6px 10px;color:var(--tx);font-size:13px;font-family:'Manrope',sans-serif;text-align:right;outline:none}.NI2:focus{border-color:var(--ac)}.CIp{width:120px;margin-top:4px;font-size:11px;padding:4px 8px;background:var(--bg);border:1px solid var(--bd);border-radius:6px;color:var(--t2);font-family:'Manrope',sans-serif;outline:none}.CIp:focus{border-color:var(--ac)}.TR td{font-weight:700;font-size:14px;border-top:2px solid var(--ac)}.GR td{font-weight:800;font-size:16px;color:var(--ac)}.KP{background:#faf6ec;border-radius:8px;padding:48px 40px;color:#333;position:relative;overflow:hidden;font-family:'Manrope',sans-serif;box-shadow:0 4px 24px rgba(0,0,0,.15)}.KY{position:absolute;top:32px;left:32px;font-size:64px;font-weight:800;writing-mode:vertical-rl;color:rgba(80,80,80,.12);letter-spacing:8px;font-family:'Manrope',sans-serif}.KH{margin-left:60px;margin-bottom:36px}.KH h1,.KH h2{font-size:28px;font-weight:800;letter-spacing:4px;font-family:'Manrope',sans-serif;color:#8b5a1e;line-height:1.2;margin:0;text-transform:uppercase}.KH .br2{font-size:13px;font-weight:700;letter-spacing:3px;color:#555;margin-top:8px}.KD{font-size:13px;color:#555;margin-left:60px;margin-bottom:8px;font-weight:500}.KC{margin-left:60px;margin-bottom:32px;padding:18px 24px;background:rgba(255,255,255,.5);border-radius:10px;border-left:3px solid #8b5a1e}.KC h3{font-size:20px;font-weight:700;color:#1f1f1f}.KC p{font-size:13px;color:#2a2a2a;font-weight:500}.KS{margin-left:60px;font-size:17px;font-weight:800;margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid rgba(100,100,100,.25);font-family:'Manrope',sans-serif;color:#1f1f1f;letter-spacing:0.5px}.KT{margin-left:60px;width:calc(100% - 60px);border-collapse:collapse;margin-bottom:32px}.KT th{text-align:left;font-size:11px;font-weight:700;text-transform:uppercase;color:#777;padding:10px 14px;border-bottom:1px solid rgba(139,115,72,.3);letter-spacing:1px}.KT td{padding:12px 14px;font-size:13px;border-bottom:1px solid rgba(100,100,100,.15);color:#1f1f1f;font-weight:500}.KT .TT td{font-weight:700;border-top:2px solid rgba(139,115,72,.5);border-bottom:none}.KT .TG td{font-weight:800;font-size:16px;color:#8b5a1e;padding-top:16px}.KCN{margin-left:60px;font-size:13px;color:#2a2a2a;line-height:1.8;margin-bottom:32px;font-weight:500;white-space:pre-wrap}.KA{margin-left:60px}.KAI{margin-bottom:16px;position:relative}.KAI h4{font-size:14px;font-weight:700;display:flex;align-items:center;gap:8px;color:#1f1f1f}.KAI p{font-size:12px;color:#3a3a3a;line-height:1.5;font-weight:500}.KCL{margin-left:60px;display:flex;gap:12px;flex-wrap:wrap;margin-top:24px}.KCLT{padding:6px 16px;border:1px solid rgba(100,100,100,.3);border-radius:20px;font-size:12px;font-weight:700;color:#1f1f1f;background:rgba(255,255,255,.5)}.HC{background:var(--sf);border:1px solid var(--bd);border-radius:12px;padding:18px 22px;cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:16px;margin-bottom:12px}.HC:hover{border-color:var(--ac);transform:translateY(-2px)}.AB{display:flex;gap:10px;flex-wrap:wrap;margin-top:24px;padding-top:20px;border-top:1px solid var(--bd)}.NF{position:fixed;top:20px;right:20px;z-index:1000;padding:14px 24px;border-radius:10px;font-size:14px;font-weight:600;animation:sIn .3s ease;box-shadow:0 8px 24px rgba(0,0,0,.3)}.NF.success{background:var(--gn);color:#fff}.NF.error{background:var(--rd);color:#fff}.NF.warn{background:var(--or);color:#fff}@keyframes sIn{from{transform:translateX(100px);opacity:0}to{transform:translateX(0);opacity:1}}.ES{text-align:center;padding:60px 20px;color:var(--t2)}.TG2{display:inline-block;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700;background:rgba(79,125,245,.15);color:var(--ac)}::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--bd);border-radius:3px}.edt:hover{background:rgba(212,166,71,.18)!important;outline:1px dashed rgba(139,90,30,.4)}.edt-line{display:flex;align-items:center;gap:6px}.del-btn{background:#f5574f;color:#fff;border:none;border-radius:50%;width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;font-size:11px;line-height:1;flex-shrink:0;opacity:0;transition:opacity .15s}.kp-list-item:hover .del-btn{opacity:1}.kp-add-row{display:flex;gap:6px;margin-top:8px;padding-top:8px;border-top:1px dashed rgba(139,90,30,.3)}.kp-add-row input{flex:1;background:#fff;border:1px solid rgba(139,90,30,.3);border-radius:4px;padding:4px 8px;font-size:11px;color:#333;font-family:'Manrope',sans-serif;outline:none}.kp-add-row input:focus{border-color:#8b5a1e}.kp-add-btn{background:#8b5a1e;color:#fff;border:none;border-radius:4px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Manrope',sans-serif}`;
 
 
+// === НОВОЕ: ЭКРАН ВЫБОРА РЕЖИМА (КП или Реестры) ===
+if(!appMode){
+return(<><style>{CSS}</style>
+<div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100vh",background:"var(--bg)",fontFamily:"'Manrope',sans-serif"}}>
+<div style={{textAlign:"center",maxWidth:540,width:"100%",padding:"0 20px"}}>
+<h1 style={{fontFamily:"'Playfair Display',serif",fontSize:32,color:"#fff",marginBottom:4}}>MAVIS</h1>
+<p style={{color:"var(--t2)",fontSize:12,letterSpacing:3,marginBottom:48}}>GROUP — РАБОЧИЙ ИНСТРУМЕНТ</p>
+<p style={{color:"var(--tx)",fontSize:18,fontWeight:600,marginBottom:24}}>Что вам нужно?</p>
+<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:24}}>
+<div onClick={()=>setAppMode("kp")} style={{background:"var(--sf)",border:"2px solid var(--bd)",borderRadius:16,padding:"28px 20px",cursor:"pointer",transition:"all .2s",textAlign:"center"}} onMouseOver={e=>{e.currentTarget.style.borderColor="var(--ac)";e.currentTarget.style.transform="translateY(-3px)"}} onMouseOut={e=>{e.currentTarget.style.borderColor="var(--bd)";e.currentTarget.style.transform="none"}}>
+<div style={{fontSize:42,marginBottom:12}}>📄</div>
+<div style={{fontWeight:700,fontSize:16,color:"var(--tx)",marginBottom:6}}>Коммерческие предложения</div>
+<div style={{fontSize:12,color:"var(--t2)",lineHeight:1.5}}>Создать КП для клиента, отправить, сохранить в истории</div>
+</div>
+<div onClick={()=>setAppMode("registry")} style={{background:"var(--sf)",border:"2px solid var(--bd)",borderRadius:16,padding:"28px 20px",cursor:"pointer",transition:"all .2s",textAlign:"center"}} onMouseOver={e=>{e.currentTarget.style.borderColor="var(--gn)";e.currentTarget.style.transform="translateY(-3px)"}} onMouseOut={e=>{e.currentTarget.style.borderColor="var(--bd)";e.currentTarget.style.transform="none"}}>
+<div style={{fontSize:42,marginBottom:12}}>🔍</div>
+<div style={{fontWeight:700,fontSize:16,color:"var(--tx)",marginBottom:6}}>Проверка компаний</div>
+<div style={{fontSize:12,color:"var(--t2)",lineHeight:1.5}}>СПК, Аттестаты, ISO/СУОТ — поиск по реестрам</div>
+</div>
+</div>
+<p style={{fontSize:11,color:"var(--t2)",marginTop:24}}>Свой выбор можно сменить в любой момент</p>
+</div>
+</div>
+</>);
+}
+
+// === РЕЖИМ «РЕЕСТРЫ» — собственный layout ===
+if(appMode==="registry"){
+return <RegistryView regProxy={regProxy} setRegProxy={setRegProxy} regCards={regCards} setRegCards={setRegCards} regHist={regHist} setRegHist={setRegHist} setAppMode={setAppMode} CSS={CSS} />;
+}
+
 // MANAGER SELECTION SCREEN
 if(!mgrData){
 const filled=mgrs.filter(m=>m.name.trim());
@@ -723,6 +976,9 @@ return(<><style>{CSS}</style>
 <div style={{marginTop:8,borderTop:"1px solid var(--bd)",paddingTop:8}}>
 <div className="NI" onClick={doInstall} style={{color:installed?"var(--gn)":"var(--ac)",border:"1px dashed",borderColor:installed?"var(--gn)":"var(--bd)"}}>
 <span className="ic">{installed?"✓":"⊕"}</span> {installed?"Установлено":"Установить"}
+</div>
+<div className="NI" onClick={()=>setAppMode(null)} style={{color:"var(--t2)",marginTop:4}}>
+<span className="ic">🔍</span> К реестрам / меню
 </div>
 </div>
 </div>
