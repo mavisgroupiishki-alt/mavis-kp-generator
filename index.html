@@ -22,9 +22,6 @@
 const{useState,useRef}=React;
 const BX="https://mavisgroup.bitrix24.by/rest/2110/ie4502ilh74981qr";
 const FROM_EMAIL="mavis.group@mail.ru";
-// АДРЕС CLOUDFLARE WORKER (Прокси для реестров). Замените на свой после деплоя.
-// Например: "https://mavis-registry.your-account.workers.dev"
-const REG_PROXY=(localStorage.getItem("mavis_reg_proxy")||"").replace(/\/+$/,"");
 const INIT_MGRS=[{id:1,name:"Роман Авсеенко",phone:"80 (44) 721 42 15"},{id:2,name:"Екатерина Халько",phone:"80 (44) 721 42 15"},{id:3,name:"Ирина Богомольцева",phone:"80 (44) 721 42 15"}];
 const COMPANY_PHONE="80 (44) 721 42 15";
 const COMPANY_ADDR="г. Минск, ул. Домбровская 9, офис 12.2.2";
@@ -208,27 +205,71 @@ const[loading,setLoading]=useState(false);
 const[results,setResults]=useState(null);
 const[err,setErr]=useState("");
 const[tab,setTab]=useState("search"); // search | cards | history | settings
-const[proxyDraft,setProxyDraft]=useState(regProxy);
-const[showProxyEdit,setShowProxyEdit]=useState(!regProxy);
+// Состояние расширения
+const[extReady,setExtReady]=useState(false);
+const[extVersion,setExtVersion]=useState(null);
 // Фильтр: какие источники показывать в результатах (по умолчанию все)
 const[enabledSrc,setEnabledSrc]=useState(()=>{try{const s=localStorage.getItem("mavis_reg_enabled");return s?JSON.parse(s):REG_SOURCES.map(s=>s.id);}catch(e){return REG_SOURCES.map(s=>s.id);}});
 React.useEffect(()=>{try{localStorage.setItem("mavis_reg_enabled",JSON.stringify(enabledSrc))}catch(e){}},[enabledSrc]);
 
+// === Детекция расширения через postMessage ===
+React.useEffect(()=>{
+const handler=(ev)=>{
+if(ev.source!==window)return;
+const m=ev.data;
+if(m&&m.type==="MAVIS_EXT_READY"){
+setExtReady(true);
+setExtVersion(m.version||"?");
+}
+};
+window.addEventListener("message",handler);
+// Пингуем расширение через 500мс на случай если оно загрузилось до нас
+const pingId=setTimeout(()=>{
+const reqId="ping_"+Date.now();
+window.postMessage({target:"MAVIS_EXT",action:"PING",requestId:reqId},"*");
+const respHandler=(ev)=>{
+const m=ev.data;
+if(m&&m.type==="MAVIS_EXT_RESPONSE"&&m.requestId===reqId&&m.response?.ok){
+setExtReady(true);
+setExtVersion(m.response.version||"?");
+window.removeEventListener("message",respHandler);
+}
+};
+window.addEventListener("message",respHandler);
+setTimeout(()=>window.removeEventListener("message",respHandler),2000);
+},500);
+return()=>{window.removeEventListener("message",handler);clearTimeout(pingId)};
+},[]);
+
 const daysLeft=(iso)=>{if(!iso)return null;const d=new Date(iso);const diff=Math.ceil((d-new Date())/(1000*60*60*24));return diff};
 
+// === Запрос к расширению через postMessage ===
+const callExtension=(action,payload,timeoutMs=60000)=>new Promise((resolve,reject)=>{
+const reqId=action+"_"+Date.now()+"_"+Math.random().toString(36).slice(2,8);
+const t=setTimeout(()=>{window.removeEventListener("message",handler);reject(new Error("Таймаут "+timeoutMs+"мс — расширение не ответило"))},timeoutMs);
+const handler=(ev)=>{
+if(ev.source!==window)return;
+const m=ev.data;
+if(m&&m.type==="MAVIS_EXT_RESPONSE"&&m.requestId===reqId){
+clearTimeout(t);window.removeEventListener("message",handler);
+if(m.response?.ok)resolve(m.response.result);
+else reject(new Error(m.response?.error||"Неизвестная ошибка"));
+}
+};
+window.addEventListener("message",handler);
+window.postMessage({target:"MAVIS_EXT",action,requestId:reqId,...payload},"*");
+});
+
 const search=async()=>{
-if(!regProxy){setErr("Сначала укажите адрес Cloudflare Worker в настройках.");setTab("settings");setShowProxyEdit(true);return}
+if(!extReady){setErr("Сначала установите расширение MAVIS Registry в Chrome (инструкция во вкладке Настройки)");setTab("settings");return}
 if(!q.trim()||q.trim().length<2){setErr("Введите минимум 2 символа");return}
 setErr("");setLoading(true);setResults(null);
 try{
-const url=regProxy+"/search?q="+encodeURIComponent(q.trim())+"&source=all";
-const r=await fetch(url);
-if(!r.ok){throw new Error("HTTP "+r.status)}
-const data=await r.json();
+const data=await callExtension("SEARCH",{query:q.trim(),sources:enabledSrc},90000);
 setResults(data);
-// Сохраняем в историю — все источники
+// Сохраняем в историю
 setRegHist(p=>{const summary={};REG_SOURCES.forEach(s=>{summary[s.id]=data.sources?.[s.id]?.count||0});const entry={id:Date.now(),q:q.trim(),ts:new Date().toISOString(),summary};return[entry,...p.filter(x=>x.q!==entry.q)].slice(0,50)});
-}catch(e){setErr("Ошибка: "+e.message+". Проверьте адрес Worker в настройках.")}
+}catch(e){setErr("Ошибка: "+e.message)}
 setLoading(false);
 };
 
@@ -273,14 +314,19 @@ return(<><style>{CSS}</style>
 
 <div className="MN">
 {tab==="search"&&(<><div className="MH"><h2>Проверка компании по реестрам</h2></div><div className="MC">
+{!extReady&&<div className="CD" style={{background:"rgba(245,166,35,.08)",borderColor:"var(--or)"}}>
+<div className="CT" style={{color:"var(--or)"}}>⚠ Расширение MAVIS Registry не установлено</div>
+<p style={{fontSize:13,color:"var(--tx)",lineHeight:1.6,marginBottom:10}}>Чтобы заработал автопоиск по 6 реестрам — установите расширение для Chrome. Поиск идёт через ваш браузер (с белорусским IP), поэтому реестры пропускают запросы.</p>
+<button className="B BP" onClick={()=>setTab("settings")}>📖 Инструкция по установке</button>
+</div>}
 <div className="CD">
 <div className="CT">🔍 Введите название компании</div>
 <div className="SR">
-<input className="FI" style={{flex:1}} placeholder='Например: "Минскметрострой"' value={q} onChange={e=>setQ(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")search()}} />
-<button className="B BP" onClick={search} disabled={loading}>{loading?"⏳ Поиск...":"Найти"}</button>
+<input className="FI" style={{flex:1}} placeholder='Например: "Минскметрострой"' value={q} onChange={e=>setQ(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")search()}} disabled={!extReady} />
+<button className="B BP" onClick={search} disabled={loading||!extReady}>{loading?"⏳ Поиск...":"Найти"}</button>
 </div>
 {err&&<div style={{marginTop:12,padding:"10px 14px",background:"rgba(245,87,79,.12)",border:"1px solid var(--rd)",borderRadius:8,color:"var(--rd)",fontSize:13}}>{err}</div>}
-<p style={{fontSize:12,color:"var(--t2)",marginTop:10}}>Ищем сразу в трёх реестрах: СПК (Белстройцентр), Аттестаты соответствия, ISO/СУОТ (Госстандарт).</p>
+<p style={{fontSize:12,color:"var(--t2)",marginTop:10}}>Расширение откроет 6 фоновых вкладок и автоматически считает данные из реестров: СПК, Аттестаты юр.лиц, Аттестаты специалистов, ISO/СУОТ, ОСП, Лицензии. Это займёт 10-30 секунд.</p>
 </div>
 
 {results&&<>
@@ -368,18 +414,23 @@ return(<><style>{CSS}</style>
 
 {tab==="settings"&&(<><div className="MH"><h2>Настройки</h2></div><div className="MC">
 <div className="CD">
-<div className="CT">🔗 Адрес Cloudflare Worker</div>
-<p style={{fontSize:12,color:"var(--t2)",lineHeight:1.6,marginBottom:12}}>Сюда нужно вставить адрес вашего развёрнутого Worker'а, например:<br/><code style={{color:"var(--ac)",fontSize:11}}>https://mavis-registry.your-account.workers.dev</code></p>
-{regProxy&&!showProxyEdit?<div style={{display:"flex",gap:10,alignItems:"center"}}>
-<div style={{flex:1,padding:"10px 14px",background:"var(--s2)",borderRadius:8,fontSize:13,color:"var(--gn)",fontFamily:"monospace"}}>✓ {regProxy}</div>
-<button className="B BS" onClick={()=>setShowProxyEdit(true)}>Изменить</button>
+<div className="CT">🧩 Расширение Chrome</div>
+{extReady?<div>
+<div style={{padding:"12px 14px",background:"rgba(52,199,123,.12)",border:"1px solid var(--gn)",borderRadius:8,color:"var(--gn)",fontSize:13,marginBottom:10,fontWeight:600}}>✓ Расширение установлено и работает (версия {extVersion})</div>
+<p style={{fontSize:12,color:"var(--t2)",lineHeight:1.6}}>Расширение делает запросы к реестрам через ваш браузер — поэтому белорусские госсайты пропускают их без блокировок. Это бесплатно и работает на 6 реестрах одновременно.</p>
 </div>:<div>
-<input className="FI" style={{width:"100%",fontSize:13}} placeholder="https://mavis-registry.your-account.workers.dev" value={proxyDraft} onChange={e=>setProxyDraft(e.target.value)} />
-<div style={{display:"flex",gap:10,marginTop:10}}>
-<button className="B BP" onClick={()=>{setRegProxy(proxyDraft.trim().replace(/\/+$/,""));setShowProxyEdit(false)}}>Сохранить</button>
-{regProxy&&<button className="B BS" onClick={()=>{setProxyDraft(regProxy);setShowProxyEdit(false)}}>Отмена</button>}
-<button className="B BS" onClick={async()=>{const u=proxyDraft.trim().replace(/\/+$/,"");if(!u){alert("Сначала введите URL");return}try{const r=await fetch(u+"/health");const d=await r.json();alert("✓ Worker отвечает!\\n\\n"+JSON.stringify(d,null,2))}catch(e){alert("✗ Ошибка: "+e.message)}}}>Проверить</button>
-</div>
+<div style={{padding:"12px 14px",background:"rgba(245,166,35,.12)",border:"1px solid var(--or)",borderRadius:8,color:"var(--or)",fontSize:13,marginBottom:14,fontWeight:600}}>⚠ Расширение не обнаружено</div>
+<p style={{fontSize:13,color:"var(--tx)",lineHeight:1.6,marginBottom:14,fontWeight:600}}>Чтобы заработала автопроверка по реестрам, нужно установить расширение MAVIS Registry в Chrome:</p>
+<ol style={{fontSize:12,color:"var(--t2)",lineHeight:1.8,paddingLeft:20,marginBottom:14}}>
+<li>Скачайте архив <code style={{color:"var(--ac)"}}>mavis-extension.zip</code> у разработчика</li>
+<li>Распакуйте архив в любую папку</li>
+<li>Откройте Chrome → введите в адресной строке <code style={{color:"var(--ac)"}}>chrome://extensions/</code></li>
+<li>Включите <strong>«Режим разработчика»</strong> в правом верхнем углу</li>
+<li>Нажмите <strong>«Загрузить распакованное расширение»</strong></li>
+<li>Выберите папку с распакованным архивом</li>
+<li>Готово — обновите эту страницу (Ctrl+Shift+R)</li>
+</ol>
+<button className="B BP" onClick={()=>window.location.reload()}>🔄 Я установил, проверить</button>
 </div>}
 </div>
 <div className="CD">
