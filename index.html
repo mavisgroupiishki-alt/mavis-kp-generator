@@ -262,14 +262,19 @@ const[status,setStatus]=useState(null);
 const[running,setRunning]=useState(null); // source id или null
 const[lastErr,setLastErr]=useState("");
 const[lastOk,setLastOk]=useState("");
+const[debugLogs,setDebugLogs]=useState({});
 
 const refreshStatus=async()=>{
 try{const s=await callExtension("DB_STATUS",{},5000);setStatus(s);if(s.current)setRunning(s.current.source);else setRunning(null)}catch(e){}
 };
 
+const refreshDebug=async()=>{
+try{const d=await callExtension("GET_DB_DEBUG",{},5000);setDebugLogs(d||{})}catch(e){}
+};
+
 React.useEffect(()=>{
-refreshStatus();
-const i=setInterval(refreshStatus,2000);
+refreshStatus();refreshDebug();
+const i=setInterval(()=>{refreshStatus();refreshDebug()},2000);
 return()=>clearInterval(i);
 // eslint-disable-next-line
 },[]);
@@ -277,12 +282,18 @@ return()=>clearInterval(i);
 const startUpdate=async(source)=>{
 setLastErr("");setLastOk("");setRunning(source);
 try{
-const r=await callExtension("DB_UPDATE",{source},30*60*1000); // 30 минут таймаут
+const r=await callExtension("DB_UPDATE",{source},30*60*1000);
 setLastOk(`✓ ${({spk:"СПК",att:"Аттестаты юр.лиц",spec:"Аттестаты специалистов",iso:"ISO/СУОТ"})[source]||source}: ${r.count} записей загружено в GitHub`);
-// Перезагружаем локальную базу с GitHub Pages (с задержкой — GitHub Pages обновляется ~1-2 мин)
 setTimeout(()=>{if(loadLocalDb)loadLocalDb(true)},90000);
 }catch(e){setLastErr("Ошибка: "+e.message)}
-setRunning(null);
+setRunning(null);refreshDebug();
+};
+
+const showLog=(source)=>{
+const d=debugLogs[source];
+if(!d){alert("Логов пока нет — сначала запустите обновление этого реестра");return}
+const text=`Реестр: ${source}\nURL: ${d.url}\nВремя: ${d.ts}\nЗаписей: ${d.count}\nОшибка: ${d.error||"нет"}\n\nЛог:\n${d.log}`;
+navigator.clipboard.writeText(text).then(()=>alert("Лог скопирован в буфер обмена. Можете прислать его разработчику.")).catch(()=>{const w=window.open("","_blank");w.document.write("<pre style='padding:20px;font-size:12px;font-family:monospace'>"+text.replace(/</g,"&lt;")+"</pre>")});
 };
 
 const SOURCE_INFO={
@@ -308,6 +319,7 @@ return <div className="CD">
 const db=localDb[id];
 const ageText=db?(()=>{const ms=Date.now()-new Date(db.updated_at).getTime();const days=Math.floor(ms/(1000*60*60*24));if(days===0)return "сегодня";if(days===1)return "вчера";return days+" дн. назад"})():"никогда";
 const isRunning=running===id;
+const hasLog=!!debugLogs[id];
 return <div key={id} style={{padding:"12px 14px",background:"var(--s2)",borderRadius:8,border:"1px solid var(--bd)",display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,flexWrap:"wrap"}}>
 <div style={{flex:1,minWidth:200}}>
 <div style={{fontWeight:600,fontSize:13,color:"var(--tx)"}}>{info.label}</div>
@@ -317,7 +329,10 @@ return <div key={id} style={{padding:"12px 14px",background:"var(--s2)",borderRa
 {" · "}<span style={{color:"var(--t2)"}}>займёт {info.time}</span>
 </div>
 </div>
+<div style={{display:"flex",gap:6,alignItems:"center"}}>
+{hasLog&&<button className="B BS" style={{fontSize:10,padding:"5px 8px",whiteSpace:"nowrap"}} onClick={()=>showLog(id)}>🐞 Лог</button>}
 <button className="B BP" disabled={!!running} onClick={()=>startUpdate(id)} style={{whiteSpace:"nowrap"}}>{isRunning?"⏳ Обновляется...":"🔄 Обновить"}</button>
+</div>
 </div>;
 })}
 </div>
