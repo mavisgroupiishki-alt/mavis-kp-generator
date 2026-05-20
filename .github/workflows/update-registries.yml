@@ -1,25 +1,21 @@
 name: Update Registries
 
-# Запускается:
-# 1) По расписанию — каждый день в 00:00 UTC (03:00 по Минску)
-# 2) Вручную через интерфейс GitHub (вкладка Actions → Run workflow)
-# 3) При push изменений в scripts/ или сам workflow
 on:
   schedule:
-    - cron: "0 0 * * *"  # 00:00 UTC ежедневно = 03:00 МСК
-  workflow_dispatch:      # ручной запуск
+    - cron: "0 0 * * *"
+  workflow_dispatch:
   push:
     paths:
       - 'scripts/**'
       - '.github/workflows/update-registries.yml'
 
 permissions:
-  contents: write  # нужно, чтобы Action мог коммитить в репозиторий
+  contents: write
 
 jobs:
   update:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
 
     steps:
       - name: Checkout репозитория
@@ -37,10 +33,22 @@ jobs:
 
       - name: Парсинг СПК (bsc.by)
         run: python scripts/parse_spk.py
-        continue-on-error: true  # если упало — не валим весь workflow
+        continue-on-error: true
 
       - name: Парсинг ОСП (stn.by)
         run: python scripts/parse_osp.py
+        continue-on-error: true
+
+      - name: Парсинг Аттестатов юр.лиц (att.bsc.by)
+        run: python scripts/parse_att.py
+        continue-on-error: true
+
+      - name: Парсинг Аттестатов специалистов (rcuk.bsc.by)
+        run: python scripts/parse_spec.py
+        continue-on-error: true
+
+      - name: Парсинг ISO/СУОТ (tsouz.belgiss.by)
+        run: python scripts/parse_iso.py
         continue-on-error: true
 
       - name: Показать что получилось
@@ -49,13 +57,13 @@ jobs:
           ls -la data/ || echo "Папка data пуста"
           echo ""
           echo "=== Размер JSON-файлов ==="
-          du -h data/*.json 2>/dev/null || echo "Нет JSON"
-          echo ""
-          echo "=== Превью SPK ==="
-          head -50 data/spk.json 2>/dev/null || echo "spk.json не создан"
-          echo ""
-          echo "=== Превью OSP ==="
-          head -50 data/osp.json 2>/dev/null || echo "osp.json не создан"
+          for f in data/*.json; do
+            if [ -f "$f" ]; then
+              count=$(python3 -c "import json; print(json.load(open('$f')).get('count', 0))" 2>/dev/null || echo "?")
+              size=$(stat -c%s "$f")
+              echo "$f - count: $count, size: $size bytes"
+            fi
+          done
 
       - name: Коммит обновлений в репозиторий
         run: |
