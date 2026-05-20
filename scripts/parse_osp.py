@@ -55,67 +55,120 @@ def parse_osp_table(html):
     rows = soup.find_all("tr")
     print(f"[OSP] Найдено tr: {len(rows)}")
 
-    for row in rows:
+    # Сначала найдём заголовочную строку чтобы понять структуру колонок
+    header_idx = None
+    column_map = {}  # имя_столбца -> индекс
+    for i, row in enumerate(rows[:5]):  # ищем в первых 5 строках
+        ths = row.find_all("th")
+        if ths:
+            headers = [th.get_text(" ", strip=True).lower() for th in ths]
+            print(f"[OSP] Заголовки в строке {i}: {headers}")
+            for idx, h in enumerate(headers):
+                if "название" in h or "организац" in h or "наименование" in h:
+                    column_map["organization"] = idx
+                elif "номер" in h and "свид" in h or "регистрац" in h:
+                    column_map["cert_number"] = idx
+                elif "выдач" in h or h == "дата" or "начала" in h:
+                    column_map["issue_date"] = idx
+                elif "действ" in h or "окончан" in h or "срок" in h:
+                    column_map["expiry_date"] = idx
+                elif "вид" in h or "услов" in h or "процесс" in h:
+                    column_map["activity"] = idx
+            header_idx = i
+            break
+
+    print(f"[OSP] Найдена карта колонок: {column_map}")
+
+    debug_samples = []  # для отладки сохраним первые 5 записей с raw_cells
+
+    for ri, row in enumerate(rows):
+        if header_idx is not None and ri <= header_idx:
+            continue  # пропускаем заголовки
+
         tds = row.find_all("td")
         if len(tds) < 2:
             continue
 
         cells = [td.get_text(" ", strip=True) for td in tds]
-        # Пропустим заголовки
+
+        # Пропустим явно служебные строки
         if all(len(c) < 3 for c in cells):
             continue
         if any(c.lower() in ("№", "номер", "название", "название организации") for c in cells[:2]):
             continue
 
-        organization = cells[0] if cells else None
+        # Используем column_map если он определён, иначе старая эвристика
+        if column_map:
+            organization = cells[column_map["organization"]] if "organization" in column_map and column_map["organization"] < len(cells) else None
+            cert_number = cells[column_map["cert_number"]] if "cert_number" in column_map and column_map["cert_number"] < len(cells) else None
+            issue_date_raw = cells[column_map["issue_date"]] if "issue_date" in column_map and column_map["issue_date"] < len(cells) else None
+            expiry_date_raw = cells[column_map["expiry_date"]] if "expiry_date" in column_map and column_map["expiry_date"] < len(cells) else None
+            activity = cells[column_map["activity"]] if "activity" in column_map and column_map["activity"] < len(cells) else None
 
-        # Номер свидетельства — формат NN-NN-NN/NNN
-        cert_number = None
-        for c in cells:
-            m = re.search(r"\d{2}-\d{2}-\d{2}/\d+", c)
-            if m:
-                cert_number = m.group(0)
-                break
+            issue_date = parse_date(issue_date_raw) if issue_date_raw else None
+            expiry_date = parse_date(expiry_date_raw) if expiry_date_raw else None
 
-        # Даты:
-        # На странице stn.by обычно есть формат "от ДД.ММ.ГГГГ" — дата выдачи,
-        # и где-то справа дата окончания в виде ГГГГ-ММ-ДД.
-        # Соберём все даты по типам отдельно
-        all_text = " ".join(cells)
-        issue_date = None
-        expiry_date = None
+            # Чистим номер свидетельства
+            if cert_number:
+                m = re.search(r"\d{2}-\d{2}-\d{2}/\d+", cert_number)
+                if m:
+                    cert_number = m.group(0)
+        else:
+            # Эвристика — если заголовка нет
+            organization = cells[0] if cells else None
+            cert_number = None
+            for c in cells:
+                m = re.search(r"\d{2}-\d{2}-\d{2}/\d+", c)
+                if m:
+                    cert_number = m.group(0)
+                    break
 
-        # Дата выдачи: "от ДД.ММ.ГГГГ"
-        m_issue = re.search(r"от\s+(\d{1,2}[.\-/]\d{1,2}[.\-/]\d{4})", all_text)
-        if m_issue:
-            issue_date = parse_date(m_issue.group(1))
+            all_text = " ".join(cells)
+            issue_date = None
+            expiry_date = None
+            m_issue = re.search(r"от\s+(\d{1,2}[.\-/]\d{1,2}[.\-/]\d{4})", all_text)
+            if m_issue:
+                issue_date = parse_date(m_issue.group(1))
+            iso_dates = re.findall(r"(\d{4})-(\d{2})-(\d{2})", all_text)
+            if iso_dates:
+                valid = [d for d in iso_dates if d[0] != "0000"]
+                if valid:
+                    y, mo, d = valid[-1]
+                    expiry_date = f"{y}-{mo}-{d}"
+            if not expiry_date:
+                ddmm_dates = re.findall(r"\d{1,2}[.\-/]\d{1,2}[.\-/]\d{4}", all_text)
+                if len(ddmm_dates) > 1:
+                    expiry_date = parse_date(ddmm_dates[-1])
 
-        # Дата окончания: ищем все даты в формате ГГГГ-MM-DD (это формат который сайт выводит для срока действия)
-        iso_dates = re.findall(r"(\d{4})-(\d{2})-(\d{2})", all_text)
-        if iso_dates:
-            # Если несколько ISO-дат — берём последнюю (она обычно дата окончания)
-            # Игнорируем явно пустые 0000-00-00
-            valid = [d for d in iso_dates if d[0] != "0000"]
-            if valid:
-                y, mo, d = valid[-1]
-                expiry_date = f"{y}-{mo}-{d}"
-
-        # Если ISO-формата не нашли — берём последнюю ДД.ММ.ГГГГ как дату окончания (не первую, которая "от")
-        if not expiry_date:
-            ddmm_dates = re.findall(r"\d{1,2}[.\-/]\d{1,2}[.\-/]\d{4}", all_text)
-            # Первая идёт после "от", вторая+ может быть окончанием
-            if len(ddmm_dates) > 1:
-                expiry_date = parse_date(ddmm_dates[-1])
-
-        # Вид (заводские условия / стройплощадка)
-        activity = None
-        for c in cells:
-            if "заводск" in c.lower() or "стройплощадк" in c.lower():
-                activity = c[:200]
-                break
+            activity = None
+            for c in cells:
+                if "заводск" in c.lower() or "стройплощадк" in c.lower():
+                    activity = c[:200]
+                    break
 
         if not organization and not cert_number:
             continue
+
+        # Чистка от лишних пробелов
+        if organization:
+            organization = re.sub(r"\s+", " ", organization).strip()
+        if activity:
+            activity = re.sub(r"\s+", " ", activity).strip()[:300]
+
+        # Для отладки сохраняем первые 5 записей с сырыми ячейками
+        if len(debug_samples) < 5:
+            debug_samples.append({
+                "row_index": ri,
+                "cells_count": len(cells),
+                "cells": cells,
+                "parsed": {
+                    "cert_number": cert_number,
+                    "organization": organization,
+                    "issue_date": issue_date,
+                    "expiry_date": expiry_date,
+                    "activity": activity,
+                },
+            })
 
         records.append({
             "cert_number": cert_number,
@@ -125,7 +178,15 @@ def parse_osp_table(html):
             "activity": activity,
         })
 
-    return records
+    # Выводим диагностику
+    print(f"[OSP] === ДИАГНОСТИКА: первые {len(debug_samples)} строк ===")
+    for s in debug_samples:
+        print(f"[OSP] Строка {s['row_index']}: {len(s['cells'])} ячеек")
+        for i, c in enumerate(s['cells']):
+            print(f"  [{i}] {repr(c)[:120]}")
+        print(f"  → cert={s['parsed']['cert_number']!r}, issue={s['parsed']['issue_date']!r}, expiry={s['parsed']['expiry_date']!r}")
+
+    return records, debug_samples
 
 
 def main():
@@ -135,7 +196,7 @@ def main():
         print(f"[OSP] ОШИБКА: {e}", file=sys.stderr)
         sys.exit(1)
 
-    records = parse_osp_table(html)
+    records, debug_samples = parse_osp_table(html)
     print(f"[OSP] Распарсено: {len(records)}")
 
     if len(records) == 0:
@@ -151,6 +212,7 @@ def main():
         "updated_at": datetime.now(timezone.utc).isoformat(),
         "count": len(records),
         "records": records,
+        "_debug_samples": debug_samples,  # для отладки — первые 5 записей с сырыми ячейками
     }
 
     OUT_FILE.parent.mkdir(parents=True, exist_ok=True)
