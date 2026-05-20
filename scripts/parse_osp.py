@@ -51,39 +51,59 @@ def fetch_html(url):
 def parse_osp_table(html):
     soup = BeautifulSoup(html, "html.parser")
     records = []
+    debug_samples = []
 
-    rows = soup.find_all("tr")
-    print(f"[OSP] Найдено tr: {len(rows)}")
+    # === Шаг 1: Найти ОСНОВНУЮ таблицу с данными ===
+    # На странице может быть несколько table — выбираем самую большую (с >50 строками)
+    all_tables = soup.find_all("table")
+    print(f"[OSP] Всего таблиц на странице: {len(all_tables)}")
+    for i, t in enumerate(all_tables):
+        trs_in_table = t.find_all("tr")
+        print(f"[OSP]   Таблица {i}: {len(trs_in_table)} строк")
 
-    # Сначала найдём заголовочную строку чтобы понять структуру колонок
-    header_idx = None
-    column_map = {}  # имя_столбца -> индекс
-    for i, row in enumerate(rows[:5]):  # ищем в первых 5 строках
+    # Выбираем самую большую таблицу (с максимальным количеством строк)
+    main_table = None
+    if all_tables:
+        main_table = max(all_tables, key=lambda t: len(t.find_all("tr")))
+        rows = main_table.find_all("tr")
+        print(f"[OSP] Выбрана таблица с {len(rows)} строками")
+    else:
+        # Если table нет — берём все tr на странице
+        rows = soup.find_all("tr")
+        print(f"[OSP] Таблиц <table> нет. Найдено tr на странице: {len(rows)}")
+
+    if len(rows) < 5:
+        print(f"[OSP] Слишком мало строк ({len(rows)}). Возможно нужная таблица не загрузилась.")
+        return records, debug_samples
+
+    # === Шаг 2: Определить структуру колонок по заголовку ===
+    column_map = {}
+    header_row_idx = None
+    for i, row in enumerate(rows[:3]):  # заголовок обычно в первых 3 строках
         ths = row.find_all("th")
-        if ths:
+        if ths and len(ths) >= 2:
             headers = [th.get_text(" ", strip=True).lower() for th in ths]
             print(f"[OSP] Заголовки в строке {i}: {headers}")
             for idx, h in enumerate(headers):
                 if "название" in h or "организац" in h or "наименование" in h:
                     column_map["organization"] = idx
-                elif "номер" in h and "свид" in h or "регистрац" in h:
+                elif ("номер" in h and ("свид" in h or "регистрац" in h)) or h.strip() == "№":
                     column_map["cert_number"] = idx
-                elif "выдач" in h or h == "дата" or "начала" in h:
+                elif "выдач" in h or "начала" in h:
                     column_map["issue_date"] = idx
-                elif "действ" in h or "окончан" in h or "срок" in h:
+                elif "действ" in h or "окончан" in h or "срок" in h or h.startswith("по"):
                     column_map["expiry_date"] = idx
-                elif "вид" in h or "услов" in h or "процесс" in h:
+                elif "вид" in h or "услов" in h or "процесс" in h or "способ" in h:
                     column_map["activity"] = idx
-            header_idx = i
+            header_row_idx = i
             break
 
-    print(f"[OSP] Найдена карта колонок: {column_map}")
+    print(f"[OSP] Карта колонок: {column_map}")
 
-    debug_samples = []  # для отладки сохраним первые 5 записей с raw_cells
-
+    # === Шаг 3: Парсим строки данных ===
     for ri, row in enumerate(rows):
-        if header_idx is not None and ri <= header_idx:
-            continue  # пропускаем заголовки
+        if header_row_idx is not None and ri <= header_row_idx:
+            continue
 
         tds = row.find_all("td")
         if len(tds) < 2:
@@ -91,56 +111,62 @@ def parse_osp_table(html):
 
         cells = [td.get_text(" ", strip=True) for td in tds]
 
-        # Пропустим явно служебные строки
         if all(len(c) < 3 for c in cells):
             continue
+        # Пропускаем явно служебные строки (если "название" внутри строки данных — это всё ещё заголовок)
         if any(c.lower() in ("№", "номер", "название", "название организации") for c in cells[:2]):
             continue
 
-        # Используем column_map если он определён, иначе старая эвристика
+        # === Извлекаем поля ===
+        organization = None
+        cert_number = None
+        issue_date = None
+        expiry_date = None
+        activity = None
+
         if column_map:
-            organization = cells[column_map["organization"]] if "organization" in column_map and column_map["organization"] < len(cells) else None
-            cert_number = cells[column_map["cert_number"]] if "cert_number" in column_map and column_map["cert_number"] < len(cells) else None
-            issue_date_raw = cells[column_map["issue_date"]] if "issue_date" in column_map and column_map["issue_date"] < len(cells) else None
-            expiry_date_raw = cells[column_map["expiry_date"]] if "expiry_date" in column_map and column_map["expiry_date"] < len(cells) else None
-            activity = cells[column_map["activity"]] if "activity" in column_map and column_map["activity"] < len(cells) else None
+            # По карте колонок
+            if "organization" in column_map and column_map["organization"] < len(cells):
+                organization = cells[column_map["organization"]]
+            if "cert_number" in column_map and column_map["cert_number"] < len(cells):
+                cert_number_raw = cells[column_map["cert_number"]]
+                m = re.search(r"\d{2}-\d{2}-\d{2}/\d+", cert_number_raw)
+                cert_number = m.group(0) if m else cert_number_raw
+            if "issue_date" in column_map and column_map["issue_date"] < len(cells):
+                issue_date = parse_date(cells[column_map["issue_date"]])
+            if "expiry_date" in column_map and column_map["expiry_date"] < len(cells):
+                expiry_date = parse_date(cells[column_map["expiry_date"]])
+            if "activity" in column_map and column_map["activity"] < len(cells):
+                activity = cells[column_map["activity"]]
 
-            issue_date = parse_date(issue_date_raw) if issue_date_raw else None
-            expiry_date = parse_date(expiry_date_raw) if expiry_date_raw else None
-
-            # Чистим номер свидетельства
-            if cert_number:
-                m = re.search(r"\d{2}-\d{2}-\d{2}/\d+", cert_number)
-                if m:
-                    cert_number = m.group(0)
-        else:
-            # Эвристика — если заголовка нет
+        # Если карта колонок не дала результата — эвристика
+        if not organization:
             organization = cells[0] if cells else None
-            cert_number = None
+        if not cert_number:
             for c in cells:
                 m = re.search(r"\d{2}-\d{2}-\d{2}/\d+", c)
                 if m:
                     cert_number = m.group(0)
                     break
-
+        if not expiry_date or not issue_date:
             all_text = " ".join(cells)
-            issue_date = None
-            expiry_date = None
-            m_issue = re.search(r"от\s+(\d{1,2}[.\-/]\d{1,2}[.\-/]\d{4})", all_text)
-            if m_issue:
-                issue_date = parse_date(m_issue.group(1))
-            iso_dates = re.findall(r"(\d{4})-(\d{2})-(\d{2})", all_text)
-            if iso_dates:
-                valid = [d for d in iso_dates if d[0] != "0000"]
-                if valid:
-                    y, mo, d = valid[-1]
-                    expiry_date = f"{y}-{mo}-{d}"
+            # Дата выдачи: "от ДД.ММ.ГГГГ"
+            if not issue_date:
+                m_issue = re.search(r"от\s+(\d{1,2}[.\-/]\d{1,2}[.\-/]\d{4})", all_text)
+                if m_issue:
+                    issue_date = parse_date(m_issue.group(1))
+            # Дата окончания: ищем последнюю ISO-дату или последнюю ДД.ММ.ГГГГ
             if not expiry_date:
-                ddmm_dates = re.findall(r"\d{1,2}[.\-/]\d{1,2}[.\-/]\d{4}", all_text)
-                if len(ddmm_dates) > 1:
-                    expiry_date = parse_date(ddmm_dates[-1])
-
-            activity = None
+                iso_dates = re.findall(r"(\d{4})-(\d{2})-(\d{2})", all_text)
+                valid_iso = [d for d in iso_dates if d[0] not in ("0000",)]
+                if valid_iso:
+                    y, mo, d = valid_iso[-1]
+                    expiry_date = f"{y}-{mo}-{d}"
+                else:
+                    ddmm = re.findall(r"\d{1,2}[.\-/]\d{1,2}[.\-/]\d{4}", all_text)
+                    if len(ddmm) > 1:
+                        expiry_date = parse_date(ddmm[-1])
+        if not activity:
             for c in cells:
                 if "заводск" in c.lower() or "стройплощадк" in c.lower():
                     activity = c[:200]
@@ -149,13 +175,13 @@ def parse_osp_table(html):
         if not organization and not cert_number:
             continue
 
-        # Чистка от лишних пробелов
+        # Чистка
         if organization:
             organization = re.sub(r"\s+", " ", organization).strip()
         if activity:
             activity = re.sub(r"\s+", " ", activity).strip()[:300]
 
-        # Для отладки сохраняем первые 5 записей с сырыми ячейками
+        # Сохраняем первые 5 записей с сырыми ячейками для диагностики
         if len(debug_samples) < 5:
             debug_samples.append({
                 "row_index": ri,
@@ -178,8 +204,7 @@ def parse_osp_table(html):
             "activity": activity,
         })
 
-    # Выводим диагностику
-    print(f"[OSP] === ДИАГНОСТИКА: первые {len(debug_samples)} строк ===")
+    print(f"[OSP] === ДИАГНОСТИКА: первые {len(debug_samples)} записей ===")
     for s in debug_samples:
         print(f"[OSP] Строка {s['row_index']}: {len(s['cells'])} ячеек")
         for i, c in enumerate(s['cells']):
