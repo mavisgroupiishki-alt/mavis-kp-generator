@@ -343,6 +343,214 @@ return <div key={id} style={{padding:"12px 14px",background:"var(--s2)",borderRa
 </div>;
 }
 
+// === Компонент: просмотровщик базы реестров ===
+function RegistryBrowser({localDb,loadLocalDb,dbLoading}){
+const SOURCES=[
+{id:"spk",label:"СПК",full:"Свидетельства о технической компетентности"},
+{id:"osp",label:"ОСП",full:"Орган сварочного производства"},
+{id:"att",label:"Аттестаты юр.лиц",full:"Аттестаты соответствия юр.лиц"},
+{id:"spec",label:"Аттестаты спец.",full:"Квалификационные аттестаты специалистов"},
+{id:"iso",label:"ISO / СУОТ",full:"Сертификаты систем менеджмента"},
+];
+
+// Активный реестр — первый у которого есть данные, либо spk
+const firstAvailable=SOURCES.find(s=>localDb[s.id]&&localDb[s.id].count>0)?.id||"spk";
+const[activeSrc,setActiveSrc]=useState(firstAvailable);
+const[query,setQuery]=useState("");
+const[page,setPage]=useState(0);
+const[filter,setFilter]=useState("all"); // all | expired | expiring | active
+const[sortBy,setSortBy]=useState("expiry"); // expiry | name | number
+
+const PER_PAGE=50;
+
+const db=localDb[activeSrc];
+
+React.useEffect(()=>{setPage(0)},[activeSrc,query,filter,sortBy]);
+
+const daysLeft=(iso)=>{if(!iso)return null;const d=new Date(iso);return Math.ceil((d-new Date())/(1000*60*60*24))};
+
+// Фильтрация и сортировка
+const filtered=React.useMemo(()=>{
+if(!db||!db.records)return [];
+const q=query.toLowerCase().trim();
+let result=db.records.filter(r=>{
+// Текстовый фильтр
+if(q){
+const t=((r.organization||"")+" "+(r.cert_number||"")+" "+(r.person||"")+" "+(r.activity||"")).toLowerCase();
+if(!t.includes(q))return false;
+}
+// Фильтр по статусу
+if(filter!=="all"){
+const dl=daysLeft(r.expiry_date);
+if(filter==="expired"&&!(dl!==null&&dl<0))return false;
+if(filter==="expiring"&&!(dl!==null&&dl>=0&&dl<=60))return false;
+if(filter==="active"&&!(dl===null||dl>60))return false;
+}
+return true;
+});
+// Сортировка
+if(sortBy==="expiry"){
+result.sort((a,b)=>{
+const da=a.expiry_date?new Date(a.expiry_date).getTime():Infinity;
+const dbb=b.expiry_date?new Date(b.expiry_date).getTime():Infinity;
+return da-dbb;
+});
+}else if(sortBy==="name"){
+result.sort((a,b)=>(a.organization||a.person||"").localeCompare(b.organization||b.person||"","ru"));
+}else if(sortBy==="number"){
+result.sort((a,b)=>(a.cert_number||"").localeCompare(b.cert_number||""));
+}
+return result;
+},[db,query,filter,sortBy]);
+
+const totalPages=Math.ceil(filtered.length/PER_PAGE);
+const pageData=filtered.slice(page*PER_PAGE,(page+1)*PER_PAGE);
+
+// Подсчёт статусов для бейджей в кнопках фильтра
+const counts=React.useMemo(()=>{
+if(!db||!db.records)return{all:0,expired:0,expiring:0,active:0};
+let exp=0,expr=0,act=0;
+for(const r of db.records){
+const dl=daysLeft(r.expiry_date);
+if(dl===null||dl>60)act++;
+else if(dl<0)exp++;
+else expr++;
+}
+return{all:db.records.length,expired:exp,expiring:expr,active:act};
+},[db]);
+
+// Экспорт в CSV
+const exportCsv=()=>{
+if(filtered.length===0)return;
+const header=["Номер","Организация / ФИО","Вид деятельности","Дата выдачи","Дата окончания","Статус"];
+const rows=filtered.map(r=>{
+const dl=daysLeft(r.expiry_date);
+let status="—";
+if(dl!==null){if(dl<0)status="Истёк "+(-dl)+" дн. назад";else if(dl<=60)status="Истечёт через "+dl+" дн.";else status="Действует";}
+return[r.cert_number||"",r.organization||r.person||"",r.activity||r.specialization||"",r.issue_date||"",r.expiry_date||"",status];
+});
+const csv=[header,...rows].map(row=>row.map(c=>{const s=String(c);return /[,"\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s}).join(",")).join("\r\n");
+const blob=new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"});
+const url=URL.createObjectURL(blob);
+const a=document.createElement("a");
+a.href=url;
+a.download=`mavis_${activeSrc}_${new Date().toISOString().slice(0,10)}.csv`;
+a.click();
+setTimeout(()=>URL.revokeObjectURL(url),1000);
+};
+
+return <>
+<div className="MH"><h2>Реестры — просмотр базы</h2></div>
+<div className="MC">
+
+{/* Переключатель реестров */}
+<div className="CD" style={{padding:"10px"}}>
+<div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+{SOURCES.map(s=>{
+const cnt=localDb[s.id]?.count||0;
+const isActive=activeSrc===s.id;
+return <button key={s.id} className="B" style={{padding:"8px 12px",background:isActive?"var(--ac)":"var(--s2)",color:isActive?"#fff":"var(--tx)",border:"1px solid "+(isActive?"var(--ac)":"var(--bd)"),borderRadius:8,fontSize:12,fontWeight:600,cursor:"pointer"}} onClick={()=>setActiveSrc(s.id)}>
+{s.label} <span style={{opacity:.7,marginLeft:4,fontWeight:400}}>({cnt})</span>
+</button>;
+})}
+</div>
+</div>
+
+{/* Если базы нет */}
+{!db||db.count===0?<div className="CD" style={{textAlign:"center",padding:30}}>
+<p style={{color:"var(--t2)",marginBottom:14}}>База этого реестра ещё не загружена</p>
+<button className="B BP" onClick={()=>loadLocalDb&&loadLocalDb(true)} disabled={dbLoading}>{dbLoading?"⏳ Загрузка...":"🔄 Загрузить базу"}</button>
+<p style={{fontSize:12,color:"var(--t2)",marginTop:12}}>Если базы нет даже после загрузки — перейдите в раздел «📥 База» и обновите этот реестр через расширение</p>
+</div>:<>
+
+{/* Поиск и фильтры */}
+<div className="CD">
+<div style={{display:"flex",gap:8,marginBottom:10,flexWrap:"wrap"}}>
+<input className="FI" style={{flex:1,minWidth:200}} placeholder="🔍 Поиск по компании или номеру..." value={query} onChange={e=>setQuery(e.target.value)} />
+<select className="FI" style={{minWidth:160}} value={sortBy} onChange={e=>setSortBy(e.target.value)}>
+<option value="expiry">↑ По дате окончания</option>
+<option value="name">↑ По названию</option>
+<option value="number">↑ По номеру</option>
+</select>
+<button className="B BS" onClick={exportCsv} style={{whiteSpace:"nowrap"}}>📥 Скачать Excel</button>
+</div>
+
+<div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+{[
+{id:"all",label:"Все",count:counts.all,color:"var(--ac)"},
+{id:"expired",label:"Истёкшие",count:counts.expired,color:"var(--rd)"},
+{id:"expiring",label:"Скоро истекают (60 дн.)",count:counts.expiring,color:"var(--or)"},
+{id:"active",label:"Действующие",count:counts.active,color:"var(--gn)"},
+].map(f=>{
+const isActive=filter===f.id;
+return <button key={f.id} className="B" style={{padding:"6px 10px",background:isActive?f.color:"var(--s2)",color:isActive?"#fff":"var(--t2)",border:"1px solid "+(isActive?f.color:"var(--bd)"),borderRadius:6,fontSize:11,fontWeight:600,cursor:"pointer"}} onClick={()=>setFilter(f.id)}>
+{f.label} <span style={{opacity:.7,marginLeft:4,fontWeight:400}}>({f.count})</span>
+</button>;
+})}
+</div>
+</div>
+
+{/* Таблица */}
+<div className="CD" style={{padding:0,overflow:"hidden"}}>
+{filtered.length===0?<div style={{padding:30,textAlign:"center",color:"var(--t2)"}}>Ничего не найдено</div>:<>
+<div style={{padding:"10px 14px",fontSize:12,color:"var(--t2)",borderBottom:"1px solid var(--bd)"}}>
+Найдено: <strong style={{color:"var(--tx)"}}>{filtered.length}</strong> {totalPages>1&&<>· Страница {page+1} из {totalPages}</>}
+</div>
+<div style={{overflowX:"auto"}}>
+<table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+<thead>
+<tr style={{background:"var(--s2)",borderBottom:"2px solid var(--bd)"}}>
+<th style={{padding:"10px 14px",textAlign:"left",fontWeight:600,color:"var(--t2)",fontSize:11,textTransform:"uppercase",letterSpacing:0.5,whiteSpace:"nowrap"}}>Номер</th>
+<th style={{padding:"10px 14px",textAlign:"left",fontWeight:600,color:"var(--t2)",fontSize:11,textTransform:"uppercase",letterSpacing:0.5}}>Организация{activeSrc==="spec"?" / ФИО":""}</th>
+<th style={{padding:"10px 14px",textAlign:"left",fontWeight:600,color:"var(--t2)",fontSize:11,textTransform:"uppercase",letterSpacing:0.5,whiteSpace:"nowrap"}}>Действует до</th>
+</tr>
+</thead>
+<tbody>
+{pageData.map((r,i)=>{
+const dl=daysLeft(r.expiry_date);
+let rowBg="transparent";
+let dateColor="var(--t2)";
+let statusText="";
+if(dl!==null){
+if(dl<0){rowBg="rgba(245,87,79,.08)";dateColor="var(--rd)";statusText="истёк "+(-dl)+" дн. назад";}
+else if(dl<=60){rowBg="rgba(245,166,35,.08)";dateColor="var(--or)";statusText="через "+dl+" дн.";}
+else{dateColor="var(--gn)";statusText="через "+dl+" дн.";}
+}
+return <tr key={i} style={{background:rowBg,borderBottom:"1px solid var(--bd)"}}>
+<td style={{padding:"10px 14px",fontFamily:"monospace",fontSize:11,color:"var(--ac)",whiteSpace:"nowrap",verticalAlign:"top"}}>{r.cert_number||"—"}</td>
+<td style={{padding:"10px 14px",color:"var(--tx)",verticalAlign:"top"}}>
+<div>{r.organization||r.person||"—"}</div>
+{(r.activity||r.specialization)&&<div style={{fontSize:11,color:"var(--t2)",marginTop:2}}>{(r.activity||r.specialization).slice(0,150)}{(r.activity||r.specialization).length>150?"...":""}</div>}
+</td>
+<td style={{padding:"10px 14px",whiteSpace:"nowrap",verticalAlign:"top",color:dateColor}}>
+<div style={{fontWeight:600}}>{r.expiry_date||"—"}</div>
+{statusText&&<div style={{fontSize:10,opacity:.8,marginTop:2}}>{statusText}</div>}
+</td>
+</tr>;
+})}
+</tbody>
+</table>
+</div>
+
+{/* Пагинация */}
+{totalPages>1&&<div style={{padding:"12px 14px",borderTop:"1px solid var(--bd)",display:"flex",justifyContent:"center",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+<button className="B BS" onClick={()=>setPage(0)} disabled={page===0} style={{fontSize:11,padding:"5px 10px"}}>« Первая</button>
+<button className="B BS" onClick={()=>setPage(p=>Math.max(0,p-1))} disabled={page===0} style={{fontSize:11,padding:"5px 10px"}}>‹ Назад</button>
+<span style={{fontSize:12,color:"var(--t2)",margin:"0 8px"}}>{page+1} / {totalPages}</span>
+<button className="B BS" onClick={()=>setPage(p=>Math.min(totalPages-1,p+1))} disabled={page>=totalPages-1} style={{fontSize:11,padding:"5px 10px"}}>Вперёд ›</button>
+<button className="B BS" onClick={()=>setPage(totalPages-1)} disabled={page>=totalPages-1} style={{fontSize:11,padding:"5px 10px"}}>Последняя »</button>
+</div>}
+</>}
+</div>
+
+<div style={{padding:"10px 14px",fontSize:11,color:"var(--t2)",textAlign:"center"}}>
+База обновлена: {db.updated_at?new Date(db.updated_at).toLocaleString("ru-RU"):"неизвестно"} · Источник: <a href={db.url} target="_blank" style={{color:"var(--ac)"}}>{db.url}</a>
+</div>
+</>}
+</div>
+</>;
+}
+
 // === Константа источников реестров (используется в RegistryView) ===
 const REG_SOURCES=[
 {id:"spk",label:"📋 СПК",full:"Свидетельства о технической компетентности (Белстройцентр)"},
@@ -556,6 +764,7 @@ return(<><style>{CSS}</style>
 <div className="SL"><h1>MAVIS</h1><span>РЕЕСТРЫ</span></div>
 <div className="SN">
 <div className={"NI "+(tab==="search"?"on":"")} onClick={()=>setTab("search")}><span className="ic">🔍</span> Поиск</div>
+<div className={"NI "+(tab==="browse"?"on":"")} onClick={()=>setTab("browse")}><span className="ic">📚</span> Реестры</div>
 <div className={"NI "+(tab==="db"?"on":"")} onClick={()=>setTab("db")}><span className="ic">📥</span> База</div>
 <div className={"NI "+(tab==="cards"?"on":"")} onClick={()=>setTab("cards")}><span className="ic">🗂</span> Картотека{regCards.length>0&&<span className="badge">{regCards.length}</span>}</div>
 <div className={"NI "+(tab==="history"?"on":"")} onClick={()=>setTab("history")}><span className="ic">⏱</span> История{regHist.length>0&&<span className="badge">{regHist.length}</span>}</div>
@@ -673,6 +882,8 @@ return(<><style>{CSS}</style>
 <p style={{fontSize:12,color:"var(--t2)",marginTop:10}}>⚡ Поиск идёт по локальной базе — занимает миллисекунды. ОСП обновляется автоматически каждые сутки через GitHub Actions.</p>
 </div>
 </div></>)}
+
+{tab==="browse"&&<RegistryBrowser localDb={localDb} loadLocalDb={loadLocalDb} dbLoading={dbLoading} />}
 
 {tab==="cards"&&(<><div className="MH"><h2>Картотека компаний</h2></div><div className="MC">
 {exp.length>0&&<div className="CD" style={{background:"rgba(245,87,79,.05)",borderColor:"var(--rd)"}}>
