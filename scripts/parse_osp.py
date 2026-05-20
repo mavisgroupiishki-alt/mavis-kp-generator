@@ -134,33 +134,36 @@ def parse_osp_table(html):
 
     print(f"[OSP] Карта колонок: {column_map}")
 
+    # === Определяем количество колонок в записи ===
+    # На сайте stn.by ВСЕ записи могут лежать в ОДНОЙ <tr> подряд — много групп ячеек.
+    # 743 строк × 5 ячеек = 3715 ячеек в одной строке.
+    # Поэтому если в строке очень много td — разбиваем её на группы.
+    cols_per_record = max(column_map.values()) + 1 if column_map else 5
+    print(f"[OSP] Колонок на одну запись: {cols_per_record}")
+
     # === Шаг 3: Парсим строки данных ===
-    for ri, row in enumerate(rows):
-        if header_row_idx is not None and ri <= header_row_idx:
-            continue
+    def process_row_cells(all_cells, row_idx):
+        """Обработать одну группу ячеек как запись (внутри функции, чтобы видеть column_map и debug_samples)"""
+        if len(all_cells) < cols_per_record:
+            return None
 
-        tds = row.find_all("td")
-        if len(tds) < 2:
-            continue
-
-        cells = [td.get_text(" ", strip=True) for td in tds]
+        # Берём ровно cols_per_record ячеек
+        cells = all_cells[:cols_per_record]
 
         if all(len(c) < 3 for c in cells):
-            continue
-        # Пропускаем явно служебные строки (если "название" внутри строки данных — это всё ещё заголовок)
-        if any(c.lower() in ("№", "номер", "название", "название организации") for c in cells[:2]):
-            continue
+            return None
+        if any(c.lower() in ("№", "номер", "название", "название организации", "предприятие") for c in cells[:2]):
+            return None
 
         # === Извлекаем поля ===
         organization = None
         cert_number = None
         issue_date = None
-        last_check_date = None  # дата последней периодической оценки (то что в столбце "дата окончания" на сайте)
-        expiry_date = None      # рассчитываем сами: last_check_date + 18 месяцев
+        last_check_date = None
+        expiry_date = None
         activity = None
 
         if column_map:
-            # По карте колонок
             if "organization" in column_map and column_map["organization"] < len(cells):
                 organization = cells[column_map["organization"]]
             if "cert_number" in column_map and column_map["cert_number"] < len(cells):
@@ -170,12 +173,11 @@ def parse_osp_table(html):
             if "issue_date" in column_map and column_map["issue_date"] < len(cells):
                 issue_date = parse_date(cells[column_map["issue_date"]])
             if "expiry_date" in column_map and column_map["expiry_date"] < len(cells):
-                # На сайте stn.by это "дата окончания" = дата ПОСЛЕДНЕЙ ОЦЕНКИ
                 last_check_date = parse_date(cells[column_map["expiry_date"]])
             if "activity" in column_map and column_map["activity"] < len(cells):
                 activity = cells[column_map["activity"]]
 
-        # Если карта колонок не дала результата — эвристика
+        # Эвристика для пропущенных полей
         if not organization:
             organization = cells[0] if cells else None
         if not cert_number:
@@ -186,26 +188,18 @@ def parse_osp_table(html):
                     break
         if not last_check_date or not issue_date:
             all_text = " ".join(cells)
-            # Дата выдачи: "от ДД.ММ.ГГГГ"
             if not issue_date:
                 m_issue = re.search(r"от\s+(\d{1,2}[.\-/]\d{1,2}[.\-/]\d{4})", all_text)
                 if m_issue:
                     issue_date = parse_date(m_issue.group(1))
-            # Дата последней оценки: последняя ISO-дата
             if not last_check_date:
                 iso_dates = re.findall(r"(\d{4})-(\d{2})-(\d{2})", all_text)
                 valid_iso = [d for d in iso_dates if d[0] not in ("0000",)]
                 if valid_iso:
                     y, mo, d = valid_iso[-1]
                     last_check_date = f"{y}-{mo}-{d}"
-                else:
-                    ddmm = re.findall(r"\d{1,2}[.\-/]\d{1,2}[.\-/]\d{4}", all_text)
-                    if len(ddmm) > 1:
-                        last_check_date = parse_date(ddmm[-1])
 
-        # ВАЖНО: рассчитываем expiry_date = last_check_date + 18 месяцев
-        # ОСП проходит периодическую оценку каждые 18 месяцев. Если за 18 месяцев новой не было — свидетельство истекло.
-        # Если periodicheskoy ocenki ещё не было (last_check_date пустая) — считаем от даты выдачи свидетельства.
+        # Рассчитываем expiry_date = max(last_check_date, issue_date) + 18 месяцев
         base_date = last_check_date or issue_date
         if base_date:
             expiry_date = add_months_to_date(base_date, 18)
@@ -216,39 +210,60 @@ def parse_osp_table(html):
                     activity = c[:200]
                     break
 
+        # Пропускаем пустые служебные строки (даты "0000-00-00" — это пустышки в первой строке)
         if not organization and not cert_number:
-            continue
+            return None
+        # Если организация и cert_number пустые/служебные — тоже скип
+        if organization and len(organization) < 3 and not cert_number:
+            return None
 
-        # Чистка
         if organization:
             organization = re.sub(r"\s+", " ", organization).strip()
         if activity:
             activity = re.sub(r"\s+", " ", activity).strip()[:300]
 
-        # Сохраняем первые 5 записей с сырыми ячейками для диагностики
-        if len(debug_samples) < 5:
-            debug_samples.append({
-                "row_index": ri,
-                "cells_count": len(cells),
-                "cells": cells,
-                "parsed": {
-                    "cert_number": cert_number,
-                    "organization": organization,
-                    "issue_date": issue_date,
-                    "last_check_date": last_check_date,
-                    "expiry_date": expiry_date,
-                    "activity": activity,
-                },
-            })
-
-        records.append({
+        record = {
             "cert_number": cert_number,
             "organization": organization,
             "issue_date": issue_date,
-            "last_check_date": last_check_date,  # дата последней периодической оценки
-            "expiry_date": expiry_date,          # рассчитанная: last_check + 18 мес
+            "last_check_date": last_check_date,
+            "expiry_date": expiry_date,
             "activity": activity,
-        })
+        }
+
+        if len(debug_samples) < 5:
+            debug_samples.append({
+                "row_index": row_idx,
+                "cells_count": len(cells),
+                "cells": cells,
+                "parsed": record,
+            })
+
+        return record
+
+    for ri, row in enumerate(rows):
+        if header_row_idx is not None and ri <= header_row_idx:
+            continue
+
+        tds = row.find_all("td")
+        if len(tds) < 2:
+            continue
+
+        all_cells = [td.get_text(" ", strip=True) for td in tds]
+
+        # Если в строке количество ячеек кратно cols_per_record и существенно больше — это сборная строка
+        if len(all_cells) >= cols_per_record * 2:
+            print(f"[OSP] Строка {ri}: {len(all_cells)} ячеек, разбиваю на группы по {cols_per_record}")
+            for offset in range(0, len(all_cells), cols_per_record):
+                group = all_cells[offset:offset + cols_per_record]
+                rec = process_row_cells(group, ri)
+                if rec:
+                    records.append(rec)
+        else:
+            # Обычная строка — одна запись
+            rec = process_row_cells(all_cells, ri)
+            if rec:
+                records.append(rec)
 
     print(f"[OSP] === ДИАГНОСТИКА: первые {len(debug_samples)} записей ===")
     for s in debug_samples:
