@@ -219,43 +219,48 @@ if(searchMode==="company"&&enabledSrc.length===0){setEnabledSrc(REG_SOURCES.filt
 },[searchMode]);
 
 // === Локальная база реестров (загружается с GitHub Pages) ===
-// SPK и OSP обновляются автоматически раз в сутки через GitHub Actions
-const[localDb,setLocalDb]=useState(()=>{try{const s=localStorage.getItem("mavis_local_db");return s?JSON.parse(s):{spk:null,osp:null};}catch(e){return{spk:null,osp:null};}});
+// 5 реестров обновляются автоматически раз в сутки через GitHub Actions:
+// SPK, OSP, ATT, SPEC, ISO. Лицензии (lic) — через расширение Chrome (SPA с reCAPTCHA)
+const LOCAL_SOURCES=["spk","osp","att","spec","iso"];
+const[localDb,setLocalDb]=useState(()=>{try{const s=localStorage.getItem("mavis_local_db");if(s){const d=JSON.parse(s);const empty={};LOCAL_SOURCES.forEach(k=>empty[k]=d[k]||null);return empty}}catch(e){}const e={};LOCAL_SOURCES.forEach(k=>e[k]=null);return e});
 const[dbLoading,setDbLoading]=useState(false);
 const[dbErr,setDbErr]=useState("");
 
 const loadLocalDb=async(force=false)=>{
 setDbLoading(true);setDbErr("");
+const errs=[];
 try{
 const base=location.origin+location.pathname.replace(/\/[^/]*$/,"/");
-const sources=["spk","osp"];
 const newDb={...localDb};
-for(const s of sources){
+for(const s of LOCAL_SOURCES){
 try{
-const url=base+"data/"+s+".json?t="+Date.now(); // cache-buster
+const url=base+"data/"+s+".json?t="+Date.now();
 const r=await fetch(url);
 if(!r.ok)throw new Error("HTTP "+r.status);
 const d=await r.json();
-newDb[s]=d;
-console.log("[MAVIS] локальная база "+s+" загружена: "+d.count+" записей");
-}catch(e){
-console.warn("[MAVIS] не удалось загрузить "+s+":",e.message);
-if(force)setDbErr("Ошибка загрузки "+s+": "+e.message);
-}
+// Принимаем только если count > 0 (иначе оставляем предыдущую версию из localStorage)
+if(d&&d.count>0){newDb[s]=d;console.log("[MAVIS] "+s+" загружен: "+d.count+" записей")}else{console.log("[MAVIS] "+s+" пустой/недоступен (count=0)")}
+}catch(e){console.warn("[MAVIS] не удалось загрузить "+s+":",e.message);errs.push(s+": "+e.message)}
 }
 setLocalDb(newDb);
 try{localStorage.setItem("mavis_local_db",JSON.stringify(newDb))}catch(e){
-console.warn("localStorage переполнен, чистим и пробуем снова");
-localStorage.removeItem("mavis_local_db");
-try{localStorage.setItem("mavis_local_db",JSON.stringify(newDb))}catch(e2){setDbErr("База слишком большая для localStorage")}
+console.warn("localStorage переполнен — пробуем сжать (без iso, потом без spec)");
+// Если не влезло — сохраняем без самых больших баз. localStorage обычно ~5MB
+const smaller={...newDb,iso:null};
+try{localStorage.setItem("mavis_local_db",JSON.stringify(smaller))}catch(e2){
+const minimal={spk:newDb.spk,osp:newDb.osp,att:null,spec:null,iso:null};
+try{localStorage.setItem("mavis_local_db",JSON.stringify(minimal))}catch(e3){setDbErr("База слишком большая для localStorage")}
 }
+}
+if(force&&errs.length>0)setDbErr("Ошибки: "+errs.join("; "));
 }finally{setDbLoading(false)}
 };
 
-// Автоматически загружаем базу при открытии раздела (если данных нет или они старше 24ч)
+// Автоматически загружаем базу при открытии раздела (если хотя бы один источник старше 24ч)
 React.useEffect(()=>{
-const needLoad=!localDb.spk||!localDb.osp||(localDb.spk&&Date.now()-new Date(localDb.spk.updated_at).getTime()>24*60*60*1000);
-if(needLoad){loadLocalDb(false)}
+const hasAny=LOCAL_SOURCES.some(s=>localDb[s]&&localDb[s].records&&localDb[s].records.length>0);
+const isOld=hasAny&&LOCAL_SOURCES.some(s=>localDb[s]&&Date.now()-new Date(localDb[s].updated_at).getTime()>24*60*60*1000);
+if(!hasAny||isOld){loadLocalDb(false)}
 // eslint-disable-next-line
 },[]);
 
@@ -265,10 +270,11 @@ const db=localDb[source];
 if(!db||!db.records)return null;
 const q=query.toLowerCase().trim();
 if(!q)return{count:0,results:[],source,source_name:db.source_name,url:db.url,query};
-const firstWord=q.split(/\s+/)[0];
+// Ищем по структурированным полям (organization, cert_number), НЕ по raw
+// raw-поле содержит склеенные соседние строки таблицы и даёт ложные срабатывания
 const matches=db.records.filter(r=>{
-const t=((r.organization||"")+" "+(r.cert_number||"")+" "+(r.raw||"")).toLowerCase();
-return t.includes(firstWord);
+const t=((r.organization||"")+" "+(r.cert_number||"")+" "+(r.person||"")).toLowerCase();
+return t.includes(q);
 }).slice(0,50);
 return{count:matches.length,results:matches,source,source_name:db.source_name,url:db.url,query,from_local:true,updated_at:db.updated_at};
 };
@@ -329,7 +335,7 @@ const sourcesAll=searchMode==="person"?["spec"]:enabledSrc.filter(s=>s!=="spec")
 if(sourcesAll.length===0){setErr("Выберите хотя бы один реестр в фильтре");setLoading(false);return}
 
 // Разделяем: какие источники есть в локальной базе, какие нужно искать через расширение
-const localSources=sourcesAll.filter(s=>(s==="spk"||s==="osp")&&localDb[s]&&localDb[s].records);
+const localSources=sourcesAll.filter(s=>LOCAL_SOURCES.includes(s)&&localDb[s]&&localDb[s].records);
 const extSources=sourcesAll.filter(s=>!localSources.includes(s));
 
 const allResults={query:q.trim(),sources:{}};
@@ -408,24 +414,24 @@ return(<><style>{CSS}</style>
 
 <div className="MN">
 {tab==="search"&&(<><div className="MH"><h2>Проверка компании по реестрам</h2></div><div className="MC">
-{(localDb.spk||localDb.osp)&&<div className="CD" style={{background:"rgba(52,199,123,.08)",borderColor:"var(--gn)",padding:"10px 14px"}}>
+{LOCAL_SOURCES.some(s=>localDb[s])&&<div className="CD" style={{background:"rgba(52,199,123,.08)",borderColor:"var(--gn)",padding:"10px 14px"}}>
 <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,flexWrap:"wrap"}}>
 <div style={{fontSize:12,color:"var(--gn)",fontWeight:600}}>
-⚡ Локальная база (моментальный поиск): {localDb.spk?"СПК ("+localDb.spk.count+")":""}{localDb.spk&&localDb.osp?" · ":""}{localDb.osp?"ОСП ("+localDb.osp.count+")":""}
-<div style={{fontSize:11,color:"var(--t2)",fontWeight:400,marginTop:2}}>Обновлено: {localDb.spk?new Date(localDb.spk.updated_at).toLocaleString("ru-RU"):"—"}</div>
+⚡ Локальная база (моментальный поиск): {LOCAL_SOURCES.filter(s=>localDb[s]).map(s=>{const labels={spk:"СПК",osp:"ОСП",att:"Аттестаты",spec:"Спецы",iso:"ISO"};return labels[s]+" ("+localDb[s].count+")"}).join(" · ")}
+<div style={{fontSize:11,color:"var(--t2)",fontWeight:400,marginTop:2}}>Обновлено: {(()=>{const dates=LOCAL_SOURCES.filter(s=>localDb[s]).map(s=>new Date(localDb[s].updated_at));if(dates.length===0)return "—";const oldest=new Date(Math.min(...dates));return oldest.toLocaleString("ru-RU")})()}</div>
 </div>
 <button className="B BS" style={{fontSize:11,padding:"6px 10px"}} onClick={()=>loadLocalDb(true)} disabled={dbLoading}>{dbLoading?"⏳":"🔄 Обновить"}</button>
 </div>
 {dbErr&&<div style={{marginTop:8,fontSize:11,color:"var(--rd)"}}>{dbErr}</div>}
 </div>}
-{!localDb.spk&&!localDb.osp&&dbLoading&&<div className="CD" style={{padding:"10px 14px"}}>
+{!LOCAL_SOURCES.some(s=>localDb[s])&&dbLoading&&<div className="CD" style={{padding:"10px 14px"}}>
 <div style={{fontSize:12,color:"var(--t2)"}}>⏳ Загружается база реестров с сервера...</div>
 </div>}
-{!localDb.spk&&!localDb.osp&&!dbLoading&&dbErr&&<div className="CD" style={{background:"rgba(245,166,35,.08)",borderColor:"var(--or)",padding:"10px 14px"}}>
+{!LOCAL_SOURCES.some(s=>localDb[s])&&!dbLoading&&dbErr&&<div className="CD" style={{background:"rgba(245,166,35,.08)",borderColor:"var(--or)",padding:"10px 14px"}}>
 <div style={{fontSize:12,color:"var(--or)",marginBottom:6}}>⚠ Локальная база недоступна: {dbErr}</div>
 <button className="B BS" style={{fontSize:11,padding:"6px 10px"}} onClick={()=>loadLocalDb(true)}>🔄 Попробовать снова</button>
 </div>}
-{!extReady&&!localDb.spk&&!localDb.osp&&<div className="CD" style={{background:"rgba(245,166,35,.08)",borderColor:"var(--or)"}}>
+{!extReady&&!LOCAL_SOURCES.some(s=>localDb[s])&&<div className="CD" style={{background:"rgba(245,166,35,.08)",borderColor:"var(--or)"}}>
 <div className="CT" style={{color:"var(--or)"}}>⚠ Расширение MAVIS Registry не установлено</div>
 <p style={{fontSize:13,color:"var(--tx)",lineHeight:1.6,marginBottom:10}}>Чтобы заработал автопоиск по реестрам без локальной базы — установите расширение для Chrome.</p>
 <button className="B BP" onClick={()=>setTab("settings")}>📖 Инструкция по установке</button>
