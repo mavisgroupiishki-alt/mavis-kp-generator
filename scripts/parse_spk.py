@@ -138,7 +138,6 @@ def parse_spk_table(html: str):
             "organization": organization,
             "issue_date": issue_date,
             "expiry_date": expiry_date,
-            "raw": " | ".join(cells)[:500],  # для отладки если что-то пошло не так
         })
 
     return records
