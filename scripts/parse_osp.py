@@ -67,11 +67,9 @@ def parse_osp_table(html):
         if any(c.lower() in ("№", "номер", "название", "название организации") for c in cells[:2]):
             continue
 
-        # Структура из предыдущего теста: cells[0]=Название, cells[1]=Номер | дата
-        # На самом деле там в одну строку: "Филиал \"Завод ЖБК\" 12-08-05/001 от 10.09.2015 заводские условия 2015-09-10 2018-09-10"
         organization = cells[0] if cells else None
 
-        # Номер свидетельства
+        # Номер свидетельства — формат NN-NN-NN/NNN
         cert_number = None
         for c in cells:
             m = re.search(r"\d{2}-\d{2}-\d{2}/\d+", c)
@@ -79,15 +77,35 @@ def parse_osp_table(html):
                 cert_number = m.group(0)
                 break
 
-        # Даты
-        dates = []
-        for c in cells:
-            for m in re.finditer(r"\d{1,2}[.\-/]\d{1,2}[.\-/]\d{4}", c):
-                d = parse_date(m.group(0))
-                if d:
-                    dates.append(d)
-        issue_date = dates[0] if dates else None
-        expiry_date = dates[-1] if len(dates) > 1 else None
+        # Даты:
+        # На странице stn.by обычно есть формат "от ДД.ММ.ГГГГ" — дата выдачи,
+        # и где-то справа дата окончания в виде ГГГГ-ММ-ДД.
+        # Соберём все даты по типам отдельно
+        all_text = " ".join(cells)
+        issue_date = None
+        expiry_date = None
+
+        # Дата выдачи: "от ДД.ММ.ГГГГ"
+        m_issue = re.search(r"от\s+(\d{1,2}[.\-/]\d{1,2}[.\-/]\d{4})", all_text)
+        if m_issue:
+            issue_date = parse_date(m_issue.group(1))
+
+        # Дата окончания: ищем все даты в формате ГГГГ-MM-DD (это формат который сайт выводит для срока действия)
+        iso_dates = re.findall(r"(\d{4})-(\d{2})-(\d{2})", all_text)
+        if iso_dates:
+            # Если несколько ISO-дат — берём последнюю (она обычно дата окончания)
+            # Игнорируем явно пустые 0000-00-00
+            valid = [d for d in iso_dates if d[0] != "0000"]
+            if valid:
+                y, mo, d = valid[-1]
+                expiry_date = f"{y}-{mo}-{d}"
+
+        # Если ISO-формата не нашли — берём последнюю ДД.ММ.ГГГГ как дату окончания (не первую, которая "от")
+        if not expiry_date:
+            ddmm_dates = re.findall(r"\d{1,2}[.\-/]\d{1,2}[.\-/]\d{4}", all_text)
+            # Первая идёт после "от", вторая+ может быть окончанием
+            if len(ddmm_dates) > 1:
+                expiry_date = parse_date(ddmm_dates[-1])
 
         # Вид (заводские условия / стройплощадка)
         activity = None
@@ -96,7 +114,6 @@ def parse_osp_table(html):
                 activity = c[:200]
                 break
 
-        # Скип пустых
         if not organization and not cert_number:
             continue
 
@@ -106,7 +123,6 @@ def parse_osp_table(html):
             "issue_date": issue_date,
             "expiry_date": expiry_date,
             "activity": activity,
-            "raw": " | ".join(cells)[:500],
         })
 
     return records
