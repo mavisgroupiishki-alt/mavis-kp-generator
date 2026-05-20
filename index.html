@@ -188,6 +188,146 @@ return <div style={{fontSize:12,color:"var(--tx)"}}>
 </div>
 }
 
+// === Компонент: настройки GitHub-токена ===
+function DbSettings({extReady,callExtension}){
+const[token,setToken]=useState("");
+const[owner,setOwner]=useState("mavisgroupiishki-alt");
+const[repo,setRepo]=useState("mavis-kp-generator");
+const[branch,setBranch]=useState("main");
+const[hasToken,setHasToken]=useState(false);
+const[maskedToken,setMaskedToken]=useState("");
+const[saved,setSaved]=useState(false);
+const[err,setErr]=useState("");
+
+React.useEffect(()=>{
+if(!extReady)return;
+callExtension("GET_SETTINGS",{},5000).then(s=>{
+setOwner(s.owner||"mavisgroupiishki-alt");
+setRepo(s.repo||"mavis-kp-generator");
+setBranch(s.branch||"main");
+setHasToken(!!s.has_token);
+setMaskedToken(s.token||"");
+}).catch(e=>setErr(e.message));
+// eslint-disable-next-line
+},[extReady]);
+
+const save=async()=>{
+setErr("");setSaved(false);
+try{
+await callExtension("SET_SETTINGS",{settings:{token,owner,repo,branch}},5000);
+setSaved(true);setToken("");
+const s=await callExtension("GET_SETTINGS",{},5000);
+setHasToken(!!s.has_token);setMaskedToken(s.token||"");
+setTimeout(()=>setSaved(false),3000);
+}catch(e){setErr(e.message)}
+};
+
+return <div>
+<p style={{fontSize:12,color:"var(--t2)",lineHeight:1.6,marginBottom:12}}>Для загрузки обновлённой базы в репозиторий нужен <strong>Personal Access Token</strong> от GitHub. Это разовая настройка.</p>
+<details style={{marginBottom:14,fontSize:12,color:"var(--t2)"}}>
+<summary style={{cursor:"pointer",color:"var(--ac)",fontWeight:600,marginBottom:8}}>📖 Как получить токен (3 минуты)</summary>
+<ol style={{paddingLeft:22,lineHeight:1.8,marginTop:8}}>
+<li>Откройте <a href="https://github.com/settings/tokens?type=beta" target="_blank" style={{color:"var(--ac)"}}>github.com/settings/tokens (Fine-grained tokens)</a></li>
+<li>Нажмите <strong>«Generate new token»</strong></li>
+<li><strong>Token name:</strong> например «MAVIS Registry»</li>
+<li><strong>Expiration:</strong> выберите 1 год (потом обновите)</li>
+<li><strong>Repository access:</strong> Only select repositories → выберите <code>{owner}/{repo}</code></li>
+<li><strong>Permissions:</strong> раскройте «Repository permissions» → <code>Contents</code> = <strong>Read and write</strong></li>
+<li>Внизу нажмите <strong>«Generate token»</strong></li>
+<li><strong>Скопируйте</strong> токен (он начинается с <code>github_pat_...</code>) — он показывается только один раз!</li>
+<li>Вставьте его в поле ниже и нажмите «Сохранить»</li>
+</ol>
+</details>
+
+<div style={{display:"flex",gap:8,marginBottom:10,alignItems:"center"}}>
+<input className="FI" style={{flex:1}} placeholder="ghp_... или github_pat_..." type="password" value={token} onChange={e=>setToken(e.target.value)} />
+{hasToken&&!token&&<span style={{fontSize:11,color:"var(--gn)"}}>✓ {maskedToken}</span>}
+</div>
+<div style={{display:"flex",gap:8,marginBottom:10}}>
+<input className="FI" style={{flex:1}} placeholder="Владелец репо" value={owner} onChange={e=>setOwner(e.target.value)} />
+<input className="FI" style={{flex:1}} placeholder="Название репо" value={repo} onChange={e=>setRepo(e.target.value)} />
+<input className="FI" style={{width:90}} placeholder="branch" value={branch} onChange={e=>setBranch(e.target.value)} />
+</div>
+<div style={{display:"flex",gap:10,alignItems:"center"}}>
+<button className="B BP" onClick={save}>💾 Сохранить</button>
+{saved&&<span style={{fontSize:12,color:"var(--gn)",fontWeight:600}}>✓ Сохранено</span>}
+{err&&<span style={{fontSize:12,color:"var(--rd)"}}>{err}</span>}
+</div>
+</div>;
+}
+
+// === Компонент: обновление баз реестров ===
+function DbUpdateBlock({extReady,callExtension,localDb,loadLocalDb}){
+const[status,setStatus]=useState(null);
+const[running,setRunning]=useState(null); // source id или null
+const[lastErr,setLastErr]=useState("");
+const[lastOk,setLastOk]=useState("");
+
+const refreshStatus=async()=>{
+try{const s=await callExtension("DB_STATUS",{},5000);setStatus(s);if(s.current)setRunning(s.current.source);else setRunning(null)}catch(e){}
+};
+
+React.useEffect(()=>{
+refreshStatus();
+const i=setInterval(refreshStatus,2000);
+return()=>clearInterval(i);
+// eslint-disable-next-line
+},[]);
+
+const startUpdate=async(source)=>{
+setLastErr("");setLastOk("");setRunning(source);
+try{
+const r=await callExtension("DB_UPDATE",{source},30*60*1000); // 30 минут таймаут
+setLastOk(`✓ ${({spk:"СПК",att:"Аттестаты юр.лиц",spec:"Аттестаты специалистов",iso:"ISO/СУОТ"})[source]||source}: ${r.count} записей загружено в GitHub`);
+// Перезагружаем локальную базу с GitHub Pages (с задержкой — GitHub Pages обновляется ~1-2 мин)
+setTimeout(()=>{if(loadLocalDb)loadLocalDb(true)},90000);
+}catch(e){setLastErr("Ошибка: "+e.message)}
+setRunning(null);
+};
+
+const SOURCE_INFO={
+spk:{label:"СПК",full:"Свидетельства о технической компетентности (Белстройцентр)",time:"~10 сек"},
+att:{label:"Аттестаты юр.лиц",full:"Аттестаты соответствия юр.лиц (att.bsc.by)",time:"~10 мин"},
+spec:{label:"Аттестаты спец.",full:"Квалификационные аттестаты специалистов (rcuk.bsc.by)",time:"~30 мин"},
+iso:{label:"ISO / СУОТ",full:"Сертификаты систем менеджмента (tsouz.belgiss.by)",time:"~5 мин"},
+};
+
+return <div className="CD">
+<div className="CT">📥 Обновить базы реестров</div>
+<p style={{fontSize:12,color:"var(--t2)",lineHeight:1.6,marginBottom:14}}>Нажмите на реестр чтобы скачать его целиком с белорусского сайта и сохранить в общую базу. Это нужно делать <strong>раз в 1-4 недели</strong>.</p>
+
+{status?.current&&<div style={{padding:"10px 14px",background:"rgba(245,166,35,.12)",border:"1px solid var(--or)",borderRadius:8,marginBottom:12,fontSize:13,color:"var(--or)"}}>
+⏳ Сейчас обновляется: <strong>{status.current.name}</strong> — страница {status.current.page} из {status.current.total_pages}, записей: {status.current.records_count}
+</div>}
+
+{lastOk&&<div style={{padding:"10px 14px",background:"rgba(52,199,123,.12)",border:"1px solid var(--gn)",borderRadius:8,marginBottom:12,fontSize:13,color:"var(--gn)"}}>{lastOk}</div>}
+{lastErr&&<div style={{padding:"10px 14px",background:"rgba(245,87,79,.12)",border:"1px solid var(--rd)",borderRadius:8,marginBottom:12,fontSize:13,color:"var(--rd)"}}>{lastErr}</div>}
+
+<div style={{display:"flex",flexDirection:"column",gap:8}}>
+{Object.entries(SOURCE_INFO).map(([id,info])=>{
+const db=localDb[id];
+const ageText=db?(()=>{const ms=Date.now()-new Date(db.updated_at).getTime();const days=Math.floor(ms/(1000*60*60*24));if(days===0)return "сегодня";if(days===1)return "вчера";return days+" дн. назад"})():"никогда";
+const isRunning=running===id;
+return <div key={id} style={{padding:"12px 14px",background:"var(--s2)",borderRadius:8,border:"1px solid var(--bd)",display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+<div style={{flex:1,minWidth:200}}>
+<div style={{fontWeight:600,fontSize:13,color:"var(--tx)"}}>{info.label}</div>
+<div style={{fontSize:11,color:"var(--t2)",marginTop:2}}>{info.full}</div>
+<div style={{fontSize:11,color:"var(--t2)",marginTop:4}}>
+{db?<><span style={{color:"var(--gn)"}}>✓ {db.count} записей</span> · обновлено {ageText}</>:<span style={{color:"var(--or)"}}>Нет данных</span>}
+{" · "}<span style={{color:"var(--t2)"}}>займёт {info.time}</span>
+</div>
+</div>
+<button className="B BP" disabled={!!running} onClick={()=>startUpdate(id)} style={{whiteSpace:"nowrap"}}>{isRunning?"⏳ Обновляется...":"🔄 Обновить"}</button>
+</div>;
+})}
+</div>
+
+<div style={{marginTop:14,padding:"10px 14px",background:"var(--s2)",borderRadius:8,fontSize:12,color:"var(--t2)"}}>
+<strong>ОСП</strong> обновляется автоматически каждую ночь через GitHub Actions — не требует ручного обновления.
+</div>
+</div>;
+}
+
 // === Константа источников реестров (используется в RegistryView) ===
 const REG_SOURCES=[
 {id:"spk",label:"📋 СПК",full:"Свидетельства о технической компетентности (Белстройцентр)"},
@@ -401,6 +541,7 @@ return(<><style>{CSS}</style>
 <div className="SL"><h1>MAVIS</h1><span>РЕЕСТРЫ</span></div>
 <div className="SN">
 <div className={"NI "+(tab==="search"?"on":"")} onClick={()=>setTab("search")}><span className="ic">🔍</span> Поиск</div>
+<div className={"NI "+(tab==="db"?"on":"")} onClick={()=>setTab("db")}><span className="ic">📥</span> База</div>
 <div className={"NI "+(tab==="cards"?"on":"")} onClick={()=>setTab("cards")}><span className="ic">🗂</span> Картотека{regCards.length>0&&<span className="badge">{regCards.length}</span>}</div>
 <div className={"NI "+(tab==="history"?"on":"")} onClick={()=>setTab("history")}><span className="ic">⏱</span> История{regHist.length>0&&<span className="badge">{regHist.length}</span>}</div>
 <div className={"NI "+(tab==="settings"?"on":"")} onClick={()=>setTab("settings")}><span className="ic">⚙</span> Настройки</div>
@@ -495,6 +636,27 @@ return(<><style>{CSS}</style>
 <div style={{fontSize:10,color:"var(--t2)",marginTop:8}}>Источник: <a href={s.url} target="_blank" rel="noopener" style={{color:"var(--ac)"}}>{s.url}</a></div>
 </div>})}
 </>}
+</div></>)}
+
+{tab==="db"&&(<><div className="MH"><h2>База реестров</h2></div><div className="MC">
+<div className="CD">
+<div className="CT">⚙ Подключение к GitHub</div>
+{!extReady?<div style={{padding:"10px 14px",background:"rgba(245,166,35,.12)",border:"1px solid var(--or)",borderRadius:8,color:"var(--or)",fontSize:13}}>⚠ Сначала установите расширение MAVIS Registry в Chrome (вкладка «Настройки»). Без него обновлять базу нельзя.</div>:<DbSettings extReady={extReady} callExtension={callExtension} />}
+</div>
+
+{extReady&&<DbUpdateBlock extReady={extReady} callExtension={callExtension} localDb={localDb} loadLocalDb={loadLocalDb} />}
+
+<div className="CD">
+<div className="CT">ℹ Как это работает</div>
+<p style={{fontSize:13,color:"var(--t2)",lineHeight:1.6}}>Большинство белорусских госсайтов блокируют запросы из облаков (GitHub, Cloudflare и т.п.). Поэтому базы обновляются с вашего компьютера:</p>
+<ul style={{fontSize:13,color:"var(--t2)",lineHeight:1.7,paddingLeft:22}}>
+<li>Расширение в Chrome открывает реестр в фоновой вкладке (запрос идёт с вашего белорусского IP)</li>
+<li>Парсит все записи (по 50 на страницу, делая паузу между страницами)</li>
+<li>Загружает результат в репозиторий GitHub через API</li>
+<li>Все менеджеры автоматически получают свежую базу при следующем открытии приложения</li>
+</ul>
+<p style={{fontSize:12,color:"var(--t2)",marginTop:10}}>⚡ Поиск идёт по локальной базе — занимает миллисекунды. ОСП обновляется автоматически каждые сутки через GitHub Actions.</p>
+</div>
 </div></>)}
 
 {tab==="cards"&&(<><div className="MH"><h2>Картотека компаний</h2></div><div className="MC">
