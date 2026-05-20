@@ -218,6 +218,61 @@ if(searchMode==="company"&&enabledSrc.length===0){setEnabledSrc(REG_SOURCES.filt
 // eslint-disable-next-line
 },[searchMode]);
 
+// === Локальная база реестров (загружается с GitHub Pages) ===
+// SPK и OSP обновляются автоматически раз в сутки через GitHub Actions
+const[localDb,setLocalDb]=useState(()=>{try{const s=localStorage.getItem("mavis_local_db");return s?JSON.parse(s):{spk:null,osp:null};}catch(e){return{spk:null,osp:null};}});
+const[dbLoading,setDbLoading]=useState(false);
+const[dbErr,setDbErr]=useState("");
+
+const loadLocalDb=async(force=false)=>{
+setDbLoading(true);setDbErr("");
+try{
+const base=location.origin+location.pathname.replace(/\/[^/]*$/,"/");
+const sources=["spk","osp"];
+const newDb={...localDb};
+for(const s of sources){
+try{
+const url=base+"data/"+s+".json?t="+Date.now(); // cache-buster
+const r=await fetch(url);
+if(!r.ok)throw new Error("HTTP "+r.status);
+const d=await r.json();
+newDb[s]=d;
+console.log("[MAVIS] локальная база "+s+" загружена: "+d.count+" записей");
+}catch(e){
+console.warn("[MAVIS] не удалось загрузить "+s+":",e.message);
+if(force)setDbErr("Ошибка загрузки "+s+": "+e.message);
+}
+}
+setLocalDb(newDb);
+try{localStorage.setItem("mavis_local_db",JSON.stringify(newDb))}catch(e){
+console.warn("localStorage переполнен, чистим и пробуем снова");
+localStorage.removeItem("mavis_local_db");
+try{localStorage.setItem("mavis_local_db",JSON.stringify(newDb))}catch(e2){setDbErr("База слишком большая для localStorage")}
+}
+}finally{setDbLoading(false)}
+};
+
+// Автоматически загружаем базу при открытии раздела (если данных нет или они старше 24ч)
+React.useEffect(()=>{
+const needLoad=!localDb.spk||!localDb.osp||(localDb.spk&&Date.now()-new Date(localDb.spk.updated_at).getTime()>24*60*60*1000);
+if(needLoad){loadLocalDb(false)}
+// eslint-disable-next-line
+},[]);
+
+// === Локальный поиск по базе (моментальный) ===
+const searchLocal=(query,source)=>{
+const db=localDb[source];
+if(!db||!db.records)return null;
+const q=query.toLowerCase().trim();
+if(!q)return{count:0,results:[],source,source_name:db.source_name,url:db.url,query};
+const firstWord=q.split(/\s+/)[0];
+const matches=db.records.filter(r=>{
+const t=((r.organization||"")+" "+(r.cert_number||"")+" "+(r.raw||"")).toLowerCase();
+return t.includes(firstWord);
+}).slice(0,50);
+return{count:matches.length,results:matches,source,source_name:db.source_name,url:db.url,query,from_local:true,updated_at:db.updated_at};
+};
+
 // === Детекция расширения через postMessage ===
 React.useEffect(()=>{
 const handler=(ev)=>{
@@ -267,16 +322,47 @@ window.postMessage({target:"MAVIS_EXT",action,requestId:reqId,...payload},"*");
 });
 
 const search=async()=>{
-if(!extReady){setErr("Сначала установите расширение MAVIS Registry в Chrome (инструкция во вкладке Настройки)");setTab("settings");return}
 if(!q.trim()||q.trim().length<2){setErr("Введите минимум 2 символа");return}
 setErr("");setLoading(true);setResults(null);
 try{
-// В режиме "по ФИО" — ищем только в реестре специалистов; в "по компании" — во всех остальных
-const sources=searchMode==="person"?["spec"]:enabledSrc.filter(s=>s!=="spec");
-if(sources.length===0){setErr("Выберите хотя бы один реестр в фильтре");setLoading(false);return}
-const data=await callExtension("SEARCH",{query:q.trim(),sources},120000);
-setResults(data);
-setRegHist(p=>{const summary={};REG_SOURCES.forEach(s=>{summary[s.id]=data.sources?.[s.id]?.count||0});const entry={id:Date.now(),q:q.trim(),mode:searchMode,ts:new Date().toISOString(),summary};return[entry,...p.filter(x=>x.q!==entry.q||x.mode!==entry.mode)].slice(0,50)});
+const sourcesAll=searchMode==="person"?["spec"]:enabledSrc.filter(s=>s!=="spec");
+if(sourcesAll.length===0){setErr("Выберите хотя бы один реестр в фильтре");setLoading(false);return}
+
+// Разделяем: какие источники есть в локальной базе, какие нужно искать через расширение
+const localSources=sourcesAll.filter(s=>(s==="spk"||s==="osp")&&localDb[s]&&localDb[s].records);
+const extSources=sourcesAll.filter(s=>!localSources.includes(s));
+
+const allResults={query:q.trim(),sources:{}};
+
+// 1) Локальный поиск (моментально)
+for(const s of localSources){
+const r=searchLocal(q.trim(),s);
+if(r)allResults.sources[s]=r;
+}
+
+// 2) Если есть источники для расширения — спрашиваем у него
+if(extSources.length>0){
+if(!extReady){
+// Если расширения нет, но есть локальные данные — показываем что есть, остальные помечаем как недоступные
+if(localSources.length===0){setErr("Установите расширение MAVIS Registry в Chrome (инструкция в Настройках)");setTab("settings");setLoading(false);return}
+for(const s of extSources){
+allResults.sources[s]={count:0,results:[],source:s,error:"Расширение не установлено — этот реестр недоступен. Установите расширение в Настройках."};
+}
+}else{
+try{
+const extData=await callExtension("SEARCH",{query:q.trim(),sources:extSources},120000);
+Object.assign(allResults.sources,extData.sources||{});
+}catch(e){
+// Если расширение упало — помечаем все ext-источники как ошибочные, но локальные оставляем
+for(const s of extSources){
+allResults.sources[s]={count:0,results:[],source:s,error:"Расширение: "+e.message};
+}
+}
+}
+}
+
+setResults(allResults);
+setRegHist(p=>{const summary={};REG_SOURCES.forEach(s=>{summary[s.id]=allResults.sources?.[s.id]?.count||0});const entry={id:Date.now(),q:q.trim(),mode:searchMode,ts:new Date().toISOString(),summary};return[entry,...p.filter(x=>x.q!==entry.q||x.mode!==entry.mode)].slice(0,50)});
 }catch(e){setErr("Ошибка: "+e.message)}
 setLoading(false);
 };
@@ -322,9 +408,26 @@ return(<><style>{CSS}</style>
 
 <div className="MN">
 {tab==="search"&&(<><div className="MH"><h2>Проверка компании по реестрам</h2></div><div className="MC">
-{!extReady&&<div className="CD" style={{background:"rgba(245,166,35,.08)",borderColor:"var(--or)"}}>
+{(localDb.spk||localDb.osp)&&<div className="CD" style={{background:"rgba(52,199,123,.08)",borderColor:"var(--gn)",padding:"10px 14px"}}>
+<div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,flexWrap:"wrap"}}>
+<div style={{fontSize:12,color:"var(--gn)",fontWeight:600}}>
+⚡ Локальная база (моментальный поиск): {localDb.spk?"СПК ("+localDb.spk.count+")":""}{localDb.spk&&localDb.osp?" · ":""}{localDb.osp?"ОСП ("+localDb.osp.count+")":""}
+<div style={{fontSize:11,color:"var(--t2)",fontWeight:400,marginTop:2}}>Обновлено: {localDb.spk?new Date(localDb.spk.updated_at).toLocaleString("ru-RU"):"—"}</div>
+</div>
+<button className="B BS" style={{fontSize:11,padding:"6px 10px"}} onClick={()=>loadLocalDb(true)} disabled={dbLoading}>{dbLoading?"⏳":"🔄 Обновить"}</button>
+</div>
+{dbErr&&<div style={{marginTop:8,fontSize:11,color:"var(--rd)"}}>{dbErr}</div>}
+</div>}
+{!localDb.spk&&!localDb.osp&&dbLoading&&<div className="CD" style={{padding:"10px 14px"}}>
+<div style={{fontSize:12,color:"var(--t2)"}}>⏳ Загружается база реестров с сервера...</div>
+</div>}
+{!localDb.spk&&!localDb.osp&&!dbLoading&&dbErr&&<div className="CD" style={{background:"rgba(245,166,35,.08)",borderColor:"var(--or)",padding:"10px 14px"}}>
+<div style={{fontSize:12,color:"var(--or)",marginBottom:6}}>⚠ Локальная база недоступна: {dbErr}</div>
+<button className="B BS" style={{fontSize:11,padding:"6px 10px"}} onClick={()=>loadLocalDb(true)}>🔄 Попробовать снова</button>
+</div>}
+{!extReady&&!localDb.spk&&!localDb.osp&&<div className="CD" style={{background:"rgba(245,166,35,.08)",borderColor:"var(--or)"}}>
 <div className="CT" style={{color:"var(--or)"}}>⚠ Расширение MAVIS Registry не установлено</div>
-<p style={{fontSize:13,color:"var(--tx)",lineHeight:1.6,marginBottom:10}}>Чтобы заработал автопоиск по 6 реестрам — установите расширение для Chrome. Поиск идёт через ваш браузер (с белорусским IP), поэтому реестры пропускают запросы.</p>
+<p style={{fontSize:13,color:"var(--tx)",lineHeight:1.6,marginBottom:10}}>Чтобы заработал автопоиск по реестрам без локальной базы — установите расширение для Chrome.</p>
 <button className="B BP" onClick={()=>setTab("settings")}>📖 Инструкция по установке</button>
 </div>}
 <div className="CD">
@@ -334,8 +437,8 @@ return(<><style>{CSS}</style>
 </div>
 <div className="CT">🔍 {searchMode==="company"?"Название компании":"Фамилия специалиста"}</div>
 <div className="SR">
-<input className="FI" style={{flex:1}} placeholder={searchMode==="company"?'Например: "Минскметрострой"':'Например: "Петров"'} value={q} onChange={e=>setQ(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")search()}} disabled={!extReady} />
-<button className="B BP" onClick={search} disabled={loading||!extReady}>{loading?"⏳ Поиск...":"Найти"}</button>
+<input className="FI" style={{flex:1}} placeholder={searchMode==="company"?'Например: "Минскметрострой"':'Например: "Петров"'} value={q} onChange={e=>setQ(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")search()}} />
+<button className="B BP" onClick={search} disabled={loading}>{loading?"⏳ Поиск...":"Найти"}</button>
 </div>
 {err&&<div style={{marginTop:12,padding:"10px 14px",background:"rgba(245,87,79,.12)",border:"1px solid var(--rd)",borderRadius:8,color:"var(--rd)",fontSize:13}}>{err}</div>}
 <p style={{fontSize:12,color:"var(--t2)",marginTop:10}}>{searchMode==="company"?"Поиск по 5 реестрам: СПК, Аттестаты юр.лиц, ISO/СУОТ, ОСП, Лицензии. Это займёт 10-50 секунд.":"Поиск по реестру квалификационных аттестатов специалистов (rcuk.bsc.by) по фамилии."}</p>
@@ -363,7 +466,7 @@ return(<><style>{CSS}</style>
 {s.debug_log&&<button className="B BS" style={{fontSize:10,padding:"4px 8px"}} onClick={()=>{const text=`Реестр: ${srcDef.full}\nURL: ${s.url}\nЗапрос: ${s.query}\nНайдено: ${s.count}\nОшибка: ${s.error||"нет"}\n\nЛог:\n${s.debug_log}`;navigator.clipboard.writeText(text).then(()=>alert("Лог скопирован в буфер обмена. Перешлите его разработчику.")).catch(()=>{const w=window.open("","_blank");w.document.write("<pre>"+text.replace(/</g,"&lt;")+"</pre>")})}}>🐞 Лог</button>}
 </div>
 {s.error?<div style={{padding:"10px 14px",background:"rgba(245,166,35,.12)",borderRadius:8,fontSize:13,color:"var(--or)"}}>⚠ {s.error}</div>:s.count===0?<div style={{padding:"10px 14px",background:"var(--s2)",borderRadius:8,fontSize:13,color:"var(--t2)"}}>Не найдено</div>:<div>
-<div style={{fontSize:12,color:"var(--gn)",marginBottom:8,fontWeight:600}}>Найдено: {s.count}</div>
+<div style={{fontSize:12,color:"var(--gn)",marginBottom:8,fontWeight:600}}>Найдено: {s.count}{s.from_local?<span style={{marginLeft:8,fontSize:10,color:"var(--ac)",fontWeight:500}}>⚡ из локальной базы</span>:null}</div>
 <div style={{display:"flex",flexDirection:"column",gap:8}}>
 {(Array.isArray(s.results)?s.results:[]).slice(0,20).map((r,i)=>{const dl=daysLeft(r.expiry_date);const warn=dl!==null&&dl<60;return <div key={i} style={{padding:"10px 14px",background:"var(--s2)",borderRadius:8,border:"1px solid "+(warn?"var(--or)":"var(--bd)"),fontSize:13}}>
 <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10}}>
