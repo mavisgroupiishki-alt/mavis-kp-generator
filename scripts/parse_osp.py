@@ -33,10 +33,34 @@ def parse_date(s):
     if not s:
         return None
     m = re.search(r"(\d{1,2})[.\-/](\d{1,2})[.\-/](\d{4})", s)
-    if not m:
+    if m:
+        d, mo, y = m.groups()
+        return f"{y}-{mo.zfill(2)}-{d.zfill(2)}"
+    # Также формат ГГГГ-ММ-ДД (на stn.by даты последней оценки в ISO-формате)
+    m_iso = re.search(r"(\d{4})-(\d{2})-(\d{2})", s)
+    if m_iso:
+        y, mo, d = m_iso.groups()
+        return f"{y}-{mo}-{d}"
+    return None
+
+
+def add_months_to_date(iso_date: str, months: int):
+    """Прибавить N месяцев к дате в формате ГГГГ-ММ-ДД. Возвращает новую дату или None."""
+    if not iso_date:
         return None
-    d, mo, y = m.groups()
-    return f"{y}-{mo.zfill(2)}-{d.zfill(2)}"
+    try:
+        y, mo, d = iso_date.split("-")
+        y, mo, d = int(y), int(mo), int(d)
+        new_mo = mo + months
+        new_y = y + (new_mo - 1) // 12
+        new_mo = ((new_mo - 1) % 12) + 1
+        # Учёт того, что в новом месяце может быть меньше дней (29 февраля → 28 февраля и т.п.)
+        from calendar import monthrange
+        max_day = monthrange(new_y, new_mo)[1]
+        new_d = min(d, max_day)
+        return f"{new_y:04d}-{new_mo:02d}-{new_d:02d}"
+    except Exception:
+        return None
 
 
 def fetch_html(url):
@@ -85,15 +109,25 @@ def parse_osp_table(html):
             headers = [th.get_text(" ", strip=True).lower() for th in ths]
             print(f"[OSP] Заголовки в строке {i}: {headers}")
             for idx, h in enumerate(headers):
-                if "название" in h or "организац" in h or "наименование" in h:
+                # Организация: "название", "наименование", "организация", "предприятие", "заявитель"
+                if ("название" in h or "организац" in h or "наименование" in h
+                    or "предприят" in h or "заявител" in h):
                     column_map["organization"] = idx
-                elif ("номер" in h and ("свид" in h or "регистрац" in h)) or h.strip() == "№":
+                # Номер: "номер свид", "номер регистрац", "№ свид", "рег.№", "регистрационный номер"
+                elif (("номер" in h and ("свид" in h or "регистрац" in h))
+                      or "рег.№" in h or "рег. №" in h
+                      or ("№" in h and "свид" in h)
+                      or h.strip() == "№"):
                     column_map["cert_number"] = idx
+                # Дата выдачи
                 elif "выдач" in h or "начала" in h:
                     column_map["issue_date"] = idx
+                # Дата окончания
                 elif "действ" in h or "окончан" in h or "срок" in h or h.startswith("по"):
                     column_map["expiry_date"] = idx
-                elif "вид" in h or "услов" in h or "процесс" in h or "способ" in h:
+                # Вид деятельности / область
+                elif ("вид" in h or "услов" in h or "процесс" in h
+                      or "способ" in h or "область" in h or "распростран" in h):
                     column_map["activity"] = idx
             header_row_idx = i
             break
@@ -121,7 +155,8 @@ def parse_osp_table(html):
         organization = None
         cert_number = None
         issue_date = None
-        expiry_date = None
+        last_check_date = None  # дата последней периодической оценки (то что в столбце "дата окончания" на сайте)
+        expiry_date = None      # рассчитываем сами: last_check_date + 18 месяцев
         activity = None
 
         if column_map:
@@ -135,7 +170,8 @@ def parse_osp_table(html):
             if "issue_date" in column_map and column_map["issue_date"] < len(cells):
                 issue_date = parse_date(cells[column_map["issue_date"]])
             if "expiry_date" in column_map and column_map["expiry_date"] < len(cells):
-                expiry_date = parse_date(cells[column_map["expiry_date"]])
+                # На сайте stn.by это "дата окончания" = дата ПОСЛЕДНЕЙ ОЦЕНКИ
+                last_check_date = parse_date(cells[column_map["expiry_date"]])
             if "activity" in column_map and column_map["activity"] < len(cells):
                 activity = cells[column_map["activity"]]
 
@@ -148,24 +184,32 @@ def parse_osp_table(html):
                 if m:
                     cert_number = m.group(0)
                     break
-        if not expiry_date or not issue_date:
+        if not last_check_date or not issue_date:
             all_text = " ".join(cells)
             # Дата выдачи: "от ДД.ММ.ГГГГ"
             if not issue_date:
                 m_issue = re.search(r"от\s+(\d{1,2}[.\-/]\d{1,2}[.\-/]\d{4})", all_text)
                 if m_issue:
                     issue_date = parse_date(m_issue.group(1))
-            # Дата окончания: ищем последнюю ISO-дату или последнюю ДД.ММ.ГГГГ
-            if not expiry_date:
+            # Дата последней оценки: последняя ISO-дата
+            if not last_check_date:
                 iso_dates = re.findall(r"(\d{4})-(\d{2})-(\d{2})", all_text)
                 valid_iso = [d for d in iso_dates if d[0] not in ("0000",)]
                 if valid_iso:
                     y, mo, d = valid_iso[-1]
-                    expiry_date = f"{y}-{mo}-{d}"
+                    last_check_date = f"{y}-{mo}-{d}"
                 else:
                     ddmm = re.findall(r"\d{1,2}[.\-/]\d{1,2}[.\-/]\d{4}", all_text)
                     if len(ddmm) > 1:
-                        expiry_date = parse_date(ddmm[-1])
+                        last_check_date = parse_date(ddmm[-1])
+
+        # ВАЖНО: рассчитываем expiry_date = last_check_date + 18 месяцев
+        # ОСП проходит периодическую оценку каждые 18 месяцев. Если за 18 месяцев новой не было — свидетельство истекло.
+        # Если periodicheskoy ocenki ещё не было (last_check_date пустая) — считаем от даты выдачи свидетельства.
+        base_date = last_check_date or issue_date
+        if base_date:
+            expiry_date = add_months_to_date(base_date, 18)
+
         if not activity:
             for c in cells:
                 if "заводск" in c.lower() or "стройплощадк" in c.lower():
@@ -191,6 +235,7 @@ def parse_osp_table(html):
                     "cert_number": cert_number,
                     "organization": organization,
                     "issue_date": issue_date,
+                    "last_check_date": last_check_date,
                     "expiry_date": expiry_date,
                     "activity": activity,
                 },
@@ -200,7 +245,8 @@ def parse_osp_table(html):
             "cert_number": cert_number,
             "organization": organization,
             "issue_date": issue_date,
-            "expiry_date": expiry_date,
+            "last_check_date": last_check_date,  # дата последней периодической оценки
+            "expiry_date": expiry_date,          # рассчитанная: last_check + 18 мес
             "activity": activity,
         })
 
@@ -209,7 +255,7 @@ def parse_osp_table(html):
         print(f"[OSP] Строка {s['row_index']}: {len(s['cells'])} ячеек")
         for i, c in enumerate(s['cells']):
             print(f"  [{i}] {repr(c)[:120]}")
-        print(f"  → cert={s['parsed']['cert_number']!r}, issue={s['parsed']['issue_date']!r}, expiry={s['parsed']['expiry_date']!r}")
+        print(f"  → cert={s['parsed']['cert_number']!r}, issue={s['parsed']['issue_date']!r}, last_check={s['parsed']['last_check_date']!r}, expiry(+18мес)={s['parsed']['expiry_date']!r}")
 
     return records, debug_samples
 
