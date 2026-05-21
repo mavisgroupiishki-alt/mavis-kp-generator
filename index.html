@@ -1859,7 +1859,7 @@ else{setRemovedSI(p=>[...p,s])}
 </div>
 </div>}
 
-<div data-block="conditions" className="KCN"><strong>Условия сотрудничества:</strong><br/><EditableField value={condText} onChange={setCondText} multiline /></div>
+<div data-block="conditions" className="KCN" style={{marginLeft:50,marginRight:0,marginBottom:16,padding:"10px 14px",background:"rgba(255,255,255,.4)",borderRadius:6,borderLeft:"3px solid rgba(139,90,30,.4)"}}><strong style={{fontSize:12,color:"#8b5a1e"}}>Условия сотрудничества:</strong><br/><EditableField value={condText} onChange={setCondText} multiline /></div>
 <div data-block="advantages"><div className="KS">Преимущества работы с нами</div>
 <div className="KA">{advList.map((a,i)=><div key={i} className="KAI"><h4><span style={{color:"#8b5a1e"}}>◆</span> <EditableField value={a.t} onChange={nv=>setAdvList(p=>p.map((x,j)=>j===i?{...x,t:nv}:x))} /></h4><p><EditableField value={a.d} onChange={nv=>setAdvList(p=>p.map((x,j)=>j===i?{...x,d:nv}:x))} multiline /></p></div>)}</div>
 </div><div data-block="clients" className="KCL">{CL.map(c=><span key={c} className="KCLT">{c}</span>)}</div>
