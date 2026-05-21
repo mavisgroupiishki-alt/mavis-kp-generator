@@ -1725,9 +1725,9 @@ return(<><style>{CSS}</style>
 </div>
 <div className="KP" ref={kpRef}>
 <div className="KY">2026</div>
-<div data-block="header"><div className="KH"><h1>КОММЕРЧЕСКОЕ</h1><h2>ПРЕДЛОЖЕНИЕ</h2><div className="br2">MAVIS GROUP</div></div>
-<div className="KD">Предложение о сотрудничестве от <EditableField value={kpDate} onChange={setKpDate} /></div>
-<div className="KC"><h3><EditableField value={co.name} onChange={v=>setCo(p=>({...p,name:v}))} placeholder="Название компании" /></h3>{(co.dir||true)&&<p><EditableField value={co.dir} onChange={v=>setCo(p=>({...p,dir:v}))} placeholder="ФИО директора (опционально)" /></p>}</div></div>
+<div data-block="header"><div className="KH" style={{marginLeft:55,marginBottom:18}}><h1>КОММЕРЧЕСКОЕ</h1><h2>ПРЕДЛОЖЕНИЕ</h2><div className="br2">MAVIS GROUP</div></div>
+<div className="KD" style={{marginLeft:55,fontSize:12,color:"#555",marginBottom:6,fontWeight:500}}>Предложение о сотрудничестве от <EditableField value={kpDate} onChange={setKpDate} /></div>
+<div className="KC" style={{marginLeft:55,marginBottom:18,padding:"12px 18px",background:"rgba(255,255,255,.5)",borderRadius:8,borderLeft:"3px solid #8b5a1e"}}><h3><EditableField value={co.name} onChange={v=>setCo(p=>({...p,name:v}))} placeholder="Название компании" /></h3>{(co.dir||true)&&<p><EditableField value={co.dir} onChange={v=>setCo(p=>({...p,dir:v}))} placeholder="ФИО директора (опционально)" /></p>}</div></div>
 
 {sv.filter(s=>(s.workTypes||[]).length>0).map(s=><div data-block="work-types" key={"wt_"+s.id} style={{marginLeft:55,marginBottom:14,padding:"10px 14px",background:"rgba(255,255,255,.6)",borderRadius:6,border:"1px solid rgba(100,100,100,.2)"}}>
 <div style={{fontSize:11.5,fontWeight:700,marginBottom:6,color:"#1f1f1f"}}>Виды работ {s.spk?"для СПК":s.att?"для Аттестации":""} ({s.cn||s.n}):</div>
@@ -1743,8 +1743,8 @@ return(<><style>{CSS}</style>
 </div>
 </div>)}
 
-<div data-block="services-table">{ttl&&<div className="KS"><EditableField value={ttl} onChange={setTtl} placeholder="Заголовок" /></div>}
-<table className="KT"><thead><tr><th>№</th><th>Услуга</th><th>Наши услуги</th><th>Пошлины</th><th>Доп. расходы</th></tr></thead><tbody>
+<div data-block="services-table">{ttl&&<div className="KS" style={{marginLeft:55,fontSize:14,fontWeight:800,marginBottom:10,paddingBottom:6,borderBottom:"1px solid rgba(100,100,100,.25)",color:"#1f1f1f"}}><EditableField value={ttl} onChange={setTtl} placeholder="Заголовок" /></div>}
+<table className="KT" style={{marginLeft:55,width:"calc(100% - 55px)",borderCollapse:"collapse",marginBottom:18}}><thead><tr><th>№</th><th>Услуга</th><th>Наши услуги</th><th>Пошлины</th><th>Доп. расходы</th></tr></thead><tbody>
 {(()=>{let stage=0;return sv.map((s,i)=>{const isService=s.id!=="tnpa"&&s.id!=="tech_cards";if(isService)stage++;const curStage=isService?stage:null;return <tr key={s.id}><td style={{color:"#777"}}>{i+1}</td><td>{curStage&&<div style={{fontSize:10,color:"#8b5a1e",fontWeight:700,marginBottom:2,letterSpacing:1}}>ЭТАП {curStage}</div>}<EditableField value={s.cn||s.n} onChange={v=>uS(s.id,"cn",v)} />{(s.qty||1)>1&&<span style={{color:"#777"}}> × {s.qty}</span>}</td><td>{fm(s.prep*(s.qty||1))}</td><td>{fm(s.fee*(s.qty||1))}</td><td>{fm(s.extra*(s.qty||1))}{s.ec&&<div style={{fontSize:11,color:"#777",marginTop:2}}><EditableField value={s.ec} onChange={v=>uS(s.id,"ec",v)} /></div>}</td></tr>})})()}
 <tr className="TT"><td></td><td>Итого:</td><td>{fm(tP)}</td><td>{fm(tF)}</td><td>{fm(tE)}</td></tr>
 <tr className="TG"><td></td><td>ОБЩАЯ СУММА:</td><td colSpan={3}>{fm(tT)}</td></tr>
@@ -1860,9 +1860,11 @@ else{setRemovedSI(p=>[...p,s])}
 </div>}
 
 <div data-block="conditions" className="KCN" style={{marginLeft:55,marginRight:0,marginBottom:16,padding:"10px 14px",background:"rgba(255,255,255,.4)",borderRadius:6,borderLeft:"3px solid rgba(139,90,30,.4)"}}><strong style={{fontSize:12,color:"#8b5a1e"}}>Условия сотрудничества:</strong><br/><EditableField value={condText} onChange={setCondText} multiline /></div>
-<div data-block="advantages"><div className="KS">Преимущества работы с нами</div>
-<div className="KA">{advList.map((a,i)=><div key={i} className="KAI"><h4><span style={{color:"#8b5a1e"}}>◆</span> <EditableField value={a.t} onChange={nv=>setAdvList(p=>p.map((x,j)=>j===i?{...x,t:nv}:x))} /></h4><p><EditableField value={a.d} onChange={nv=>setAdvList(p=>p.map((x,j)=>j===i?{...x,d:nv}:x))} multiline /></p></div>)}</div>
-</div><div data-block="clients" className="KCL">{CL.map(c=><span key={c} className="KCLT">{c}</span>)}</div>
+<div data-block="advantages" style={{marginLeft:55,marginBottom:10}}>
+<div className="KS" style={{marginLeft:0,fontSize:14,fontWeight:800,marginBottom:10,paddingBottom:6,borderBottom:"1px solid rgba(100,100,100,.25)",color:"#1f1f1f",letterSpacing:0.4}}>Преимущества работы с нами</div>
+<div className="KA" style={{marginLeft:0,display:"grid",gridTemplateColumns:"1fr 1fr",gap:"6px 24px"}}>{advList.map((a,i)=><div key={i} className="KAI" style={{marginBottom:6,position:"relative"}}><h4 style={{fontSize:12,fontWeight:700,display:"flex",alignItems:"center",gap:6,color:"#1f1f1f"}}><span style={{color:"#8b5a1e"}}>◆</span> <EditableField value={a.t} onChange={nv=>setAdvList(p=>p.map((x,j)=>j===i?{...x,t:nv}:x))} /></h4><p style={{fontSize:10.5,color:"#3a3a3a",lineHeight:1.4,fontWeight:500,marginTop:1}}><EditableField value={a.d} onChange={nv=>setAdvList(p=>p.map((x,j)=>j===i?{...x,d:nv}:x))} multiline /></p></div>)}</div>
+</div>
+<div data-block="clients" className="KCL" style={{marginLeft:55,display:"flex",gap:8,flexWrap:"wrap",marginTop:10,marginBottom:8}}>{CL.map(c=><span key={c} className="KCLT" style={{padding:"4px 12px",border:"1px solid rgba(100,100,100,.3)",borderRadius:16,fontSize:11,fontWeight:700,color:"#1f1f1f",background:"rgba(255,255,255,.5)"}}>{c}</span>)}</div>
 {mgrData?.name&&<div data-block="signature" style={{marginLeft:55,marginTop:18,paddingTop:12,borderTop:"1px solid rgba(100,100,100,.2)",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
 <div>
 <div style={{fontSize:13,fontWeight:700,color:"#1f1f1f"}}>{mgrData.name}</div>
