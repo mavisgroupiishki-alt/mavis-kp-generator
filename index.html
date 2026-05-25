@@ -559,7 +559,6 @@ return <tr key={i} style={{background:rowBg,borderBottom:"1px solid var(--bd)"}}
 const REG_SOURCES=[
 {id:"spk",label:"📋 СПК",full:"Свидетельства о технической компетентности (Белстройцентр)"},
 {id:"att",label:"📜 Аттестаты юр.лиц",full:"Аттестаты соответствия юридических лиц (Белстройцентр)"},
-{id:"spec",label:"👤 Аттестаты специалистов",full:"Квалификационные аттестаты специалистов (rcuk.bsc.by)"},
 {id:"iso",label:"🏆 ISO / СУОТ",full:"Сертификаты соответствия (Госстандарт)"},
 {id:"osp",label:"🔥 ОСП",full:"Освидетельствование сварочного производства (Стройтехнорм)"},
 {id:"lic",label:"📑 Лицензии",full:"Единый реестр лицензий РБ (МЧС, МВД, Госпромнадзор)"},
@@ -704,7 +703,9 @@ const queryForSearch=qVal||unpVal; // если только УНП — ищем 
 setErr("");setLoading(true);setResults(null);
 try{
 // По ТЗ: всегда проверяем все 6 источников (включая spec) — это «проверка компании»
-const sourcesAll=["spk","att","spec","iso","osp","lic"];
+// По ТЗ — 6 реестров для проверки компании: СПК, Аттестаты юр.лиц, ISO, ОСП, Лицензии
+// (Реестр специалистов rcuk.bsc.by в ТЗ не входит — это поиск по физлицам, не компаниям)
+const sourcesAll=["spk","att","iso","osp","lic"];
 if(sourcesAll.length===0){setErr("Выберите хотя бы один реестр в фильтре");setLoading(false);return}
 
 // Разделяем: какие источники есть в локальной базе, какие нужно искать через расширение
@@ -821,7 +822,7 @@ return(<><style>{CSS}</style>
 <button className="B BP" onClick={search} disabled={loading||(!q.trim()&&!unp.trim())} style={{padding:"10px 24px",fontSize:14}}>{loading?"⏳ Проверка...":"Проверить"}</button>
 </div>
 {err&&<div style={{marginTop:12,padding:"10px 14px",background:"rgba(245,87,79,.12)",border:"1px solid var(--rd)",borderRadius:8,color:"var(--rd)",fontSize:13}}>{err}</div>}
-<p style={{fontSize:12,color:"var(--t2)",marginTop:6}}>Заполните хотя бы одно поле — УНП или название. Проверка по 6 реестрам параллельно, занимает 20-60 секунд.</p>
+<p style={{fontSize:12,color:"var(--t2)",marginTop:6}}>Заполните хотя бы одно поле — УНП или название. Проверка по 5 реестрам параллельно, занимает 20-60 секунд.</p>
 </div>
 
 {results&&(()=>{
