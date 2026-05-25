@@ -741,7 +741,6 @@ allResults.sources[s]={count:0,results:[],source:s,error:"Расширение: 
 }
 
 setResults(allResults);
-setRegHist(p=>{const summary={};REG_SOURCES.forEach(s=>{summary[s.id]=allResults.sources?.[s.id]?.count||0});const entry={id:Date.now(),q:queryForSearch,mode:searchMode,ts:new Date().toISOString(),summary};return[entry,...p.filter(x=>x.q!==entry.q||x.mode!==entry.mode)].slice(0,50)});
 }catch(e){setErr("Ошибка: "+e.message)}
 setLoading(false);
 };
@@ -775,9 +774,6 @@ return(<><style>{CSS}</style>
 <div className="SN">
 <div className={"NI "+(tab==="search"?"on":"")} onClick={()=>setTab("search")}><span className="ic">🔍</span> Поиск</div>
 <div className={"NI "+(tab==="browse"?"on":"")} onClick={()=>setTab("browse")}><span className="ic">📚</span> Реестры</div>
-<div className={"NI "+(tab==="db"?"on":"")} onClick={()=>setTab("db")}><span className="ic">📥</span> База</div>
-<div className={"NI "+(tab==="cards"?"on":"")} onClick={()=>setTab("cards")}><span className="ic">🗂</span> Картотека{regCards.length>0&&<span className="badge">{regCards.length}</span>}</div>
-<div className={"NI "+(tab==="history"?"on":"")} onClick={()=>setTab("history")}><span className="ic">⏱</span> История{regHist.length>0&&<span className="badge">{regHist.length}</span>}</div>
 <div className={"NI "+(tab==="settings"?"on":"")} onClick={()=>setTab("settings")}><span className="ic">⚙</span> Настройки</div>
 {exp.length>0&&<div style={{marginTop:14,padding:"10px 14px",background:"rgba(245,87,79,.12)",border:"1px solid var(--rd)",borderRadius:8,fontSize:12,color:"var(--rd)"}}>⚠ Скоро истекают: {exp.length} док.</div>}
 </div>
@@ -1027,67 +1023,7 @@ return <tr key={srcDef.id}>
 })()}
 </div></>)}
 
-{tab==="db"&&(<><div className="MH"><h2>База реестров</h2></div><div className="MC">
-<div className="CD">
-<div className="CT">⚙ Подключение к GitHub</div>
-{!extReady?<div style={{padding:"10px 14px",background:"rgba(245,166,35,.12)",border:"1px solid var(--or)",borderRadius:8,color:"var(--or)",fontSize:13}}>⚠ Сначала установите расширение MAVIS Registry в Chrome (вкладка «Настройки»). Без него обновлять базу нельзя.</div>:<DbSettings extReady={extReady} callExtension={callExtension} />}
-</div>
-
-{extReady&&<DbUpdateBlock extReady={extReady} callExtension={callExtension} localDb={localDb} loadLocalDb={loadLocalDb} />}
-
-<div className="CD">
-<div className="CT">ℹ Как это работает</div>
-<p style={{fontSize:13,color:"var(--t2)",lineHeight:1.6}}>Большинство белорусских госсайтов блокируют запросы из облаков (GitHub, Cloudflare и т.п.). Поэтому базы обновляются с вашего компьютера:</p>
-<ul style={{fontSize:13,color:"var(--t2)",lineHeight:1.7,paddingLeft:22}}>
-<li>Расширение в Chrome открывает реестр в фоновой вкладке (запрос идёт с вашего белорусского IP)</li>
-<li>Парсит все записи (по 50 на страницу, делая паузу между страницами)</li>
-<li>Загружает результат в репозиторий GitHub через API</li>
-<li>Все менеджеры автоматически получают свежую базу при следующем открытии приложения</li>
-</ul>
-<p style={{fontSize:12,color:"var(--t2)",marginTop:10}}>⚡ Поиск идёт по локальной базе — занимает миллисекунды. ОСП обновляется автоматически каждые сутки через GitHub Actions.</p>
-</div>
-</div></>)}
-
 {tab==="browse"&&<RegistryBrowser localDb={localDb} loadLocalDb={loadLocalDb} dbLoading={dbLoading} />}
-
-{tab==="cards"&&(<><div className="MH"><h2>Картотека компаний</h2></div><div className="MC">
-{exp.length>0&&<div className="CD" style={{background:"rgba(245,87,79,.05)",borderColor:"var(--rd)"}}>
-<div className="CT" style={{color:"var(--rd)"}}>⚠ Скоро истекают ({exp.length})</div>
-{exp.slice(0,10).map((d,i)=><div key={i} style={{display:"flex",justifyContent:"space-between",padding:"8px 0",borderBottom:i<exp.length-1?"1px solid var(--bd)":"none",fontSize:13}}>
-<div><strong>{d.company}</strong> — {({spk:"СПК",att:"Аттестат юр.л.",spec:"Аттестат спец.",iso:"ISO",osp:"ОСП",lic:"Лицензия"}[d.source]||d.source)} {d.number||""}</div>
-<div style={{color:d.days<0?"var(--rd)":"var(--or)",fontWeight:700}}>{d.days>0?"через "+d.days+" дн.":"истёк "+(-d.days)+" дн. назад"}</div>
-</div>)}
-</div>}
-
-{regCards.length===0?<div className="ES"><p>Картотека пуста</p><p style={{fontSize:12,marginTop:8}}>Найдите компанию в разделе «Поиск» и нажмите «+ В картотеку»</p></div>:regCards.map(c=><div key={c.id} className="CD">
-<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
-<div style={{fontSize:16,fontWeight:700}}>{c.name}</div>
-<button className="B BR Bsm" onClick={()=>{if(window.confirm("Удалить «"+c.name+"» из картотеки?"))setRegCards(p=>p.filter(x=>x.id!==c.id))}}>✕</button>
-</div>
-{c.docs.length===0?<div style={{fontSize:12,color:"var(--t2)"}}>Документы не привязаны</div>:c.docs.map((d,i)=>{const dl=daysLeft(d.expiry);const warn=dl!==null&&dl<60;return <div key={i} style={{padding:"8px 12px",background:"var(--s2)",borderRadius:6,marginBottom:6,fontSize:12,border:"1px solid "+(warn?"var(--or)":"var(--bd)")}}>
-<div style={{display:"flex",justifyContent:"space-between"}}>
-<div><strong>{({spk:"СПК",att:"Аттестат юр.л.",spec:"Аттестат спец.",iso:"ISO",osp:"ОСП",lic:"Лицензия"}[d.source]||d.source)}</strong> {d.number}</div>
-{d.expiry&&<div style={{color:warn?"var(--or)":"var(--t2)"}}>до {d.expiry}{dl!==null&&" ("+(dl>0?"осталось "+dl+" дн.":"истёк")+")"}</div>}
-</div>
-</div>})}
-</div>)}
-</div></>)}
-
-{tab==="history"&&(<><div className="MH"><h2>История поисков</h2></div><div className="MC">
-{regHist.length===0?<div className="ES"><p>История пуста</p></div>:regHist.map(h=><div key={h.id} className="CD" style={{cursor:"pointer"}} onClick={()=>{setQ(h.q);setTab("search");setTimeout(search,100)}}>
-<div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-<div>
-<div style={{fontSize:15,fontWeight:700}}>{h.q}</div>
-<div style={{fontSize:11,color:"var(--t2)",marginTop:2}}>{new Date(h.ts).toLocaleString("ru-RU")}</div>
-</div>
-<div style={{fontSize:11,color:"var(--t2)",textAlign:"right",lineHeight:1.6}}>
-{REG_SOURCES.map(s=>{const cnt=h.summary?.[s.id]||0;return cnt>0?<span key={s.id} style={{display:"inline-block",marginLeft:8}}>{s.label.split(" ").slice(1).join(" ").slice(0,8)}: <strong style={{color:"var(--gn)"}}>{cnt}</strong></span>:null}).filter(Boolean)}
-{REG_SOURCES.every(s=>!h.summary?.[s.id])&&<span>Без результатов</span>}
-</div>
-</div>
-</div>)}
-{regHist.length>0&&<button className="B BS" style={{marginTop:10}} onClick={()=>{if(window.confirm("Очистить историю поисков?"))setRegHist([])}}>Очистить историю</button>}
-</div></>)}
 
 {tab==="settings"&&(<><div className="MH"><h2>Настройки</h2></div><div className="MC">
 <div className="CD">
