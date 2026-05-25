@@ -1158,14 +1158,18 @@ const{jsPDF}=window.jspdf;
 const pdf=new jsPDF("p","mm","a4");
 const fillBg=()=>{pdf.setFillColor(250,246,236);pdf.rect(0,0,pageW,pageH,"F")};
 fillBg();
-// Отступы СТРАНИЦЫ в PDF — нет (всё внутри клона уже с паддингами)
-const padTop=0;
-const padBottom=8; // небольшой запас снизу страницы
+// PDF-поля (отступ от края страницы) — этот отступ гарантирует что контент НЕ прижимается к краю PDF
+// даже если блок переносится на новую страницу
+const padLeft=12; // мм слева
+const padRight=12; // мм справа
+const padTop=10; // мм сверху
+const padBottom=10; // мм снизу
+const contentW=pageW-padLeft-padRight; // 186мм
 const usableH=pageH-padTop-padBottom;
 let y=padTop;
 
 for(const it of items){
-const blockH=it.heightMm;
+const blockH=it.heightMm*(contentW/pageW); // пересчитываем высоту в новом масштабе
 // Перенос на новую страницу если не помещается (и блок сам по себе помещается на пустой странице)
 if(y>padTop&&y+blockH>pageH-padBottom&&blockH<=usableH){
 pdf.addPage();fillBg();y=padTop;
@@ -1182,7 +1186,7 @@ const pc=document.createElement("canvas");
 pc.width=it.canvas.width;pc.height=firstSlicePx;
 pc.getContext("2d").drawImage(it.canvas,0,0,it.canvas.width,firstSlicePx,0,0,it.canvas.width,firstSlicePx);
 const sliceMm=firstSlicePx*mmPerPx;
-pdf.addImage(pc.toDataURL("image/jpeg",q.jpeg),"JPEG",0,y,pageW,sliceMm);
+pdf.addImage(pc.toDataURL("image/jpeg",q.jpeg),"JPEG",padLeft,y,contentW,sliceMm);
 y+=sliceMm;sourceY=firstSlicePx;
 }
 // Дальше — новые страницы
@@ -1193,12 +1197,12 @@ const pc=document.createElement("canvas");
 pc.width=it.canvas.width;pc.height=sliceH;
 pc.getContext("2d").drawImage(it.canvas,0,sourceY,it.canvas.width,sliceH,0,0,it.canvas.width,sliceH);
 const sliceMm=sliceH*mmPerPx;
-pdf.addImage(pc.toDataURL("image/jpeg",q.jpeg),"JPEG",0,y,pageW,sliceMm);
+pdf.addImage(pc.toDataURL("image/jpeg",q.jpeg),"JPEG",padLeft,y,contentW,sliceMm);
 y+=sliceMm;
 sourceY+=sliceH;
 }
 }else{
-pdf.addImage(it.canvas.toDataURL("image/jpeg",q.jpeg),"JPEG",0,y,pageW,blockH);
+pdf.addImage(it.canvas.toDataURL("image/jpeg",q.jpeg),"JPEG",padLeft,y,contentW,blockH);
 y+=blockH;
 }
 }
