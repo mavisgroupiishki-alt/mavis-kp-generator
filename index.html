@@ -1288,16 +1288,17 @@ const ws1=window.XLSX.utils.aoa_to_sheet(summary);
 ws1["!cols"]=[{wch:30},{wch:22},{wch:35},{wch:24},{wch:35}];
 window.XLSX.utils.book_append_sheet(wb,ws1,"Сводка");
 
-// Лист 2: Все документы
+// Лист 2: Все документы (краткая сводка по каждому документу)
 const docs=[];
-docs.push(["Реестр","№ документа","Организация","Категория/Вид","Статус","Дата выдачи","Срок действия / Дата прекращения","Последняя оценка (ОСП)","След. периодика (ОСП)","Основание прекращения","Расшифровка"]);
+docs.push(["Реестр","№ документа","Организация","Категория/Вид деятельности","Статус","Дата выдачи","Срок действия / Дата прекращения","Последняя оценка (ОСП)","След. периодика (ОСП)","Основание прекращения","Расшифровка","Совет"]);
 REG_SOURCES.forEach(srcDef=>{
 const r=perRegistry[srcDef.id];if(!r||r.docs.length===0)return;
 r.docs.forEach(d=>{
 let decoded="";
+let advice="";
 if(srcDef.id==="attoff"&&d.cancellation_reason){
 const dec=decodeAttoffReason(d.cancellation_reason);
-if(dec)decoded=dec.title+" — "+dec.advice;
+if(dec){decoded=dec.title;advice=dec.advice}
 }
 docs.push([
 srcDef.label,
@@ -1310,32 +1311,163 @@ d.expiry_date||"",
 srcDef.id==="osp"?(d.last_check_date||""):"",
 srcDef.id==="osp"?(d.expiry_date||""):"",
 d.cancellation_reason||"",
-decoded
+decoded,
+advice
 ]);
 });
 });
 const ws2=window.XLSX.utils.aoa_to_sheet(docs);
-ws2["!cols"]=[{wch:24},{wch:20},{wch:40},{wch:25},{wch:14},{wch:13},{wch:18},{wch:18},{wch:18},{wch:30},{wch:45}];
+ws2["!cols"]=[{wch:24},{wch:20},{wch:40},{wch:30},{wch:14},{wch:13},{wch:18},{wch:18},{wch:18},{wch:30},{wch:55},{wch:55}];
 window.XLSX.utils.book_append_sheet(wb,ws2,"Все документы");
 
-// Лист 3: Виды работ (только для действующих аттестатов)
+// Лист 3: Виды работ по аттестатам (детализация)
 const wt=[];
-wt.push(["№ Аттестата","№ Работы","Описание"]);
+wt.push(["№ Аттестата","Категория","Срок действия","№ пункта работ","Описание вида работ"]);
 REG_SOURCES.forEach(srcDef=>{
 if(srcDef.id!=="att")return;
 const r=perRegistry[srcDef.id];if(!r||r.docs.length===0)return;
 r.docs.forEach(d=>{
 if(d.work_types&&d.work_types.length>0){
 d.work_types.forEach(w=>{
-wt.push([d.cert_number||"?",w.number,w.description]);
+wt.push([d.cert_number||"?",d.activity||"",d.expiry_date||"",w.number,w.description]);
 });
+}else{
+wt.push([d.cert_number||"?",d.activity||"",d.expiry_date||"","—","Виды работ не загружены"]);
 }
 });
 });
 if(wt.length>1){
 const ws3=window.XLSX.utils.aoa_to_sheet(wt);
-ws3["!cols"]=[{wch:18},{wch:10},{wch:80}];
+ws3["!cols"]=[{wch:18},{wch:18},{wch:14},{wch:14},{wch:90}];
 window.XLSX.utils.book_append_sheet(wb,ws3,"Виды работ");
+}
+
+// Лист 4: Обособленные подразделения (филиалы)
+const subs=[];
+subs.push(["Юр.лицо","Подразделение / Филиал","Адрес","Связан с аттестатом"]);
+const seenSubs=new Set();
+REG_SOURCES.forEach(srcDef=>{
+if(srcDef.id!=="att")return;
+const r=perRegistry[srcDef.id];if(!r||r.docs.length===0)return;
+r.docs.forEach(d=>{
+if(d.subdivisions&&d.subdivisions.length>0){
+d.subdivisions.forEach(sub=>{
+const key=sub.name+"|"+sub.address;
+if(seenSubs.has(key))return;
+seenSubs.add(key);
+subs.push([d.organization||"",sub.name,sub.address,d.cert_number||""]);
+});
+}
+});
+});
+if(subs.length>1){
+const ws4=window.XLSX.utils.aoa_to_sheet(subs);
+ws4["!cols"]=[{wch:35},{wch:55},{wch:55},{wch:18}];
+window.XLSX.utils.book_append_sheet(wb,ws4,"Подразделения");
+}
+
+// Лист 5: Отменённые аттестаты — детализация с расшифровкой
+const cancelled=[];
+cancelled.push(["№ Аттестата","Организация","УНП","Категория","Дата выдачи","Дата прекращения","Статус","Основание (текст)","Расшифровка","Совет","Серьёзность","Ссылка на постановление"]);
+REG_SOURCES.forEach(srcDef=>{
+if(srcDef.id!=="attoff")return;
+const r=perRegistry[srcDef.id];if(!r||r.docs.length===0)return;
+r.docs.forEach(d=>{
+const dec=d.cancellation_reason?decodeAttoffReason(d.cancellation_reason):null;
+cancelled.push([
+d.cert_number||"",
+d.organization||"",
+d.unp||"",
+d.activity||"",
+d.issue_date||"",
+d.expiry_date||"",
+d.status||"",
+d.cancellation_reason||"",
+dec?dec.title:"",
+dec?dec.advice:"",
+dec?(dec.severity==="serious"?"⚠ Серьёзное":"обычное"):"",
+d.cancellation_url||""
+]);
+});
+});
+if(cancelled.length>1){
+const ws5=window.XLSX.utils.aoa_to_sheet(cancelled);
+ws5["!cols"]=[{wch:18},{wch:40},{wch:14},{wch:18},{wch:13},{wch:16},{wch:14},{wch:30},{wch:55},{wch:55},{wch:14},{wch:50}];
+window.XLSX.utils.book_append_sheet(wb,ws5,"Отменённые");
+}
+
+// Лист 6: Сертификаты (ISO/СУОТ + Серты металл) — детализация
+const certs=[];
+certs.push(["Реестр","№ сертификата","Заявитель","Изготовитель","Объект оценки","Дата регистрации","Действителен по"]);
+REG_SOURCES.forEach(srcDef=>{
+if(srcDef.id!=="iso"&&srcDef.id!=="metal")return;
+const r=perRegistry[srcDef.id];if(!r||r.docs.length===0)return;
+r.docs.forEach(d=>{
+certs.push([
+srcDef.label,
+d.cert_number||"",
+d.organization||d.applicant||"",
+d.manufacturer||"",
+d.activity||d.object||"",
+d.issue_date||"",
+d.expiry_date||""
+]);
+});
+});
+if(certs.length>1){
+const ws6=window.XLSX.utils.aoa_to_sheet(certs);
+ws6["!cols"]=[{wch:24},{wch:30},{wch:40},{wch:40},{wch:50},{wch:16},{wch:16}];
+window.XLSX.utils.book_append_sheet(wb,ws6,"Сертификаты");
+}
+
+// Лист 7: Лицензии — детализация
+const licenses=[];
+licenses.push(["№ Лицензии","Организация","Вид деятельности","УНП","Орган выдавший","Дата выдачи","Срок действия"]);
+REG_SOURCES.forEach(srcDef=>{
+if(srcDef.id!=="lic")return;
+const r=perRegistry[srcDef.id];if(!r||r.docs.length===0)return;
+r.docs.forEach(d=>{
+licenses.push([
+d.license_number||d.cert_number||"",
+d.organization||"",
+d.activity||d.specialization||"",
+d.unp||"",
+d.authority||"",
+d.issue_date||"",
+d.expiry_date||""
+]);
+});
+});
+if(licenses.length>1){
+const ws7=window.XLSX.utils.aoa_to_sheet(licenses);
+ws7["!cols"]=[{wch:20},{wch:40},{wch:50},{wch:14},{wch:30},{wch:14},{wch:14}];
+window.XLSX.utils.book_append_sheet(wb,ws7,"Лицензии");
+}
+
+// Лист 8: ОСП — отдельный лист со всеми датами и активностями
+const osp=[];
+osp.push(["№ Свидетельства","Организация","Область распространения","Дата выдачи","Последняя оценка","След. периодика (+18 мес)","Статус срока"]);
+REG_SOURCES.forEach(srcDef=>{
+if(srcDef.id!=="osp")return;
+const r=perRegistry[srcDef.id];if(!r||r.docs.length===0)return;
+r.docs.forEach(d=>{
+const dl=daysLeft(d.expiry_date);
+const statusTxt=dl===null?"":(dl<0?"Просрочена "+(-dl)+" дн.":dl<60?"Истекает через "+dl+" дн.":"Действует, осталось "+dl+" дн.");
+osp.push([
+d.cert_number||"",
+d.organization||"",
+d.activity||"",
+d.issue_date||"",
+d.last_check_date||"",
+d.expiry_date||"",
+statusTxt
+]);
+});
+});
+if(osp.length>1){
+const ws8=window.XLSX.utils.aoa_to_sheet(osp);
+ws8["!cols"]=[{wch:20},{wch:40},{wch:30},{wch:14},{wch:16},{wch:18},{wch:30}];
+window.XLSX.utils.book_append_sheet(wb,ws8,"ОСП");
 }
 
 // Имя файла
