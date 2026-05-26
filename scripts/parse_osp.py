@@ -138,8 +138,20 @@ def parse_osp_table(html):
     # На сайте stn.by ВСЕ записи могут лежать в ОДНОЙ <tr> подряд — много групп ячеек.
     # 743 строк × 5 ячеек = 3715 ячеек в одной строке.
     # Поэтому если в строке очень много td — разбиваем её на группы.
-    cols_per_record = max(column_map.values()) + 1 if column_map else 5
+    # ВАЖНО: если column_map не распознал достаточно колонок — используем стандарт 5
+    if column_map and len(column_map) >= 3:
+        cols_per_record = max(column_map.values()) + 1
+        # Дополнительная защита: если получили <3 — это явно ошибка
+        if cols_per_record < 3:
+            print(f"[OSP] ВНИМАНИЕ: cols_per_record={cols_per_record} слишком мало, используем стандарт 5")
+            cols_per_record = 5
+    else:
+        print(f"[OSP] ВНИМАНИЕ: column_map недостаточен ({len(column_map) if column_map else 0} колонок), используем стандарт 5")
+        cols_per_record = 5
     print(f"[OSP] Колонок на одну запись: {cols_per_record}")
+
+    # Защита от безумного количества записей
+    MAX_RECORDS = 2000
 
     # === Шаг 3: Парсим строки данных ===
     def process_row_cells(all_cells, row_idx):
@@ -255,6 +267,9 @@ def parse_osp_table(html):
         if len(all_cells) >= cols_per_record * 2:
             print(f"[OSP] Строка {ri}: {len(all_cells)} ячеек, разбиваю на группы по {cols_per_record}")
             for offset in range(0, len(all_cells), cols_per_record):
+                if len(records) >= MAX_RECORDS:
+                    print(f"[OSP] Достигнут лимит {MAX_RECORDS} записей — останавливаемся")
+                    break
                 group = all_cells[offset:offset + cols_per_record]
                 rec = process_row_cells(group, ri)
                 if rec:
@@ -264,6 +279,9 @@ def parse_osp_table(html):
             rec = process_row_cells(all_cells, ri)
             if rec:
                 records.append(rec)
+        
+        if len(records) >= MAX_RECORDS:
+            break
 
     print(f"[OSP] === ДИАГНОСТИКА: первые {len(debug_samples)} записей ===")
     for s in debug_samples:
@@ -283,7 +301,20 @@ def main():
         sys.exit(1)
 
     records, debug_samples = parse_osp_table(html)
-    print(f"[OSP] Распарсено: {len(records)}")
+    print(f"[OSP] Распарсено сырых: {len(records)}")
+    
+    # === Дедупликация: убираем повторы по cert_number ===
+    seen_certs = set()
+    deduplicated = []
+    for r in records:
+        cert = r.get("cert_number")
+        if cert:
+            if cert in seen_certs:
+                continue
+            seen_certs.add(cert)
+        deduplicated.append(r)
+    records = deduplicated
+    print(f"[OSP] После дедупликации: {len(records)}")
 
     if len(records) == 0:
         debug_path = Path("data/osp_debug.html")
