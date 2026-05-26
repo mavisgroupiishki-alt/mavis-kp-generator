@@ -568,27 +568,35 @@ const REG_SOURCES=[
 ];
 
 // Расшифровка оснований прекращения аттестатов (att.bsc.by/reestrnone)
-// Используется для подсказок менеджеру что предложить клиенту
-// ВНИМАНИЕ: тексты расшифровок предоставлены пользователем, точность проверена пользователем.
-// Если ваш реальный текст основания не подходит ни под одну строку — добавьте новую.
+// ОСНОВАНО НА КОДЕКСЕ РБ ОБ АРХИТЕКТУРНОЙ, ГРАДОСТРОИТЕЛЬНОЙ И СТРОИТЕЛЬНОЙ ДЕЯТЕЛЬНОСТИ
+// от 17 июля 2023 г. № 289-З, Статья 36 (предоставлен пользователем в виде PDF).
+// Для старых записей (Постановление № 252) — нумерация другая, без точного текста используем fallback.
 const ATTOFF_REASON_DECODER=[
-// === Кодекс об архитектурной деятельности (новые формулировки) ===
-{match:/п\.?\s*10\s*ст\.?\s*33/i,title:"Не подали ежегодные сведения в декабре",advice:"Можно восстановить через подачу заявления",severity:"normal"},
-{match:/п\.?\s*11\s*ст\.?\s*33/i,title:"Утрата соответствия критериям (уволили ГИПа/прорабов)",advice:"Нужно восстановить кадры + новая аттестация",severity:"normal"},
-{match:/ст\.?\s*34/i,title:"По результатам внеочередной аттестации (грубые дефекты)",advice:"⚠ Серьёзное нарушение — нужна консультация",severity:"serious"},
-{match:/п\.?\s*1\s*ст\.?\s*33/i,title:"Добровольный отказ (ликвидация / смена деятельности)",advice:"Можно получить новый аттестат",severity:"normal"},
-// === Постановление № 252 (исторические записи) — пункт 21 ===
-{match:/п\.?\s*21.*абз\.?\s*2|абз\.?\s*2\s*п\.?\s*21/i,title:"Подложные/недостоверные документы при аттестации",advice:"⚠ Серьёзное нарушение — консультация",severity:"serious"},
-{match:/п\.?\s*21.*абз\.?\s*3|абз\.?\s*3\s*п\.?\s*21/i,title:"2+ нарушения ТНПА в году (Госстройнадзор/суды)",advice:"⚠ Серьёзное нарушение — консультация",severity:"serious"},
-{match:/п\.?\s*21.*абз\.?\s*4|абз\.?\s*4\s*п\.?\s*21/i,title:"2+ отрицательных заключения госэкспертизы в году",advice:"⚠ Серьёзное нарушение — консультация",severity:"serious"},
-{match:/п\.?\s*21.*абз\.?\s*5|абз\.?\s*5\s*п\.?\s*21/i,title:"Не предоставили информацию по запросу МАиС",advice:"Можно восстановить через подачу",severity:"normal"},
-// === Постановление № 252 — пункт 20 (тоже встречается на сайте) ===
-{match:/п\.?\s*20.*абз\.?\s*2|абз\.?\s*2\s*п\.?\s*20/i,title:"Основание по п. 20 абз. 2 постановления № 252",advice:"Уточнить основание у клиента / Белстройцентра",severity:"normal"},
-{match:/п\.?\s*20.*абз\.?\s*3|абз\.?\s*3\s*п\.?\s*20/i,title:"Основание по п. 20 абз. 3 постановления № 252",advice:"Уточнить основание у клиента / Белстройцентра",severity:"normal"},
-{match:/п\.?\s*20.*абз\.?\s*4|абз\.?\s*4\s*п\.?\s*20/i,title:"Основание по п. 20 абз. 4 постановления № 252",advice:"Уточнить основание у клиента / Белстройцентра",severity:"normal"},
-{match:/п\.?\s*20.*абз\.?\s*5|абз\.?\s*5\s*п\.?\s*20/i,title:"Основание по п. 20 абз. 5 постановления № 252",advice:"Уточнить основание у клиента / Белстройцентра",severity:"normal"},
-// === Общий fallback ===
-{match:/постановления?\s*№?\s*252/i,title:"Основание по Постановлению № 252",advice:"Уточнить точный пункт у клиента",severity:"normal"},
+// === КОДЕКС ст. 36 п. 1 (действует с 17.07.2023) ===
+// 1.1 — Истечение срока (это и есть просто "Истек" статус, отдельно не маркируется)
+// 1.2 — Неоднократное (2+) привлечение к адм. ответственности
+{match:/п\.?\s*1\.2|подпункт\s*1\.2/i,title:"Неоднократное (2+) привлечение к адм. ответственности за нарушение ТНПА при строительстве",advice:"⚠ Серьёзное нарушение. Можно подать заявление через 1 месяц + информацию об устранении нарушений",severity:"serious"},
+// 1.3 — Неоднократная (2+) выдача отрицательных заключений госстройэкспертизы
+{match:/п\.?\s*1\.3|подпункт\s*1\.3/i,title:"Неоднократная (2+) выдача отрицательных заключений госстройэкспертизы",advice:"⚠ Серьёзное нарушение. Можно подать заявление через 1 месяц + информация об устранении",severity:"serious"},
+// 1.4 — Заявление обладателя
+{match:/п\.?\s*1\.4|подпункт\s*1\.4|заявлени(е|ю)\s*обладател/i,title:"Прекращён по заявлению обладателя аттестата (добровольный отказ)",advice:"Можно получить новый аттестат",severity:"normal"},
+// 1.5 — Признан недействительным (подложные документы)
+{match:/п\.?\s*1\.5|подпункт\s*1\.5|подложн|поддельн|недействительн.*документ/i,title:"Аттестат признан недействительным (подложные/недействительные документы)",advice:"⚠ ОЧЕНЬ серьёзное — нужна юридическая консультация",severity:"serious"},
+// 1.6 — Несоответствие квалификационным требованиям
+{match:/п\.?\s*1\.6|подпункт\s*1\.6|несоответстви.*квалификационн/i,title:"Несоответствие квалификационным требованиям",advice:"Восстановить кадры/документы + новая аттестация",severity:"normal"},
+// 1.7 — Отказ от внеочередной аттестации
+{match:/п\.?\s*1\.7|подпункт\s*1\.7|отказ.*внеочередн/i,title:"Отказ от внеочередной аттестации",advice:"⚠ Серьёзное — нужна консультация",severity:"serious"},
+// 1.8 — Не представил ежегодную информацию (декабрь)
+{match:/п\.?\s*1\.8|подпункт\s*1\.8|не\s+представил.*информаци/i,title:"Не представил ежегодную информацию (1-31 декабря)",advice:"Можно подать новое заявление на аттестацию",severity:"normal"},
+// 1.9 — Не устранил несоответствие в течение 1 месяца
+{match:/п\.?\s*1\.9|подпункт\s*1\.9|не\s+устранил/i,title:"Не устранил несоответствие в течение 1 месяца после уведомления",advice:"Устранить несоответствие + новая аттестация",severity:"normal"},
+// === СТАРАЯ нумерация (Кодекс до 17.07.2023, использовал ссылки ст. 33/34) ===
+{match:/ст\.?\s*34/i,title:"По результатам внеочередной аттестации (грубые нарушения)",advice:"⚠ Серьёзное нарушение — консультация",severity:"serious"},
+{match:/п\.?\s*10\s*ст\.?\s*33/i,title:"Не подали ежегодные сведения (старая нумерация)",advice:"Можно восстановить через подачу заявления",severity:"normal"},
+{match:/п\.?\s*11\s*ст\.?\s*33/i,title:"Утрата соответствия критериям (старая нумерация)",advice:"Восстановить кадры + новая аттестация",severity:"normal"},
+{match:/п\.?\s*1\s*ст\.?\s*33/i,title:"Добровольный отказ (старая нумерация)",advice:"Можно получить новый аттестат",severity:"normal"},
+// === ПОСТАНОВЛЕНИЕ № 252 (исторические записи, точная расшифровка неизвестна) ===
+{match:/постановления?\s*№?\s*252/i,title:"Прекращение по Постановлению № 252 (историческая нумерация)",advice:"Уточнить точное основание у Белстройцентра — старая нумерация",severity:"normal"},
 ];
 
 function decodeAttoffReason(reasonText){
@@ -608,6 +616,9 @@ const[results,setResults]=useState(null);
 const[err,setErr]=useState("");
 const[tab,setTab]=useState("search"); // search | cards | history | settings
 const[searchMode,setSearchMode]=useState("company"); // company | person
+// Раскрытые блоки видов работ — Set ключей вида "att-0007902-ГС"
+const[expandedWork,setExpandedWork]=useState(()=>new Set());
+const toggleWork=(key)=>{setExpandedWork(prev=>{const ns=new Set(prev);if(ns.has(key))ns.delete(key);else ns.add(key);return ns});};
 // Состояние расширения
 const[extReady,setExtReady]=useState(false);
 const[extVersion,setExtVersion]=useState(null);
@@ -970,6 +981,13 @@ if(d.expiry_date)docLine+=`, след. периодика ${d.expiry_date}`;
 }else if(d.expiry_date)docLine+=`, до ${d.expiry_date}`;
 if(d.status&&s.id==="attoff")docLine+=` [${d.status}]`;
 lines.push(docLine);
+// Для действующих аттестатов — показываем виды работ
+if(s.id==="att"&&d.work_types&&d.work_types.length>0){
+lines.push(`     Виды работ (${d.work_types.length}):`);
+d.work_types.forEach(wt=>{
+lines.push(`       ${wt.number}. ${wt.description}`);
+});
+}
 // Для отменённых — показываем причину с расшифровкой
 if(s.id==="attoff"&&d.cancellation_reason){
 const dec=decodeAttoffReason(d.cancellation_reason);
@@ -1150,6 +1168,30 @@ return <div style={{marginTop:6,padding:"8px 10px",background:dec&&dec.severity=
 {dl!==null&&<div style={{fontSize:10,color:warn?"var(--or)":"var(--t2)"}}>{dl>0?"осталось "+dl+" дн.":"истёк "+(-dl)+" дн. назад"}</div>}
 </div>}
 </div>
+{/* Раскрывающийся блок видов работ для действующих аттестатов */}
+{srcDef.id==="att"&&r.work_types&&r.work_types.length>0&&(()=>{
+const wkey=srcDef.id+"-"+(r.cert_number||i);
+const opened=expandedWork.has(wkey);
+return <div style={{marginTop:8}}>
+<button onClick={()=>toggleWork(wkey)} style={{background:"transparent",border:"1px solid var(--bd)",color:"var(--ac)",padding:"4px 10px",borderRadius:6,fontSize:11,cursor:"pointer",display:"flex",alignItems:"center",gap:6}}>
+<span>{opened?"▼":"▶"}</span>
+<span>📋 Виды работ ({r.work_types.length})</span>
+</button>
+{opened&&<div style={{marginTop:6,padding:"10px 12px",background:"var(--s2)",borderRadius:6,borderLeft:"3px solid var(--ac)",fontSize:12}}>
+{r.work_types.map((wt,wi)=><div key={wi} style={{padding:"3px 0",color:"var(--tx)",borderBottom:wi<r.work_types.length-1?"1px solid var(--bd)":"none"}}>
+<span style={{fontWeight:600,color:"var(--ac)",marginRight:6}}>{wt.number}.</span>
+<span>{wt.description}</span>
+</div>)}
+{r.subdivisions&&r.subdivisions.length>0&&<div style={{marginTop:10,paddingTop:10,borderTop:"1px solid var(--bd)"}}>
+<div style={{fontWeight:600,color:"var(--t2)",fontSize:11,marginBottom:6}}>🏢 Обособленные подразделения / филиалы:</div>
+{r.subdivisions.map((sub,si)=><div key={si} style={{padding:"3px 0",fontSize:11,color:"var(--tx)"}}>
+<div style={{fontWeight:600}}>{sub.name}</div>
+<div style={{color:"var(--t2)",marginLeft:8}}>{sub.address}</div>
+</div>)}
+</div>}
+</div>}
+</div>;
+})()}
 </div>})}
 </div>
 </div>}
