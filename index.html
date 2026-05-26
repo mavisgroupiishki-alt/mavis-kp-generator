@@ -732,7 +732,15 @@ setTimeout(()=>window.removeEventListener("message",respHandler),2000);
 return()=>{window.removeEventListener("message",handler);clearTimeout(pingId)};
 },[]);
 
-const daysLeft=(iso)=>{if(!iso)return null;const d=new Date(iso);const diff=Math.ceil((d-new Date())/(1000*60*60*24));return diff};
+const daysLeft=(iso)=>{
+if(!iso)return null;
+// Проверка на пустые/невалидные даты
+if(typeof iso!=="string"||iso.includes("0000")||iso.startsWith("0001"))return null;
+const d=new Date(iso);
+if(isNaN(d.getTime())||d.getFullYear()<1900)return null;
+const diff=Math.ceil((d-new Date())/(1000*60*60*24));
+return diff
+};
 
 // === Запрос к расширению через postMessage ===
 const callExtension=(action,payload,timeoutMs=60000)=>new Promise((resolve,reject)=>{
