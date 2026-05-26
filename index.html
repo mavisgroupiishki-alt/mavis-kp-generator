@@ -642,7 +642,9 @@ if(searchMode==="company"&&enabledSrc.length===0){setEnabledSrc(REG_SOURCES.filt
 // SPK, OSP, ATT, SPEC, ISO. Лицензии (lic) — через расширение Chrome (SPA с reCAPTCHA)
 // По ТЗ — все реестры проверяются «в моменте» через расширение.
 // Локальная база — только для ОСП (она обновляется автоматически через GitHub Actions).
-const LOCAL_SOURCES=["osp"];
+// Раньше ОСП брался из локальной базы (data/osp.json) — но т.к. парсер давно сломан,
+// записи 0000-00-00 и устаревшие данные. Теперь ОСП всегда идёт через расширение (свежий парсинг stn.by).
+const LOCAL_SOURCES=[];
 const[localDb,setLocalDb]=useState(()=>{try{const s=localStorage.getItem("mavis_local_db");if(s){const d=JSON.parse(s);const empty={};LOCAL_SOURCES.forEach(k=>empty[k]=d[k]||null);return empty}}catch(e){}const e={};LOCAL_SOURCES.forEach(k=>e[k]=null);return e});
 const[dbLoading,setDbLoading]=useState(false);
 const[dbErr,setDbErr]=useState("");
