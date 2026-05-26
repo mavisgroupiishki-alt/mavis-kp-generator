@@ -787,6 +787,26 @@ allResults.sources[s]={count:0,results:[],source:s,error:"Расширение: 
 }
 }
 
+// === ФОЛБЭК для СПК нового ===
+// Если в СПК новом (spk2) ничего не нашлось / ошибка таймаута — берём данные из СПК старого (spk)
+// Это нужно потому что СПК новый недавно создан и туда ещё не все компании перенесены
+{
+const spkOld=allResults.sources?.spk;
+const spkNew=allResults.sources?.spk2;
+const oldHasData=spkOld&&!spkOld.error&&spkOld.count>0;
+const newHasData=spkNew&&!spkNew.error&&spkNew.count>0;
+if(oldHasData&&!newHasData){
+// Дублируем результаты из старого, помечаем что взято из старого
+allResults.sources.spk2={
+...spkNew, // сохраняем url, source_name и т.п.
+results:spkOld.results,
+count:spkOld.count,
+error:null,
+_from_old:true, // флаг что данные дублированы из старого
+};
+}
+}
+
 setResults(allResults);
 }catch(e){setErr("Ошибка: "+e.message)}
 setLoading(false);
@@ -937,7 +957,9 @@ lines.push("");
 REG_SOURCES.forEach(s=>{
 const r=perRegistry[s.id];if(!r)return;
 const statusLabel={found:"Найдено",expiring:"Скоро истекает",expired:"Истёк",not_found:"Не найдено",cancelled:"Есть отменённые",clean:"Нет отменённых",error:"Ошибка проверки",not_checked:"Не проверено"}[r.status];
-lines.push(`${s.label} — ${statusLabel}`);
+let labelLine=`${s.label} — ${statusLabel}`;
+if(s.id==="spk2"&&r.data?._from_old)labelLine+=" [данные из СПК старого]";
+lines.push(labelLine);
 if(r.docs.length>0){
 r.docs.slice(0,5).forEach(d=>{
 let docLine=`  • № ${d.cert_number||d.license_number||"?"}`;
@@ -1066,7 +1088,7 @@ not_checked:{label:"Не проверено",bg:"var(--s2)",color:"var(--t2)"},
 const firstDoc=r.docs[0];
 const dl=firstDoc?daysLeft(firstDoc.expiry_date):null;
 return <tr key={srcDef.id}>
-<td>{srcDef.label}</td>
+<td>{srcDef.label}{srcDef.id==="spk2"&&r.data?._from_old?<span style={{marginLeft:6,fontSize:9,color:"var(--or)"}} title="Данные взяты из СПК старого">📋→</span>:null}</td>
 <td><span style={{padding:"3px 10px",borderRadius:6,fontSize:11,fontWeight:600,background:statusInfo.bg,color:statusInfo.color}}>{statusInfo.label}</span></td>
 <td style={{fontSize:12}}>{firstDoc?<>№ {firstDoc.cert_number||firstDoc.license_number||"?"}{r.docs.length>1&&<span style={{color:"var(--t2)"}}> и ещё {r.docs.length-1}</span>}</>:<span style={{color:"var(--t2)"}}>—</span>}</td>
 <td style={{fontSize:12,color:dl!==null?(dl<0?"var(--rd)":dl<=60?"var(--or)":"var(--gn)"):"var(--t2)"}}>{firstDoc?.expiry_date||"—"}</td>
@@ -1086,7 +1108,7 @@ return <tr key={srcDef.id}>
 {s.debug_log&&<button className="B BS" style={{fontSize:10,padding:"4px 8px"}} onClick={()=>{const text=`Реестр: ${srcDef.full}\nURL: ${s.url}\nЗапрос: ${s.query}\nНайдено: ${s.count}\nОшибка: ${s.error||"нет"}\n\nЛог:\n${s.debug_log}`;navigator.clipboard.writeText(text).then(()=>alert("Лог скопирован в буфер обмена. Перешлите его разработчику.")).catch(()=>{const w=window.open("","_blank");w.document.write("<pre>"+text.replace(/</g,"&lt;")+"</pre>")})}}>🐞 Лог</button>}
 </div>
 {s.error?<div style={{padding:"10px 14px",background:"rgba(245,166,35,.12)",borderRadius:8,fontSize:13,color:"var(--or)"}}>⚠ {s.error}</div>:s.count===0?<div style={{padding:"10px 14px",background:"var(--s2)",borderRadius:8,fontSize:13,color:"var(--t2)"}}>Не найдено</div>:<div>
-<div style={{fontSize:12,color:"var(--gn)",marginBottom:8,fontWeight:600}}>Найдено: {s.count}{s.from_local?<span style={{marginLeft:8,fontSize:10,color:"var(--ac)",fontWeight:500}}>⚡ из локальной базы</span>:null}</div>
+<div style={{fontSize:12,color:"var(--gn)",marginBottom:8,fontWeight:600}}>Найдено: {s.count}{s.from_local?<span style={{marginLeft:8,fontSize:10,color:"var(--ac)",fontWeight:500}}>⚡ из локальной базы</span>:null}{s._from_old?<span style={{marginLeft:8,fontSize:10,color:"var(--or)",fontWeight:500,padding:"2px 8px",background:"rgba(245,166,35,.15)",borderRadius:4}}>ℹ Данные взяты из СПК старого (в новом этой компании ещё нет)</span>:null}</div>
 <div style={{display:"flex",flexDirection:"column",gap:8}}>
 {(Array.isArray(s.results)?s.results:[]).slice(0,20).map((r,i)=>{const dl=daysLeft(r.expiry_date);const warn=dl!==null&&dl<60;return <div key={i} style={{padding:"10px 14px",background:"var(--s2)",borderRadius:8,border:"1px solid "+(warn?"var(--or)":"var(--bd)"),fontSize:13}}>
 <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10}}>
