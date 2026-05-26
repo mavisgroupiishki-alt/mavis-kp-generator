@@ -35,11 +35,17 @@ def parse_date(s):
     m = re.search(r"(\d{1,2})[.\-/](\d{1,2})[.\-/](\d{4})", s)
     if m:
         d, mo, y = m.groups()
+        # Пустая дата (нули) — возвращаем None
+        if y == "0000" or mo == "00" or d == "00":
+            return None
         return f"{y}-{mo.zfill(2)}-{d.zfill(2)}"
     # Также формат ГГГГ-ММ-ДД (на stn.by даты последней оценки в ISO-формате)
     m_iso = re.search(r"(\d{4})-(\d{2})-(\d{2})", s)
     if m_iso:
         y, mo, d = m_iso.groups()
+        # Пустая дата (нули) — возвращаем None
+        if y == "0000" or mo == "00" or d == "00":
+            return None
         return f"{y}-{mo}-{d}"
     return None
 
@@ -51,6 +57,9 @@ def add_months_to_date(iso_date: str, months: int):
     try:
         y, mo, d = iso_date.split("-")
         y, mo, d = int(y), int(mo), int(d)
+        # Защита от пустых дат (0000-00-00 и подобных)
+        if y < 1900 or mo < 1 or mo > 12 or d < 1 or d > 31:
+            return None
         new_mo = mo + months
         new_y = y + (new_mo - 1) // 12
         new_mo = ((new_mo - 1) % 12) + 1
@@ -231,8 +240,24 @@ def parse_osp_table(html):
 
         if organization:
             organization = re.sub(r"\s+", " ", organization).strip()
+            # Убираем пометки "недействующий", "см. рег.№..." из имени
+            organization = re.sub(r"\s*см\.\s*рег\.?\s*№[\d/\-]+", "", organization, flags=re.IGNORECASE)
+            organization = re.sub(r"\s*взамен\s*рег\.?\s*№[\d/\-]+", "", organization, flags=re.IGNORECASE)
+            organization = re.sub(r"\s*недействующ\w*", "", organization, flags=re.IGNORECASE)
+            organization = re.sub(r"\s+", " ", organization).strip()
         if activity:
             activity = re.sub(r"\s+", " ", activity).strip()[:300]
+
+        # === Проверяем не "недействующий" ли это ОСП ===
+        # На stn.by рядом с организацией пишут "недействующий" красным цветом
+        # Берём текст всей строки (организация может содержать пометку)
+        full_row_text = " ".join(cells).lower()
+        is_inactive = (
+            "недействующ" in full_row_text
+            or "недействителен" in full_row_text
+            or "аннулирован" in full_row_text
+            or "приостановлен" in full_row_text
+        )
 
         record = {
             "cert_number": cert_number,
@@ -241,6 +266,7 @@ def parse_osp_table(html):
             "last_check_date": last_check_date,
             "expiry_date": expiry_date,
             "activity": activity,
+            "is_inactive": is_inactive,  # помечаем чтобы потом отфильтровать
         }
 
         if len(debug_samples) < 5:
@@ -303,7 +329,7 @@ def main():
     records, debug_samples = parse_osp_table(html)
     print(f"[OSP] Распарсено сырых: {len(records)}")
     
-    # === Дедупликация: убираем повторы по cert_number ===
+    # === Дедупликация по cert_number (если одно и то же свидетельство встречается дважды) ===
     seen_certs = set()
     deduplicated = []
     for r in records:
@@ -314,7 +340,65 @@ def main():
             seen_certs.add(cert)
         deduplicated.append(r)
     records = deduplicated
-    print(f"[OSP] После дедупликации: {len(records)}")
+    print(f"[OSP] После дедупликации по cert_number: {len(records)}")
+    
+    # === Смарт-фильтрация по компании ===
+    # На stn.by у одной компании может быть несколько свидетельств:
+    # - Старые помечены "недействующий" (is_inactive=True) — отбрасываем
+    # - Из действующих оставляем то у которого самая поздняя last_check_date (или issue_date)
+    # Группируем по organization (нормализованному имени)
+    from collections import defaultdict
+    by_org = defaultdict(list)
+    no_org_records = []  # записи без организации — оставляем как есть
+    
+    for r in records:
+        org = r.get("organization")
+        if not org or len(org) < 3:
+            no_org_records.append(r)
+            continue
+        # Нормализуем имя для группировки (без пробелов, в нижнем регистре)
+        org_key = re.sub(r"\s+", "", org.lower())
+        by_org[org_key].append(r)
+    
+    print(f"[OSP] Уникальных компаний: {len(by_org)}, записей без организации: {len(no_org_records)}")
+    
+    # Для каждой компании выбираем лучшую запись
+    filtered_records = []
+    inactive_dropped = 0
+    duplicates_dropped = 0
+    
+    for org_key, group in by_org.items():
+        # Сначала отбрасываем недействующие
+        active = [r for r in group if not r.get("is_inactive")]
+        inactive_dropped += len(group) - len(active)
+        
+        if not active:
+            # Все недействующие — пропускаем компанию вообще (она не имеет действующего ОСП)
+            continue
+        
+        if len(active) == 1:
+            filtered_records.append(active[0])
+            continue
+        
+        # Несколько действующих — берём с самой поздней датой
+        # Приоритет: last_check_date, потом issue_date
+        def sort_key(rec):
+            d = rec.get("last_check_date") or rec.get("issue_date") or "0000-00-00"
+            return d  # ISO формат сортируется лексикографически
+        
+        active.sort(key=sort_key, reverse=True)
+        filtered_records.append(active[0])
+        duplicates_dropped += len(active) - 1
+    
+    # Добавляем записи без организации (как есть, не группируем)
+    filtered_records.extend(no_org_records)
+    
+    # Убираем поле is_inactive из финального вывода (оно служебное)
+    for r in filtered_records:
+        r.pop("is_inactive", None)
+    
+    records = filtered_records
+    print(f"[OSP] После фильтрации: {len(records)} (отброшено {inactive_dropped} недействующих, {duplicates_dropped} дублей по компании)")
 
     if len(records) == 0:
         debug_path = Path("data/osp_debug.html")
