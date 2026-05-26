@@ -1047,7 +1047,7 @@ let labelLine=`${s.label} — ${statusLabel}`;
 if(s.id==="spk2"&&r.data?._from_old)labelLine+=" [данные из СПК старого]";
 lines.push(labelLine);
 if(r.docs.length>0){
-r.docs.slice(0,5).forEach(d=>{
+r.docs.forEach(d=>{
 let docLine=`  • № ${d.cert_number||d.license_number||"?"}`;
 if(s.id==="osp"){
 // Для ОСП показываем обе даты
@@ -1585,7 +1585,7 @@ return <tr key={srcDef.id}>
 {s.error?<div style={{padding:"10px 14px",background:"rgba(245,166,35,.12)",borderRadius:8,fontSize:13,color:"var(--or)"}}>⚠ {s.error}</div>:s.count===0?<div style={{padding:"10px 14px",background:"var(--s2)",borderRadius:8,fontSize:13,color:"var(--t2)"}}>Не найдено</div>:<div>
 <div style={{fontSize:12,color:"var(--gn)",marginBottom:8,fontWeight:600}}>Найдено: {s.count}{s.from_local?<span style={{marginLeft:8,fontSize:10,color:"var(--ac)",fontWeight:500}}>⚡ из локальной базы</span>:null}{s._from_old?<span style={{marginLeft:8,fontSize:10,color:"var(--or)",fontWeight:500,padding:"2px 8px",background:"rgba(245,166,35,.15)",borderRadius:4}}>ℹ Данные взяты из СПК старого (в новом этой компании ещё нет)</span>:null}</div>
 <div style={{display:"flex",flexDirection:"column",gap:8}}>
-{(Array.isArray(s.results)?s.results:[]).slice(0,20).map((r,i)=>{const dl=daysLeft(r.expiry_date);const warn=dl!==null&&dl<60;return <div key={i} style={{padding:"10px 14px",background:"var(--s2)",borderRadius:8,border:"1px solid "+(warn?"var(--or)":"var(--bd)"),fontSize:13}}>
+{(Array.isArray(s.results)?s.results:[]).slice(0,100).map((r,i)=>{const dl=daysLeft(r.expiry_date);const warn=dl!==null&&dl<60;return <div key={i} style={{padding:"10px 14px",background:"var(--s2)",borderRadius:8,border:"1px solid "+(warn?"var(--or)":"var(--bd)"),fontSize:13}}>
 <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10}}>
 <div style={{flex:1}}>
 {(r.cert_number||r.license_number)&&<div style={{fontWeight:700,color:"var(--ac)",marginBottom:2}}>{r.cert_number||r.license_number}{r.status&&srcDef.id==="attoff"&&<span style={{marginLeft:8,fontSize:10,padding:"2px 8px",borderRadius:4,background:r.status.toLowerCase().includes("прекращ")?"rgba(245,87,79,.2)":"rgba(245,166,35,.2)",color:r.status.toLowerCase().includes("прекращ")?"var(--rd)":"var(--or)"}}>{r.status}</span>}</div>}
