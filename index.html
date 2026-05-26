@@ -557,12 +557,36 @@ return <tr key={i} style={{background:rowBg,borderBottom:"1px solid var(--bd)"}}
 
 // === Константа источников реестров (используется в RegistryView) ===
 const REG_SOURCES=[
-{id:"spk",label:"📋 СПК",full:"Свидетельства о технической компетентности (Белстройцентр)"},
+{id:"spk",label:"📋 СПК старый",full:"Свидетельства о технической компетентности (bsc.by)"},
+{id:"spk2",label:"🆕 СПК новый",full:"Реестр свидетельств о технической компетентности (spk.bsc.by)"},
 {id:"att",label:"📜 Аттестаты юр.лиц",full:"Аттестаты соответствия юридических лиц (Белстройцентр)"},
+{id:"attoff",label:"🚫 Аттестаты отменённые",full:"Реестр аттестатов прекращённых / истёкших / аннулированных (att.bsc.by/reestrnone)"},
 {id:"iso",label:"🏆 ISO / СУОТ",full:"Сертификаты соответствия (Госстандарт)"},
+{id:"metal",label:"🏗 Серты металл",full:"Сертификаты на металлопродукцию (tsouz.belgiss.by/certdecl)"},
 {id:"osp",label:"🔥 ОСП",full:"Освидетельствование сварочного производства (Стройтехнорм)"},
 {id:"lic",label:"📑 Лицензии",full:"Единый реестр лицензий РБ (МЧС, МВД, Госпромнадзор)"},
 ];
+
+// Расшифровка оснований прекращения аттестатов (att.bsc.by/reestrnone)
+// Используется для подсказок менеджеру что предложить клиенту
+const ATTOFF_REASON_DECODER=[
+{match:/п\.?\s*10\s*ст\.?\s*33/i,title:"Не подали ежегодные сведения в декабре",advice:"Можно восстановить через подачу заявления",severity:"normal"},
+{match:/п\.?\s*11\s*ст\.?\s*33/i,title:"Утрата соответствия критериям (уволили ГИПа/прорабов)",advice:"Нужно восстановить кадры + новая аттестация",severity:"normal"},
+{match:/ст\.?\s*34/i,title:"По результатам внеочередной аттестации (грубые дефекты на объектах)",advice:"⚠ Серьёзное нарушение — нужна консультация перед восстановлением",severity:"serious"},
+{match:/п\.?\s*1\s*ст\.?\s*33/i,title:"Добровольный отказ (ликвидация / смена деятельности)",advice:"Можно получить новый аттестат",severity:"normal"},
+{match:/п\.?\s*21.*абз\.?\s*2|абз\.?\s*2\s*п\.?\s*21/i,title:"Подложные/недостоверные документы при аттестации",advice:"⚠ Серьёзное нарушение — нужна консультация",severity:"serious"},
+{match:/п\.?\s*21.*абз\.?\s*3|абз\.?\s*3\s*п\.?\s*21/i,title:"2+ нарушения ТНПА в году (по решениям Госстройнадзора/судов)",advice:"⚠ Серьёзное нарушение — нужна консультация",severity:"serious"},
+{match:/п\.?\s*21.*абз\.?\s*4|абз\.?\s*4\s*п\.?\s*21/i,title:"2+ отрицательных заключения госэкспертизы в году",advice:"⚠ Серьёзное нарушение — нужна консультация",severity:"serious"},
+{match:/п\.?\s*21.*абз\.?\s*5|абз\.?\s*5\s*п\.?\s*21/i,title:"Не предоставили информацию по запросу МАиС",advice:"Можно восстановить через подачу",severity:"normal"},
+];
+
+function decodeAttoffReason(reasonText){
+if(!reasonText||typeof reasonText!=="string")return null;
+for(const decoder of ATTOFF_REASON_DECODER){
+if(decoder.match.test(reasonText))return decoder;
+}
+return null;
+}
 
 // === RegistryView: раздел поиска по реестрам разрешительных документов ===
 function RegistryView({regProxy,setRegProxy,regCards,setRegCards,regHist,setRegHist,setAppMode,CSS}){
@@ -705,9 +729,9 @@ const queryForSearch=qVal||unpVal; // если только УНП — ищем 
 setErr("");setLoading(true);setResults(null);
 try{
 // По ТЗ: всегда проверяем все 6 источников (включая spec) — это «проверка компании»
-// По ТЗ — 6 реестров для проверки компании: СПК, Аттестаты юр.лиц, ISO, ОСП, Лицензии
-// (Реестр специалистов rcuk.bsc.by в ТЗ не входит — это поиск по физлицам, не компаниям)
-const sourcesAll=["spk","att","iso","osp","lic"];
+// По ТЗ — 8 реестров для проверки компании:
+// СПК старый, СПК новый, Аттестаты юр.лиц, Аттестаты отменённые, ISO, Серты металл, ОСП, Лицензии
+const sourcesAll=["spk","spk2","att","attoff","iso","metal","osp","lic"];
 if(sourcesAll.length===0){setErr("Выберите хотя бы один реестр в фильтре");setLoading(false);return}
 
 // Разделяем: какие источники есть в локальной базе, какие нужно искать через расширение
@@ -824,22 +848,44 @@ return(<><style>{CSS}</style>
 <button className="B BP" onClick={search} disabled={loading||(!q.trim()&&!unp.trim())} style={{padding:"10px 24px",fontSize:14}}>{loading?"⏳ Проверка...":"Проверить"}</button>
 </div>
 {err&&<div style={{marginTop:12,padding:"10px 14px",background:"rgba(245,87,79,.12)",border:"1px solid var(--rd)",borderRadius:8,color:"var(--rd)",fontSize:13}}>{err}</div>}
-<p style={{fontSize:12,color:"var(--t2)",marginTop:6}}>Заполните хотя бы одно поле — УНП или название. Проверка по 5 реестрам параллельно, занимает 20-60 секунд.</p>
+<p style={{fontSize:12,color:"var(--t2)",marginTop:6}}>Заполните хотя бы одно поле — УНП или название. Проверка по 8 реестрам параллельно, занимает 30-90 секунд.</p>
 </div>
 
 {results&&(()=>{
 // Анализ результатов по ТЗ
 const analyze=()=>{
-const stats={found:0,expiring:0,expired:0,notFound:0,errors:0};
+const stats={found:0,expiring:0,expired:0,notFound:0,errors:0,cancelled:0};
 const perRegistry={};
 REG_SOURCES.forEach(s=>{
 const src=s.id;const data=results.sources?.[src];
 let status="not_found";let docs=[];let recommendation="Предложить получение";
 if(!data){status="not_checked";recommendation="—"}
 else if(data.error){status="error";stats.errors++;recommendation="Перепроверить вручную"}
-else if(data.count===0){status="not_found";stats.notFound++;recommendation="Предложить получение"}
+else if(data.count===0){
+// Для attoff "ничего не найдено" = ХОРОШО (нет отменённых)
+if(src==="attoff"){status="clean";recommendation="—"}
+else{status="not_found";stats.notFound++;recommendation="Предложить получение"}
+}
 else{
-// Найдено! Определяем статус по срокам действия
+// Найдено! Для attoff — это означает что есть отменённые аттестаты, особая логика
+if(src==="attoff"){
+docs=data.results||[];
+stats.cancelled+=docs.length;
+status="cancelled";
+// Анализируем основания: если есть хоть один "serious" — рекомендуем консультацию
+const seriousFound=docs.some(d=>{
+const dec=decodeAttoffReason(d.cancellation_reason);
+return dec&&dec.severity==="serious";
+});
+const restorableFound=docs.some(d=>{
+const dec=decodeAttoffReason(d.cancellation_reason);
+return dec&&dec.severity==="normal";
+});
+if(seriousFound)recommendation="⚠ Консультация: есть серьёзные нарушения";
+else if(restorableFound)recommendation="Помочь восстановить";
+else recommendation="Уточнить причины";
+}else{
+// Обычная логика для действующих документов
 docs=data.results||[];
 let allExpired=true;let anyExpiring=false;let anyActive=false;
 docs.forEach(d=>{
@@ -852,6 +898,7 @@ else{anyActive=true;allExpired=false}
 if(allExpired&&docs.length>0){status="expired";stats.expired++;recommendation="Предложить восстановление"}
 else if(anyExpiring){status="expiring";stats.expiring++;stats.found++;recommendation="Предложить продление"}
 else{status="found";stats.found++;recommendation="—"}
+}
 }
 perRegistry[src]={status,docs,recommendation,data};
 });
@@ -869,9 +916,26 @@ lines.push(`ИТОГО: найдено ${stats.found}, не найдено ${sta
 lines.push("");
 REG_SOURCES.forEach(s=>{
 const r=perRegistry[s.id];if(!r)return;
-const statusLabel={found:"Найдено",expiring:"Скоро истекает",expired:"Истёк",not_found:"Не найдено",error:"Ошибка проверки",not_checked:"Не проверено"}[r.status];
+const statusLabel={found:"Найдено",expiring:"Скоро истекает",expired:"Истёк",not_found:"Не найдено",cancelled:"Есть отменённые",clean:"Нет отменённых",error:"Ошибка проверки",not_checked:"Не проверено"}[r.status];
 lines.push(`${s.label} — ${statusLabel}`);
-if(r.docs.length>0){r.docs.slice(0,3).forEach(d=>{lines.push(`  • № ${d.cert_number||d.license_number||"?"}${d.expiry_date?", до "+d.expiry_date:""}`)})}
+if(r.docs.length>0){
+r.docs.slice(0,5).forEach(d=>{
+let docLine=`  • № ${d.cert_number||d.license_number||"?"}`;
+if(d.expiry_date)docLine+=`, до ${d.expiry_date}`;
+if(d.status&&s.id==="attoff")docLine+=` [${d.status}]`;
+lines.push(docLine);
+// Для отменённых — показываем причину с расшифровкой
+if(s.id==="attoff"&&d.cancellation_reason){
+const dec=decodeAttoffReason(d.cancellation_reason);
+if(dec){
+lines.push(`     Причина: ${dec.title}`);
+lines.push(`     Совет: ${dec.advice}`);
+}else{
+lines.push(`     Основание: ${d.cancellation_reason}`);
+}
+}
+});
+}
 if(r.recommendation&&r.recommendation!=="—")lines.push(`  → ${r.recommendation}`);
 lines.push("");
 });
@@ -974,6 +1038,8 @@ found:{label:"Найдено",bg:"rgba(52,199,123,.15)",color:"var(--gn)"},
 expiring:{label:"Скоро истекает",bg:"rgba(245,166,35,.15)",color:"var(--or)"},
 expired:{label:"Истёк",bg:"rgba(245,87,79,.15)",color:"var(--rd)"},
 not_found:{label:"Не найдено",bg:"var(--s2)",color:"var(--t2)"},
+cancelled:{label:"Есть отменённые",bg:"rgba(245,87,79,.15)",color:"var(--rd)"},
+clean:{label:"Нет отменённых ✓",bg:"rgba(52,199,123,.15)",color:"var(--gn)"},
 error:{label:"Ошибка",bg:"rgba(245,87,79,.15)",color:"var(--rd)"},
 not_checked:{label:"Не проверено",bg:"var(--s2)",color:"var(--t2)"},
 }[r.status];
@@ -1005,10 +1071,18 @@ return <tr key={srcDef.id}>
 {(Array.isArray(s.results)?s.results:[]).slice(0,20).map((r,i)=>{const dl=daysLeft(r.expiry_date);const warn=dl!==null&&dl<60;return <div key={i} style={{padding:"10px 14px",background:"var(--s2)",borderRadius:8,border:"1px solid "+(warn?"var(--or)":"var(--bd)"),fontSize:13}}>
 <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10}}>
 <div style={{flex:1}}>
-{(r.cert_number||r.license_number)&&<div style={{fontWeight:700,color:"var(--ac)",marginBottom:2}}>{r.cert_number||r.license_number}</div>}
+{(r.cert_number||r.license_number)&&<div style={{fontWeight:700,color:"var(--ac)",marginBottom:2}}>{r.cert_number||r.license_number}{r.status&&srcDef.id==="attoff"&&<span style={{marginLeft:8,fontSize:10,padding:"2px 8px",borderRadius:4,background:r.status.toLowerCase().includes("прекращ")?"rgba(245,87,79,.2)":"rgba(245,166,35,.2)",color:r.status.toLowerCase().includes("прекращ")?"var(--rd)":"var(--or)"}}>{r.status}</span>}</div>}
 <div style={{color:"var(--tx)",marginBottom:4}}>{r.organization||r.person||"—"}</div>
 {(r.specialization||r.activity||r.authority)&&<div style={{fontSize:11,color:"var(--t2)",marginBottom:2}}>{[r.specialization,r.activity,r.authority].filter(Boolean).join(" · ")}</div>}
-{r.raw_cells&&<div style={{fontSize:11,color:"var(--t2)",fontStyle:"italic"}}>{r.raw_cells.slice(0,5).join(" | ")}</div>}
+{srcDef.id==="attoff"&&r.cancellation_reason&&(()=>{
+const dec=decodeAttoffReason(r.cancellation_reason);
+return <div style={{marginTop:6,padding:"8px 10px",background:dec&&dec.severity==="serious"?"rgba(245,87,79,.1)":"rgba(245,166,35,.1)",borderRadius:6,fontSize:11,borderLeft:"3px solid "+(dec&&dec.severity==="serious"?"var(--rd)":"var(--or)")}}>
+<div style={{fontWeight:600,color:dec&&dec.severity==="serious"?"var(--rd)":"var(--or)",marginBottom:2}}>📝 {dec?dec.title:"Основание: "+r.cancellation_reason}</div>
+{dec&&<div style={{color:"var(--tx)"}}>{dec.advice}</div>}
+{r.cancellation_url&&<div style={{marginTop:4}}><a href={r.cancellation_url} target="_blank" rel="noopener" style={{color:"var(--ac)",fontSize:10}}>→ Постановление: {r.cancellation_reason}</a></div>}
+</div>;
+})()}
+{r.raw_cells&&<div style={{fontSize:11,color:"var(--t2)",fontStyle:"italic",marginTop:4}}>{r.raw_cells.slice(0,5).join(" | ")}</div>}
 {r.raw_text&&!r.raw_cells&&<div style={{fontSize:11,color:"var(--t2)",fontStyle:"italic"}}>{r.raw_text}</div>}
 </div>
 {r.expiry_date&&<div style={{textAlign:"right",fontSize:11}}>
