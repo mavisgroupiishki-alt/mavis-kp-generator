@@ -1658,7 +1658,17 @@ return <div style={{marginTop:8}}>
 <div className="CT">🧩 Расширение Chrome</div>
 {extReady?<div>
 <div style={{padding:"12px 14px",background:"rgba(52,199,123,.12)",border:"1px solid var(--gn)",borderRadius:8,color:"var(--gn)",fontSize:13,marginBottom:10,fontWeight:600}}>✓ Расширение установлено и работает (версия {extVersion})</div>
-<p style={{fontSize:12,color:"var(--t2)",lineHeight:1.6}}>Расширение делает запросы к реестрам через ваш браузер — поэтому белорусские госсайты пропускают их без блокировок. Это бесплатно и работает на 6 реестрах одновременно.</p>
+<p style={{fontSize:12,color:"var(--t2)",lineHeight:1.6,marginBottom:10}}>Расширение делает запросы к реестрам через ваш браузер — поэтому белорусские госсайты пропускают их без блокировок. Это бесплатно и работает на 8 реестрах одновременно.</p>
+<div style={{padding:"10px 14px",background:"rgba(79,125,245,.10)",border:"1px solid var(--ac)",borderRadius:8,fontSize:12,color:"var(--tx)",lineHeight:1.6,marginBottom:10}}>
+<div style={{fontWeight:600,marginBottom:4,color:"var(--ac)"}}>💡 Рабочее окно для проверок</div>
+При первой проверке откроется отдельное окно Chrome — все вкладки реестров будут открываться там, не отвлекая вас. Перетащите окно в угол экрана / на второй монитор — и пользуйтесь.
+</div>
+<button className="B BS" style={{fontSize:12,padding:"6px 12px"}} onClick={async()=>{
+try{
+const r=await callExtension("CLOSE_WORK_WINDOW",{},5000);
+alert(r.message||"Готово");
+}catch(e){alert("Ошибка: "+e.message)}
+}}>🗙 Закрыть рабочее окно (если потерялось)</button>
 </div>:<div>
 <div style={{padding:"12px 14px",background:"rgba(245,166,35,.12)",border:"1px solid var(--or)",borderRadius:8,color:"var(--or)",fontSize:13,marginBottom:14,fontWeight:600}}>⚠ Расширение не обнаружено</div>
 <p style={{fontSize:13,color:"var(--tx)",lineHeight:1.6,marginBottom:14,fontWeight:600}}>Чтобы заработала автопроверка по реестрам, нужно установить расширение MAVIS Registry в Chrome:</p>
