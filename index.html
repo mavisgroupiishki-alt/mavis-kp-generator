@@ -15,6 +15,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
 <body>
 <div id="root"></div>
@@ -1103,6 +1104,247 @@ const w=window.open("","_blank");w.document.write("<pre>"+text.replace(/</g,"&lt
 });
 };
 
+// === Экспорт в PDF ===
+// Делаем print-friendly копию контента и используем window.print()
+// Это надёжнее чем jsPDF+html2canvas — даёт нативную кириллицу и быстрее
+const exportToPdf=()=>{
+const companyName=results.name||results.query||"Компания";
+const unp=results.unp||"";
+const reportDate=new Date().toLocaleString("ru-RU");
+// Цвета статусов
+const statusBg={found:"#34c77b22",expiring:"#f5a62322",expired:"#f5574f22",not_found:"#88888822",cancelled:"#f5574f22",clean:"#34c77b22",error:"#f5a62322",not_checked:"#88888822"};
+const statusColor={found:"#1e8e4a",expiring:"#b76f00",expired:"#a92e26",not_found:"#666",cancelled:"#a92e26",clean:"#1e8e4a",error:"#b76f00",not_checked:"#666"};
+const statusLabel={found:"Найдено",expiring:"Скоро истекает",expired:"Истёк",not_found:"Не найдено",cancelled:"Есть отменённые",clean:"Нет отменённых ✓",error:"Ошибка",not_checked:"—"};
+// HTML-страница для печати
+let html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Проверка реестров — ${companyName}</title>
+<style>
+@page{size:A4;margin:1.5cm}
+body{font-family:Arial,sans-serif;color:#222;font-size:11pt;line-height:1.4;margin:0;padding:0}
+h1{font-size:18pt;margin:0 0 4px 0;color:#1a3a5c}
+.meta{color:#666;font-size:10pt;margin-bottom:16px}
+.stats{display:flex;gap:12px;flex-wrap:wrap;margin:12px 0;padding:10px;background:#f8f8f8;border-radius:6px;font-size:10pt}
+.stat-item{padding:4px 10px;border-radius:4px;font-weight:600}
+table{width:100%;border-collapse:collapse;margin:10px 0;font-size:10pt}
+th{background:#1a3a5c;color:#fff;padding:8px;text-align:left;font-weight:600}
+td{padding:6px 8px;border-bottom:1px solid #ddd;vertical-align:top}
+tr:nth-child(even) td{background:#fafafa}
+.status-badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:9pt;font-weight:600}
+.doc-card{margin:8px 0;padding:8px 12px;background:#f6f6f6;border-left:3px solid #1a3a5c;border-radius:4px;page-break-inside:avoid}
+.doc-num{font-weight:bold;color:#1a3a5c}
+.doc-meta{font-size:9pt;color:#666;margin-top:2px}
+.doc-cancelled{border-left-color:#a92e26;background:#fff0ee}
+.doc-cancelled-reason{margin-top:6px;padding:6px 10px;background:#fff;border-radius:4px;font-size:9pt}
+.reason-serious{border-left:3px solid #a92e26}
+.reason-normal{border-left:3px solid #b76f00}
+.recommendations{margin-top:14px;padding:10px 14px;background:#e7f0fc;border-left:4px solid #1a3a5c;border-radius:4px}
+.recommendations h3{margin:0 0 6px 0;font-size:11pt;color:#1a3a5c}
+.recommendations ul{margin:0;padding-left:20px}
+.work-types{margin-top:6px;padding:6px 10px;background:#fff;border-radius:4px;font-size:9pt}
+.work-types-title{font-weight:600;color:#1a3a5c;margin-bottom:4px}
+.subdivisions{margin-top:6px;padding-top:6px;border-top:1px dashed #ccc}
+.section-title{font-size:13pt;font-weight:700;margin:18px 0 6px 0;color:#1a3a5c;padding-bottom:4px;border-bottom:2px solid #1a3a5c}
+.footer{margin-top:24px;padding-top:12px;border-top:1px solid #ccc;font-size:9pt;color:#666;text-align:center}
+.page-break{page-break-before:always}
+@media print{body{padding:0}}
+</style></head><body>
+<h1>Проверка реестров: ${companyName}</h1>
+<div class="meta">${unp?"УНП: "+unp+" · ":""}Дата проверки: ${reportDate}</div>
+<div class="stats">
+<span class="stat-item" style="background:${statusBg.found};color:${statusColor.found}">Найдено: ${stats.found}</span>
+<span class="stat-item" style="background:${statusBg.expiring};color:${statusColor.expiring}">Скоро истекает: ${stats.expiring}</span>
+<span class="stat-item" style="background:${statusBg.expired};color:${statusColor.expired}">Истёкших: ${stats.expired}</span>
+<span class="stat-item" style="background:${statusBg.not_found};color:${statusColor.not_found}">Не найдено: ${stats.notFound}</span>
+${stats.cancelled?`<span class="stat-item" style="background:${statusBg.cancelled};color:${statusColor.cancelled}">Отменённых: ${stats.cancelled}</span>`:""}
+${stats.errors?`<span class="stat-item" style="background:${statusBg.error};color:${statusColor.error}">Ошибок: ${stats.errors}</span>`:""}
+</div>`;
+// Рекомендации
+if(allRecommendations.length>0){
+html+=`<div class="recommendations"><h3>💡 Что можно предложить клиенту:</h3><ul>`;
+allRecommendations.forEach(r=>{
+html+=`<li><b>${r.src}</b> — ${r.text}${r.expiry?" "+r.expiry:""}</li>`;
+});
+html+=`</ul></div>`;
+}
+// Сводная таблица
+html+=`<div class="section-title">Сводная таблица</div>
+<table><thead><tr><th>Реестр</th><th>Статус</th><th>Документ</th><th>Срок действия</th><th>Что предложить</th></tr></thead><tbody>`;
+REG_SOURCES.forEach(srcDef=>{
+const r=perRegistry[srcDef.id];if(!r)return;
+const lbl=statusLabel[r.status]||"—";
+const bg=statusBg[r.status]||"#f0f0f0";
+const cl=statusColor[r.status]||"#666";
+const firstDoc=r.docs[0];
+const docTxt=firstDoc?`№ ${firstDoc.cert_number||firstDoc.license_number||"?"}${r.docs.length>1?" и ещё "+(r.docs.length-1):""}`:"—";
+const dateTxt=firstDoc?.expiry_date||"—";
+const rec=r.recommendation==="—"?"—":r.recommendation;
+const fromOld=srcDef.id==="spk2"&&r.data?._from_old?' <span style="font-size:8pt;color:#b76f00">📋→</span>':"";
+html+=`<tr><td>${srcDef.label}${fromOld}</td><td><span class="status-badge" style="background:${bg};color:${cl}">${lbl}</span></td><td style="font-size:9pt">${docTxt}</td><td style="font-size:9pt;color:${cl}">${dateTxt}${srcDef.id==="osp"&&firstDoc?.expiry_date?'<br><span style="font-size:8pt;color:#666">след. периодика</span>':""}</td><td style="font-size:9pt;color:#1a3a5c">${rec}</td></tr>`;
+});
+html+=`</tbody></table>`;
+// Детали по каждому реестру
+html+=`<div class="section-title">Детали по реестрам</div>`;
+REG_SOURCES.forEach(srcDef=>{
+const r=perRegistry[srcDef.id];if(!r||r.docs.length===0)return;
+html+=`<div style="margin:14px 0 6px 0;font-weight:600;font-size:11pt;color:#1a3a5c">${srcDef.label}</div>`;
+r.docs.forEach(d=>{
+const isCancelled=srcDef.id==="attoff";
+html+=`<div class="doc-card${isCancelled?' doc-cancelled':''}">
+<div><span class="doc-num">${d.cert_number||d.license_number||"—"}</span>${d.status&&srcDef.id==="attoff"?` <span style="font-size:9pt;color:${statusColor.cancelled};padding:1px 6px;background:${statusBg.cancelled};border-radius:3px">${d.status}</span>`:""}</div>
+<div>${d.organization||d.person||"—"}</div>`;
+if(d.activity||d.specialization)html+=`<div class="doc-meta">${d.activity||d.specialization}</div>`;
+if(srcDef.id==="osp"){
+if(d.last_check_date)html+=`<div class="doc-meta">Последняя оценка: <b>${d.last_check_date}</b></div>`;
+if(d.expiry_date)html+=`<div class="doc-meta">След. периодика (+18 мес): <b>${d.expiry_date}</b></div>`;
+}else if(d.expiry_date)html+=`<div class="doc-meta">Действителен до: <b>${d.expiry_date}</b></div>`;
+// Расшифровка отменённых
+if(isCancelled&&d.cancellation_reason){
+const dec=decodeAttoffReason(d.cancellation_reason);
+if(dec){
+html+=`<div class="doc-cancelled-reason ${dec.severity==="serious"?"reason-serious":"reason-normal"}">
+<div style="font-weight:600">📝 ${dec.title}</div>
+<div>${dec.advice}</div>
+</div>`;
+}else{
+html+=`<div class="doc-cancelled-reason reason-normal">Основание: ${d.cancellation_reason}</div>`;
+}
+}
+// Виды работ для аттестатов
+if(srcDef.id==="att"&&d.work_types&&d.work_types.length>0){
+html+=`<div class="work-types"><div class="work-types-title">📋 Виды работ (${d.work_types.length}):</div>`;
+d.work_types.forEach(wt=>{
+html+=`<div>${wt.number}. ${wt.description}</div>`;
+});
+// Подразделения (один раз на первом аттестате)
+if(d.subdivisions&&d.subdivisions.length>0){
+html+=`<div class="subdivisions"><div class="work-types-title">🏢 Обособленные подразделения:</div>`;
+d.subdivisions.forEach(sub=>{
+html+=`<div><b>${sub.name}</b><br><span style="color:#666">${sub.address}</span></div>`;
+});
+html+=`</div>`;
+}
+html+=`</div>`;
+}
+html+=`</div>`;
+});
+});
+html+=`<div class="footer">Сформировано MAVIS GROUP — ${reportDate}<br>тел. 80 (44) 721 42 15 · mavis.group@mail.ru</div>
+</body></html>`;
+// Открываем во новой вкладке и вызываем print()
+const w=window.open("","_blank","width=900,height=700");
+if(!w){alert("Браузер заблокировал открытие окна. Разрешите popups для этого сайта.");return}
+w.document.write(html);
+w.document.close();
+// Ждём пока загрузится, потом открываем диалог печати
+setTimeout(()=>{
+w.focus();
+w.print();
+// Не закрываем окно — пусть пользователь сам решит
+},500);
+};
+
+// === Экспорт в Excel ===
+const exportToExcel=()=>{
+const companyName=results.name||results.query||"Компания";
+const unp=results.unp||"";
+const reportDate=new Date().toLocaleString("ru-RU");
+const statusLabel={found:"Найдено",expiring:"Скоро истекает",expired:"Истёк",not_found:"Не найдено",cancelled:"Есть отменённые",clean:"Нет отменённых",error:"Ошибка",not_checked:"Не проверено"};
+
+if(!window.XLSX){alert("Библиотека Excel не загрузилась. Перезагрузите страницу.");return}
+const wb=window.XLSX.utils.book_new();
+
+// Лист 1: Сводка
+const summary=[];
+summary.push(["Проверка реестров: "+companyName]);
+if(unp)summary.push(["УНП: "+unp]);
+summary.push(["Дата проверки: "+reportDate]);
+summary.push([]);
+summary.push(["ИТОГО:",
+"Найдено: "+stats.found,
+"Скоро истекает: "+stats.expiring,
+"Истёкших: "+stats.expired,
+"Не найдено: "+stats.notFound,
+"Отменённых: "+(stats.cancelled||0),
+"Ошибок: "+stats.errors]);
+summary.push([]);
+summary.push(["Реестр","Статус","Документ","Срок действия","Что предложить"]);
+REG_SOURCES.forEach(srcDef=>{
+const r=perRegistry[srcDef.id];if(!r)return;
+const lbl=(statusLabel[r.status]||"—")+(srcDef.id==="spk2"&&r.data?._from_old?" [из СПК старого]":"");
+const firstDoc=r.docs[0];
+const docTxt=firstDoc?`№ ${firstDoc.cert_number||firstDoc.license_number||"?"}${r.docs.length>1?" и ещё "+(r.docs.length-1):""}`:"—";
+const dateTxt=(firstDoc?.expiry_date||"—")+(srcDef.id==="osp"&&firstDoc?.expiry_date?" (след. периодика)":"");
+const rec=r.recommendation==="—"?"":r.recommendation;
+summary.push([srcDef.label,lbl,docTxt,dateTxt,rec]);
+});
+summary.push([]);
+if(allRecommendations.length>0){
+summary.push(["Что предложить клиенту:"]);
+allRecommendations.forEach(r=>{
+summary.push(["",`${r.src} — ${r.text}${r.expiry||""}`]);
+});
+}
+const ws1=window.XLSX.utils.aoa_to_sheet(summary);
+// Ширина колонок
+ws1["!cols"]=[{wch:30},{wch:22},{wch:35},{wch:24},{wch:35}];
+window.XLSX.utils.book_append_sheet(wb,ws1,"Сводка");
+
+// Лист 2: Все документы
+const docs=[];
+docs.push(["Реестр","№ документа","Организация","Категория/Вид","Статус","Дата выдачи","Срок действия / Дата прекращения","Последняя оценка (ОСП)","След. периодика (ОСП)","Основание прекращения","Расшифровка"]);
+REG_SOURCES.forEach(srcDef=>{
+const r=perRegistry[srcDef.id];if(!r||r.docs.length===0)return;
+r.docs.forEach(d=>{
+let decoded="";
+if(srcDef.id==="attoff"&&d.cancellation_reason){
+const dec=decodeAttoffReason(d.cancellation_reason);
+if(dec)decoded=dec.title+" — "+dec.advice;
+}
+docs.push([
+srcDef.label,
+d.cert_number||d.license_number||"",
+d.organization||d.person||"",
+d.activity||d.specialization||"",
+d.status||"",
+d.issue_date||"",
+d.expiry_date||"",
+srcDef.id==="osp"?(d.last_check_date||""):"",
+srcDef.id==="osp"?(d.expiry_date||""):"",
+d.cancellation_reason||"",
+decoded
+]);
+});
+});
+const ws2=window.XLSX.utils.aoa_to_sheet(docs);
+ws2["!cols"]=[{wch:24},{wch:20},{wch:40},{wch:25},{wch:14},{wch:13},{wch:18},{wch:18},{wch:18},{wch:30},{wch:45}];
+window.XLSX.utils.book_append_sheet(wb,ws2,"Все документы");
+
+// Лист 3: Виды работ (только для действующих аттестатов)
+const wt=[];
+wt.push(["№ Аттестата","№ Работы","Описание"]);
+REG_SOURCES.forEach(srcDef=>{
+if(srcDef.id!=="att")return;
+const r=perRegistry[srcDef.id];if(!r||r.docs.length===0)return;
+r.docs.forEach(d=>{
+if(d.work_types&&d.work_types.length>0){
+d.work_types.forEach(w=>{
+wt.push([d.cert_number||"?",w.number,w.description]);
+});
+}
+});
+});
+if(wt.length>1){
+const ws3=window.XLSX.utils.aoa_to_sheet(wt);
+ws3["!cols"]=[{wch:18},{wch:10},{wch:80}];
+window.XLSX.utils.book_append_sheet(wb,ws3,"Виды работ");
+}
+
+// Имя файла
+const safe=companyName.replace(/[^a-zа-я0-9\s_-]/gi,"").replace(/\s+/g,"_").slice(0,40);
+const today=new Date().toISOString().slice(0,10);
+const fileName=`Проверка_${safe}_${today}.xlsx`;
+window.XLSX.writeFile(wb,fileName);
+};
+
 const allRecommendations=Object.entries(perRegistry).filter(([_,r])=>r.recommendation&&r.recommendation!=="—").map(([sid,r])=>{
 const sDef=REG_SOURCES.find(x=>x.id===sid);
 const expiryInfo=r.docs[0]?.expiry_date?` (${r.docs[0].expiry_date})`:"";
@@ -1122,6 +1364,8 @@ return<>
 <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
 <button className="B BS" style={{fontSize:12,padding:"6px 12px"}} onClick={copyText}>📋 Копировать</button>
 <button className="B BS" style={{fontSize:12,padding:"6px 12px"}} onClick={copyClientText}>📋 Для клиента</button>
+<button className="B BS" style={{fontSize:12,padding:"6px 12px"}} onClick={exportToPdf}>📄 PDF</button>
+<button className="B BS" style={{fontSize:12,padding:"6px 12px"}} onClick={exportToExcel}>📊 Excel</button>
 <button className="B BS" style={{fontSize:12,padding:"6px 12px"}} onClick={()=>{setResults(null);setQ("");setUnp("")}}>↻ Заново</button>
 </div>
 </div>
