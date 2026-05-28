@@ -629,9 +629,38 @@ const toggleWork=(key)=>{setExpandedWork(prev=>{const ns=new Set(prev);if(ns.has
 // Состояние расширения
 const[extReady,setExtReady]=useState(false);
 const[extVersion,setExtVersion]=useState(null);
-// Фильтр: какие источники показывать в результатах (по умолчанию все кроме spec — он отдельный режим)
-const[enabledSrc,setEnabledSrc]=useState(()=>{try{const s=localStorage.getItem("mavis_reg_enabled");return s?JSON.parse(s):REG_SOURCES.filter(s=>s.id!=="spec").map(s=>s.id);}catch(e){return REG_SOURCES.filter(s=>s.id!=="spec").map(s=>s.id);}});
+// === Профили проверки реестров (по скорости) ===
+// quick — самые быстрые (без SPA, без лицензий), 5 реестров, ~5-10 сек
+// standard — без ISO/Серты металл, но с лицензиями (6 реестров), ~15-20 сек
+// full — все 8 реестров, ~25-30 сек
+// custom — пользователь сам выбирает галочками
+const PROFILES={
+quick:{label:"🚀 Быстрая",time:"5-10 сек",sources:["spk","spk2","att","attoff","osp"]},
+standard:{label:"🔍 Стандартная",time:"15-20 сек",sources:["spk","spk2","att","attoff","osp","lic"]},
+full:{label:"🔎 Полная",time:"25-30 сек",sources:["spk","spk2","att","attoff","iso","metal","osp","lic"]},
+};
+const[selectedProfile,setSelectedProfile]=useState(()=>{try{return localStorage.getItem("mavis_profile")||"standard"}catch(e){return "standard"}});
+const[showCustomChecks,setShowCustomChecks]=useState(false);
+React.useEffect(()=>{try{localStorage.setItem("mavis_profile",selectedProfile)}catch(e){}},[selectedProfile]);
+
+// Фильтр: какие источники показывать в результатах (по умолчанию — из профиля)
+const[enabledSrc,setEnabledSrc]=useState(()=>{
+try{
+const s=localStorage.getItem("mavis_reg_enabled");
+if(s){return JSON.parse(s)}
+}catch(e){}
+// По умолчанию — стандартный профиль
+return PROFILES.standard.sources;
+});
 React.useEffect(()=>{try{localStorage.setItem("mavis_reg_enabled",JSON.stringify(enabledSrc))}catch(e){}},[enabledSrc]);
+// При смене профиля (не "custom") — синхронизируем enabledSrc с источниками профиля
+const applyProfile=(profileKey)=>{
+setSelectedProfile(profileKey);
+if(profileKey!=="custom"&&PROFILES[profileKey]){
+setEnabledSrc([...PROFILES[profileKey].sources]);
+setShowCustomChecks(false);
+}
+};
 React.useEffect(()=>{
 if(searchMode==="person"&&!enabledSrc.includes("spec")){setEnabledSrc(p=>[...p,"spec"])}
 if(searchMode==="company"&&enabledSrc.length===0){setEnabledSrc(REG_SOURCES.filter(s=>s.id!=="spec").map(s=>s.id))}
@@ -643,10 +672,13 @@ if(searchMode==="company"&&enabledSrc.length===0){setEnabledSrc(REG_SOURCES.filt
 // SPK, OSP, ATT, SPEC, ISO. Лицензии (lic) — через расширение Chrome (SPA с reCAPTCHA)
 // По ТЗ — все реестры проверяются «в моменте» через расширение.
 // Локальные источники — данные подгружаются из data/<source>.json в репо.
-// Это даёт моментальный поиск без открытия вкладок. База обновляется через GitHub Actions.
-// Если локальной базы нет (файл не загружен) — приложение автоматически делает fallback на расширение.
-// Сейчас локально работают: ОСП, СПК старый, СПК новый, Аттестаты юр.лиц, Отменённые аттестаты
-const LOCAL_SOURCES=["osp","spk","spk2","att","attoff"];
+// Это даёт моментальный поиск без открытия вкладок.
+// 
+// ВАЖНО: белорусские госсайты блокируют GitHub IP, поэтому автоматическое обновление через
+// GitHub Actions работает только для spk2 (spk.bsc.by — он на другом сервере).
+// Остальные локальные базы (osp.json) были собраны раньше и обновляются ВРУЧНУЮ через расширение
+// (кнопка "Обновить базу" в настройках) — расширение парсит из браузера менеджера (его IP белорусский).
+const LOCAL_SOURCES=["spk2","osp"];
 const[localDb,setLocalDb]=useState(()=>{try{const s=localStorage.getItem("mavis_local_db");if(s){const d=JSON.parse(s);const empty={};LOCAL_SOURCES.forEach(k=>empty[k]=d[k]||null);return empty}}catch(e){}const e={};LOCAL_SOURCES.forEach(k=>e[k]=null);return e});
 const[dbLoading,setDbLoading]=useState(false);
 const[dbErr,setDbErr]=useState("");
@@ -859,8 +891,9 @@ try{
 // По ТЗ: всегда проверяем все 6 источников (включая spec) — это «проверка компании»
 // По ТЗ — 8 реестров для проверки компании:
 // СПК старый, СПК новый, Аттестаты юр.лиц, Аттестаты отменённые, ISO, Серты металл, ОСП, Лицензии
-const sourcesAll=["spk","spk2","att","attoff","iso","metal","osp","lic"];
-if(sourcesAll.length===0){setErr("Выберите хотя бы один реестр в фильтре");setLoading(false);return}
+// Используем выбранный профиль / галочки
+const sourcesAll=enabledSrc.filter(s=>s!=="spec"); // spec — отдельный режим
+if(sourcesAll.length===0){setErr("Выберите хотя бы один реестр для проверки");setLoading(false);return}
 
 // Разделяем: какие источники есть в локальной базе, какие нужно искать через расширение
 const localSources=sourcesAll.filter(s=>LOCAL_SOURCES.includes(s)&&localDb[s]&&localDb[s].records);
@@ -996,7 +1029,40 @@ return(<><style>{CSS}</style>
 <button className="B BP" onClick={search} disabled={loading||(!q.trim()&&!unp.trim())} style={{padding:"10px 24px",fontSize:14}}>{loading?"⏳ Проверка...":"Проверить"}</button>
 </div>
 {err&&<div style={{marginTop:12,padding:"10px 14px",background:"rgba(245,87,79,.12)",border:"1px solid var(--rd)",borderRadius:8,color:"var(--rd)",fontSize:13}}>{err}</div>}
-<p style={{fontSize:12,color:"var(--t2)",marginTop:6}}>Заполните хотя бы одно поле — УНП или название. Проверка по 8 реестрам параллельно, занимает 30-90 секунд.</p>
+
+{/* === Выбор профиля проверки === */}
+<div style={{marginTop:12,padding:"10px 12px",background:"var(--s2)",borderRadius:8,border:"1px solid var(--bd)"}}>
+<div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
+<span style={{fontSize:12,color:"var(--t2)",fontWeight:600,marginRight:4}}>Какие реестры проверить:</span>
+{Object.keys(PROFILES).map(key=>{
+const p=PROFILES[key];
+const isActive=selectedProfile===key&&!showCustomChecks;
+return <button key={key} className={"B "+(isActive?"BP":"BS")} style={{fontSize:12,padding:"5px 12px"}} onClick={()=>applyProfile(key)}>
+{p.label} <span style={{opacity:.7,fontSize:11}}>{p.time}</span>
+</button>;
+})}
+<button className={"B "+(showCustomChecks?"BP":"BS")} style={{fontSize:12,padding:"5px 12px"}} onClick={()=>{setShowCustomChecks(v=>!v);setSelectedProfile("custom")}}>
+⚙ Свой набор {showCustomChecks?"▲":"▾"}
+</button>
+</div>
+{showCustomChecks&&<div style={{marginTop:10,paddingTop:10,borderTop:"1px solid var(--bd)",display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:6}}>
+{REG_SOURCES.filter(s=>s.id!=="spec").map(s=>{
+const checked=enabledSrc.includes(s.id);
+const isSlow=["iso","metal","lic"].includes(s.id);
+return <label key={s.id} style={{display:"flex",alignItems:"center",gap:6,padding:"4px 6px",borderRadius:4,cursor:"pointer",fontSize:12,background:checked?"rgba(79,125,245,.08)":"transparent"}}>
+<input type="checkbox" checked={checked} onChange={()=>{
+setEnabledSrc(p=>checked?p.filter(x=>x!==s.id):[...p,s.id]);
+}} />
+<span>{s.label}{isSlow&&<span style={{color:"var(--or)",fontSize:10,marginLeft:4}}>медленно</span>}</span>
+</label>;
+})}
+</div>}
+<div style={{marginTop:8,fontSize:11,color:"var(--t2)"}}>
+Выбрано: <b style={{color:"var(--tx)"}}>{enabledSrc.filter(s=>s!=="spec").length}</b> реестров. Профиль и выбор запоминаются.
+</div>
+</div>
+
+<p style={{fontSize:12,color:"var(--t2)",marginTop:8}}>Заполните хотя бы одно поле — УНП или название. Проверка идёт параллельно по выбранным реестрам.</p>
 </div>
 
 {results&&(()=>{
