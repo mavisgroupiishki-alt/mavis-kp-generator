@@ -642,11 +642,11 @@ if(searchMode==="company"&&enabledSrc.length===0){setEnabledSrc(REG_SOURCES.filt
 // 5 реестров обновляются автоматически раз в сутки через GitHub Actions:
 // SPK, OSP, ATT, SPEC, ISO. Лицензии (lic) — через расширение Chrome (SPA с reCAPTCHA)
 // По ТЗ — все реестры проверяются «в моменте» через расширение.
-// Локальная база — только для ОСП (она обновляется автоматически через GitHub Actions).
 // Локальные источники — данные подгружаются из data/<source>.json в репо.
 // Это даёт моментальный поиск без открытия вкладок. База обновляется через GitHub Actions.
 // Если локальной базы нет (файл не загружен) — приложение автоматически делает fallback на расширение.
-const LOCAL_SOURCES=["osp"];
+// Сейчас локально работают: ОСП, СПК старый, СПК новый, Аттестаты юр.лиц, Отменённые аттестаты
+const LOCAL_SOURCES=["osp","spk","spk2","att","attoff"];
 const[localDb,setLocalDb]=useState(()=>{try{const s=localStorage.getItem("mavis_local_db");if(s){const d=JSON.parse(s);const empty={};LOCAL_SOURCES.forEach(k=>empty[k]=d[k]||null);return empty}}catch(e){}const e={};LOCAL_SOURCES.forEach(k=>e[k]=null);return e});
 const[dbLoading,setDbLoading]=useState(false);
 const[dbErr,setDbErr]=useState("");
