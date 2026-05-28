@@ -31,8 +31,12 @@ jobs:
           pip install --upgrade pip
           pip install -r scripts/requirements.txt
 
-      - name: Парсинг СПК (bsc.by)
+      - name: Парсинг СПК старый (bsc.by)
         run: python scripts/parse_spk.py
+        continue-on-error: true
+
+      - name: Парсинг СПК новый (spk.bsc.by)
+        run: python scripts/parse_spk2.py
         continue-on-error: true
 
       - name: Парсинг ОСП (stn.by)
@@ -41,6 +45,10 @@ jobs:
 
       - name: Парсинг Аттестатов юр.лиц (att.bsc.by)
         run: python scripts/parse_att.py
+        continue-on-error: true
+
+      - name: Парсинг ОТМЕНЁННЫХ Аттестатов (att.bsc.by/reestrnone)
+        run: python scripts/parse_attoff.py
         continue-on-error: true
 
       - name: Парсинг Аттестатов специалистов (rcuk.bsc.by)
@@ -74,6 +82,17 @@ jobs:
             echo "Нет изменений для коммита"
           else
             git commit -m "Auto-update registries: $(date -u +'%Y-%m-%d %H:%M UTC')"
-            git push
-            echo "✓ Изменения закоммичены"
+            # Пробуем запушить с несколькими попытками — если за время работы
+            # workflow в репо появились новые коммиты, делаем rebase и пробуем снова
+            for i in 1 2 3 4 5; do
+              if git push; then
+                echo "✓ Изменения закоммичены с попытки $i"
+                exit 0
+              fi
+              echo "Попытка $i не удалась, делаем git pull --rebase и пробуем снова..."
+              git pull --rebase origin main || git pull --rebase origin master || true
+              sleep 2
+            done
+            echo "✗ Не удалось запушить за 5 попыток"
+            exit 1
           fi
