@@ -2,8 +2,8 @@
   "source": "osp",
   "source_name": "ОСП (Орган сварочного производства)",
   "url": "https://stn.by/services/welding/welding_list",
-  "updated_at": "2026-06-29T04:24:39.941333+00:00",
-  "count": 472,
+  "updated_at": "2026-06-30T04:07:00.421244+00:00",
+  "count": 473,
   "records": [
     {
       "cert_number": "12-08-05/003",
@@ -3772,6 +3772,14 @@
       "last_check_date": "2026-06-22",
       "expiry_date": "2027-12-22",
       "activity": "заводские условия (111, 135 процессы сварки)"
+    },
+    {
+      "cert_number": "12-08-05/755",
+      "organization": "ООО \"АМИС-Техно\"",
+      "issue_date": "2026-06-26",
+      "last_check_date": "2026-06-26",
+      "expiry_date": "2027-12-26",
+      "activity": "стройплощадка ( 111 процесс )"
     },
     {
       "cert_number": "от 30.11.-0001",
