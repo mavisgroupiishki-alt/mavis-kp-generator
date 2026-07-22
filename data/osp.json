@@ -2,7 +2,7 @@
   "source": "osp",
   "source_name": "ОСП (Орган сварочного производства)",
   "url": "https://stn.by/services/welding/welding_list",
-  "updated_at": "2026-07-21T03:17:58.228895+00:00",
+  "updated_at": "2026-07-22T03:01:03.144083+00:00",
   "count": 477,
   "records": [
     {
@@ -840,9 +840,9 @@
     {
       "cert_number": "12-08-05/226",
       "organization": "ООО \"Випметстрой\"",
-      "issue_date": "2025-12-15",
-      "last_check_date": "2025-12-15",
-      "expiry_date": "2027-06-15",
+      "issue_date": "2024-12-15",
+      "last_check_date": "2024-12-15",
+      "expiry_date": "2026-06-15",
       "activity": "заводские условия (135 процесс сварки)"
     },
     {
