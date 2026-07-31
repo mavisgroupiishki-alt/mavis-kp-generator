@@ -1,0 +1,65 @@
+{
+  "spk": {
+    "name": "СПК старый",
+    "url": "https://bsc.by/ru/building/ip",
+    "output": "data/spk.json",
+    "parser": "scripts/parse_spk.py",
+    "min_count": 500
+  },
+  "spk2": {
+    "name": "СПК новый",
+    "url": "https://spk.bsc.by/cert_register",
+    "output": "data/spk2.json",
+    "parser": "scripts/parse_spk2.py",
+    "min_count": 500
+  },
+  "att": {
+    "name": "Аттестаты соответствия юридических лиц",
+    "url": "https://att.bsc.by/reestr",
+    "output": "data/att.json",
+    "parser": "scripts/parse_att.py",
+    "min_count": 500
+  },
+  "attoff": {
+    "name": "Отменённые и прекращённые аттестаты",
+    "url": "https://att.bsc.by/reestrnone",
+    "output": "data/attoff.json",
+    "parser": "scripts/parse_attoff.py",
+    "min_count": 25
+  },
+  "iso": {
+    "name": "ISO / СУОТ",
+    "url": "https://tsouz.belgiss.by/#!/certsm/certifs",
+    "output": "data/iso.json",
+    "parser": "scripts/parse_iso.py",
+    "min_count": 100
+  },
+  "metal": {
+    "name": "Сертификаты на металлопродукцию",
+    "url": "https://tsouz.belgiss.by/#!/certdecl/certifs?DocId=",
+    "output": "data/metal.json",
+    "parser": null,
+    "min_count": 100
+  },
+  "osp": {
+    "name": "Освидетельствование сварочного производства",
+    "url": "https://stn.by/services/welding/welding_list",
+    "output": "data/osp.json",
+    "parser": "scripts/parse_osp.py",
+    "min_count": 100
+  },
+  "lic": {
+    "name": "Единый реестр лицензий Республики Беларусь",
+    "url": "https://license.gov.by/",
+    "output": "data/lic.json",
+    "parser": null,
+    "min_count": 100
+  },
+  "spec": {
+    "name": "Квалификационные аттестаты специалистов",
+    "url": "https://rcuk.bsc.by/att_search",
+    "output": "data/spec.json",
+    "parser": "scripts/parse_spec.py",
+    "min_count": 500
+  }
+}

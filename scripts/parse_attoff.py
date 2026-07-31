@@ -92,11 +92,11 @@ def parse_page(html):
         # Номер аттестата — ищем по формату
         cert_number = None
         for c in cells:
-            m = re.search(r"BY[\/\s][\d\s\.\/-]{5,}", c)
+            m = re.search(r"(?:BY[\/\s]*)?\d{5,}(?:[-\/.][\dА-ЯA-Z]+)+", c, re.IGNORECASE)
             if m:
                 cert_number = m.group(0).strip()
                 break
-            m2 = re.match(r"^\d{4,}[\d\-/]+$", c.strip())
+            m2 = re.match(r"^\d{5,}(?:[-\/.][\dА-ЯA-Z]+)+$", c.strip(), re.IGNORECASE)
             if m2 and len(c.strip()) >= 8:
                 cert_number = c.strip()
                 break
@@ -203,6 +203,9 @@ def main():
         time.sleep(PAUSE_BETWEEN_PAGES)
 
     print(f"[ATTOFF] Распарсено записей: {len(all_records)}")
+
+    if not all_records:
+        raise RuntimeError("Не найдено ни одного отменённого аттестата; рабочий файл не перезаписан")
 
     out = {
         "source": "attoff",

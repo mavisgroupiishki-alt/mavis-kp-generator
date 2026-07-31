@@ -146,18 +146,8 @@ def main():
         print("  - Изменилась схема API")
         print("  - Сайт блокирует GitHub IP")
         print("  - Нужна авторизация / cookies")
-        # Сохраняем пустой файл с error чтобы это было видно в data/
-        out = {
-            "source": "iso",
-            "source_name": "ISO / СУОТ (Госстандарт)",
-            "url": BASE + "/#!/certsm/certifs",
-            "updated_at": datetime.now(timezone.utc).isoformat(),
-            "count": 0,
-            "error": "API endpoint не найден. Возможно нужно использовать расширение Chrome.",
-            "records": [],
-        }
-        OUT_FILE.parent.mkdir(parents=True, exist_ok=True)
-        OUT_FILE.write_text(json.dumps(out, ensure_ascii=False, indent=2), encoding="utf-8")
+        # Нельзя затирать последнюю рабочую базу пустым результатом.
+        # run_weekly.py сохранит ошибку в status/logs и оставит предыдущий JSON.
         sys.exit(1)
 
     records = normalize_records(result["data"])

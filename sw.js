@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mavis-kp-v2';
+const CACHE_NAME = 'mavis-kp-v3';
 const STATIC = [
   'https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&family=Playfair+Display:wght@400;500;600;700&display=swap',
   'https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js',
@@ -21,6 +21,12 @@ self.addEventListener('activate', e => {
 self.addEventListener('fetch', e => {
   // Never cache API calls
   if (e.request.url.includes('bitrix24') || e.request.url.includes('crm.')) return;
+
+  // Registry snapshots must always come from the network; do not keep stale JSON.
+  if (e.request.url.includes('/data/') && e.request.url.includes('.json')) {
+    e.respondWith(fetch(e.request, { cache: 'no-store' }));
+    return;
+  }
 
   // HTML files: network first, fallback to cache
   if (e.request.mode === 'navigate' || e.request.url.endsWith('.html') || e.request.url.endsWith('/')) {

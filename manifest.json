@@ -1,7 +1,7 @@
 {
-  "name": "MAVIS GROUP — КП Генератор",
-  "short_name": "MAVIS КП",
-  "description": "Генератор коммерческих предложений MAVIS GROUP",
+  "name": "MAVIS GROUP — Рабочий инструмент",
+  "short_name": "MAVIS",
+  "description": "Проверка реестров и генератор коммерческих предложений MAVIS GROUP",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",

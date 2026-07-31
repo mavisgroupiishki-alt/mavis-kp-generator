@@ -189,169 +189,18 @@ return <div style={{fontSize:12,color:"var(--tx)"}}>
 </div>
 }
 
-// === Компонент: настройки GitHub-токена ===
-function DbSettings({extReady,callExtension}){
-const[token,setToken]=useState("");
-const[owner,setOwner]=useState("mavisgroupiishki-alt");
-const[repo,setRepo]=useState("mavis-kp-generator");
-const[branch,setBranch]=useState("main");
-const[hasToken,setHasToken]=useState(false);
-const[maskedToken,setMaskedToken]=useState("");
-const[saved,setSaved]=useState(false);
-const[err,setErr]=useState("");
-
-React.useEffect(()=>{
-if(!extReady)return;
-callExtension("GET_SETTINGS",{},5000).then(s=>{
-setOwner(s.owner||"mavisgroupiishki-alt");
-setRepo(s.repo||"mavis-kp-generator");
-setBranch(s.branch||"main");
-setHasToken(!!s.has_token);
-setMaskedToken(s.token||"");
-}).catch(e=>setErr(e.message));
-// eslint-disable-next-line
-},[extReady]);
-
-const save=async()=>{
-setErr("");setSaved(false);
-try{
-await callExtension("SET_SETTINGS",{settings:{token,owner,repo,branch}},5000);
-setSaved(true);setToken("");
-const s=await callExtension("GET_SETTINGS",{},5000);
-setHasToken(!!s.has_token);setMaskedToken(s.token||"");
-setTimeout(()=>setSaved(false),3000);
-}catch(e){setErr(e.message)}
-};
-
-return <div>
-<p style={{fontSize:12,color:"var(--t2)",lineHeight:1.6,marginBottom:12}}>Для загрузки обновлённой базы в репозиторий нужен <strong>Personal Access Token</strong> от GitHub. Это разовая настройка.</p>
-<details style={{marginBottom:14,fontSize:12,color:"var(--t2)"}}>
-<summary style={{cursor:"pointer",color:"var(--ac)",fontWeight:600,marginBottom:8}}>📖 Как получить токен (3 минуты)</summary>
-<ol style={{paddingLeft:22,lineHeight:1.8,marginTop:8}}>
-<li>Откройте <a href="https://github.com/settings/tokens?type=beta" target="_blank" style={{color:"var(--ac)"}}>github.com/settings/tokens (Fine-grained tokens)</a></li>
-<li>Нажмите <strong>«Generate new token»</strong></li>
-<li><strong>Token name:</strong> например «MAVIS Registry»</li>
-<li><strong>Expiration:</strong> выберите 1 год (потом обновите)</li>
-<li><strong>Repository access:</strong> Only select repositories → выберите <code>{owner}/{repo}</code></li>
-<li><strong>Permissions:</strong> раскройте «Repository permissions» → <code>Contents</code> = <strong>Read and write</strong></li>
-<li>Внизу нажмите <strong>«Generate token»</strong></li>
-<li><strong>Скопируйте</strong> токен (он начинается с <code>github_pat_...</code>) — он показывается только один раз!</li>
-<li>Вставьте его в поле ниже и нажмите «Сохранить»</li>
-</ol>
-</details>
-
-<div style={{display:"flex",gap:8,marginBottom:10,alignItems:"center"}}>
-<input className="FI" style={{flex:1}} placeholder="ghp_... или github_pat_..." type="password" value={token} onChange={e=>setToken(e.target.value)} />
-{hasToken&&!token&&<span style={{fontSize:11,color:"var(--gn)"}}>✓ {maskedToken}</span>}
-</div>
-<div style={{display:"flex",gap:8,marginBottom:10}}>
-<input className="FI" style={{flex:1}} placeholder="Владелец репо" value={owner} onChange={e=>setOwner(e.target.value)} />
-<input className="FI" style={{flex:1}} placeholder="Название репо" value={repo} onChange={e=>setRepo(e.target.value)} />
-<input className="FI" style={{width:90}} placeholder="branch" value={branch} onChange={e=>setBranch(e.target.value)} />
-</div>
-<div style={{display:"flex",gap:10,alignItems:"center"}}>
-<button className="B BP" onClick={save}>💾 Сохранить</button>
-{saved&&<span style={{fontSize:12,color:"var(--gn)",fontWeight:600}}>✓ Сохранено</span>}
-{err&&<span style={{fontSize:12,color:"var(--rd)"}}>{err}</span>}
-</div>
-</div>;
-}
-
-// === Компонент: обновление баз реестров ===
-function DbUpdateBlock({extReady,callExtension,localDb,loadLocalDb}){
-const[status,setStatus]=useState(null);
-const[running,setRunning]=useState(null); // source id или null
-const[lastErr,setLastErr]=useState("");
-const[lastOk,setLastOk]=useState("");
-const[debugLogs,setDebugLogs]=useState({});
-
-const refreshStatus=async()=>{
-try{const s=await callExtension("DB_STATUS",{},5000);setStatus(s);if(s.current)setRunning(s.current.source);else setRunning(null)}catch(e){}
-};
-
-const refreshDebug=async()=>{
-try{const d=await callExtension("GET_DB_DEBUG",{},5000);setDebugLogs(d||{})}catch(e){}
-};
-
-React.useEffect(()=>{
-refreshStatus();refreshDebug();
-const i=setInterval(()=>{refreshStatus();refreshDebug()},2000);
-return()=>clearInterval(i);
-// eslint-disable-next-line
-},[]);
-
-const startUpdate=async(source)=>{
-setLastErr("");setLastOk("");setRunning(source);
-try{
-const r=await callExtension("DB_UPDATE",{source},30*60*1000);
-setLastOk(`✓ ${({spk:"СПК",att:"Аттестаты юр.лиц",spec:"Аттестаты специалистов",iso:"ISO/СУОТ"})[source]||source}: ${r.count} записей загружено в GitHub`);
-setTimeout(()=>{if(loadLocalDb)loadLocalDb(true)},90000);
-}catch(e){setLastErr("Ошибка: "+e.message)}
-setRunning(null);refreshDebug();
-};
-
-const showLog=(source)=>{
-const d=debugLogs[source];
-if(!d){alert("Логов пока нет — сначала запустите обновление этого реестра");return}
-const text=`Реестр: ${source}\nURL: ${d.url}\nВремя: ${d.ts}\nЗаписей: ${d.count}\nОшибка: ${d.error||"нет"}\n\nЛог:\n${d.log}`;
-navigator.clipboard.writeText(text).then(()=>alert("Лог скопирован в буфер обмена. Можете прислать его разработчику.")).catch(()=>{const w=window.open("","_blank");w.document.write("<pre style='padding:20px;font-size:12px;font-family:monospace'>"+text.replace(/</g,"&lt;")+"</pre>")});
-};
-
-const SOURCE_INFO={
-spk:{label:"СПК",full:"Свидетельства о технической компетентности (Белстройцентр)",time:"~10 сек"},
-att:{label:"Аттестаты юр.лиц",full:"Аттестаты соответствия юр.лиц (att.bsc.by)",time:"~10 мин"},
-spec:{label:"Аттестаты спец.",full:"Квалификационные аттестаты специалистов (rcuk.bsc.by)",time:"~30 мин"},
-iso:{label:"ISO / СУОТ",full:"Сертификаты систем менеджмента (tsouz.belgiss.by)",time:"~5 мин"},
-};
-
-return <div className="CD">
-<div className="CT">📥 Обновить базы реестров</div>
-<p style={{fontSize:12,color:"var(--t2)",lineHeight:1.6,marginBottom:14}}>Нажмите на реестр чтобы скачать его целиком с белорусского сайта и сохранить в общую базу. Это нужно делать <strong>раз в 1-4 недели</strong>.</p>
-
-{status?.current&&<div style={{padding:"10px 14px",background:"rgba(245,166,35,.12)",border:"1px solid var(--or)",borderRadius:8,marginBottom:12,fontSize:13,color:"var(--or)"}}>
-⏳ Сейчас обновляется: <strong>{status.current.name}</strong> — страница {status.current.page} из {status.current.total_pages}, записей: {status.current.records_count}
-</div>}
-
-{lastOk&&<div style={{padding:"10px 14px",background:"rgba(52,199,123,.12)",border:"1px solid var(--gn)",borderRadius:8,marginBottom:12,fontSize:13,color:"var(--gn)"}}>{lastOk}</div>}
-{lastErr&&<div style={{padding:"10px 14px",background:"rgba(245,87,79,.12)",border:"1px solid var(--rd)",borderRadius:8,marginBottom:12,fontSize:13,color:"var(--rd)"}}>{lastErr}</div>}
-
-<div style={{display:"flex",flexDirection:"column",gap:8}}>
-{Object.entries(SOURCE_INFO).map(([id,info])=>{
-const db=localDb[id];
-const ageText=db?(()=>{const ms=Date.now()-new Date(db.updated_at).getTime();const days=Math.floor(ms/(1000*60*60*24));if(days===0)return "сегодня";if(days===1)return "вчера";return days+" дн. назад"})():"никогда";
-const isRunning=running===id;
-const hasLog=!!debugLogs[id];
-return <div key={id} style={{padding:"12px 14px",background:"var(--s2)",borderRadius:8,border:"1px solid var(--bd)",display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,flexWrap:"wrap"}}>
-<div style={{flex:1,minWidth:200}}>
-<div style={{fontWeight:600,fontSize:13,color:"var(--tx)"}}>{info.label}</div>
-<div style={{fontSize:11,color:"var(--t2)",marginTop:2}}>{info.full}</div>
-<div style={{fontSize:11,color:"var(--t2)",marginTop:4}}>
-{db?<><span style={{color:"var(--gn)"}}>✓ {db.count} записей</span> · обновлено {ageText}</>:<span style={{color:"var(--or)"}}>Нет данных</span>}
-{" · "}<span style={{color:"var(--t2)"}}>займёт {info.time}</span>
-</div>
-</div>
-<div style={{display:"flex",gap:6,alignItems:"center"}}>
-{hasLog&&<button className="B BS" style={{fontSize:10,padding:"5px 8px",whiteSpace:"nowrap"}} onClick={()=>showLog(id)}>🐞 Лог</button>}
-<button className="B BP" disabled={!!running} onClick={()=>startUpdate(id)} style={{whiteSpace:"nowrap"}}>{isRunning?"⏳ Обновляется...":"🔄 Обновить"}</button>
-</div>
-</div>;
-})}
-</div>
-
-<div style={{marginTop:14,padding:"10px 14px",background:"var(--s2)",borderRadius:8,fontSize:12,color:"var(--t2)"}}>
-<strong>ОСП</strong> обновляется автоматически каждую ночь через GitHub Actions — не требует ручного обновления.
-</div>
-</div>;
-}
-
 // === Компонент: просмотровщик базы реестров ===
 function RegistryBrowser({localDb,loadLocalDb,dbLoading}){
 const SOURCES=[
-{id:"spk",label:"СПК",full:"Свидетельства о технической компетентности"},
-{id:"osp",label:"ОСП",full:"Орган сварочного производства"},
-{id:"att",label:"Аттестаты юр.лиц",full:"Аттестаты соответствия юр.лиц"},
-{id:"spec",label:"Аттестаты спец.",full:"Квалификационные аттестаты специалистов"},
+{id:"spk",label:"СПК старый",full:"Свидетельства о технической компетентности"},
+{id:"spk2",label:"СПК новый",full:"Новый реестр свидетельств"},
+{id:"att",label:"Аттестаты юр.лиц",full:"Действующие аттестаты соответствия"},
+{id:"attoff",label:"Отменённые",full:"Прекращённые и отменённые аттестаты"},
 {id:"iso",label:"ISO / СУОТ",full:"Сертификаты систем менеджмента"},
+{id:"metal",label:"Серты металл",full:"Сертификаты на металлопродукцию"},
+{id:"osp",label:"ОСП",full:"Освидетельствование сварочного производства"},
+{id:"lic",label:"Лицензии",full:"Единый реестр лицензий"},
+{id:"spec",label:"Аттестаты спец.",full:"Квалификационные аттестаты специалистов"},
 ];
 
 // Активный реестр — первый у которого есть данные, либо spk
@@ -464,7 +313,7 @@ return <button key={s.id} className="B" style={{padding:"8px 12px",background:is
 {!db||db.count===0?<div className="CD" style={{textAlign:"center",padding:30}}>
 <p style={{color:"var(--t2)",marginBottom:14}}>База этого реестра ещё не загружена</p>
 <button className="B BP" onClick={()=>loadLocalDb&&loadLocalDb(true)} disabled={dbLoading}>{dbLoading?"⏳ Загрузка...":"🔄 Загрузить базу"}</button>
-<p style={{fontSize:12,color:"var(--t2)",marginTop:12}}>Если базы нет даже после загрузки — перейдите в раздел «📥 База» и обновите этот реестр через расширение</p>
+<p style={{fontSize:12,color:"var(--t2)",marginTop:12}}>База появится после успешного еженедельного запуска локального обновления и публикации в GitHub.</p>
 </div>:<>
 
 {/* Поиск и фильтры */}
@@ -615,7 +464,7 @@ return null;
 }
 
 // === RegistryView: раздел поиска по реестрам разрешительных документов ===
-function RegistryView({regProxy,setRegProxy,regCards,setRegCards,regHist,setRegHist,setAppMode,CSS}){
+function RegistryView({setAppMode,CSS}){
 const[q,setQ]=useState("");
 const[unp,setUnp]=useState("");
 const[loading,setLoading]=useState(false);
@@ -626,18 +475,15 @@ const[searchMode,setSearchMode]=useState("company"); // company | person
 // Раскрытые блоки видов работ — Set ключей вида "att-0007902-ГС"
 const[expandedWork,setExpandedWork]=useState(()=>new Set());
 const toggleWork=(key)=>{setExpandedWork(prev=>{const ns=new Set(prev);if(ns.has(key))ns.delete(key);else ns.add(key);return ns});};
-// Состояние расширения
-const[extReady,setExtReady]=useState(false);
-const[extVersion,setExtVersion]=useState(null);
 // === Профили проверки реестров (по скорости) ===
 // quick — самые быстрые (без SPA, без лицензий), 5 реестров, ~5-10 сек
 // standard — без ISO/Серты металл, но с лицензиями (6 реестров), ~15-20 сек
 // full — все 8 реестров, ~25-30 сек
 // custom — пользователь сам выбирает галочками
 const PROFILES={
-quick:{label:"🚀 Быстрая",time:"5-10 сек",sources:["spk","spk2","att","attoff","osp"]},
-standard:{label:"🔍 Стандартная",time:"15-20 сек",sources:["spk","spk2","att","attoff","osp","lic"]},
-full:{label:"🔎 Полная",time:"25-30 сек",sources:["spk","spk2","att","attoff","iso","metal","osp","lic"]},
+quick:{label:"🚀 Быстрая",time:"мгновенно",sources:["spk","spk2","att","attoff","osp"]},
+standard:{label:"🔍 Стандартная",time:"мгновенно",sources:["spk","spk2","att","attoff","osp","lic"]},
+full:{label:"🔎 Полная",time:"мгновенно",sources:["spk","spk2","att","attoff","iso","metal","osp","lic"]},
 };
 const[selectedProfile,setSelectedProfile]=useState(()=>{try{return localStorage.getItem("mavis_profile")||"standard"}catch(e){return "standard"}});
 const[showCustomChecks,setShowCustomChecks]=useState(false);
@@ -667,68 +513,34 @@ if(searchMode==="company"&&enabledSrc.length===0){setEnabledSrc(REG_SOURCES.filt
 // eslint-disable-next-line
 },[searchMode]);
 
-// === Локальная база реестров (загружается с GitHub Pages) ===
-// 5 реестров обновляются автоматически раз в сутки через GitHub Actions:
-// SPK, OSP, ATT, SPEC, ISO. Лицензии (lic) — через расширение Chrome (SPA с reCAPTCHA)
-// По ТЗ — все реестры проверяются «в моменте» через расширение.
-// Локальные источники — данные подгружаются из data/<source>.json в репо.
-// Это даёт моментальный поиск без открытия вкладок.
-// 
-// ВАЖНО: белорусские госсайты блокируют GitHub IP, поэтому автоматическое обновление через
-// GitHub Actions работает только для spk2 (spk.bsc.by — он на другом сервере).
-// Остальные локальные базы (osp.json) были собраны раньше и обновляются ВРУЧНУЮ через расширение
-// (кнопка "Обновить базу" в настройках) — расширение парсит из браузера менеджера (его IP белорусский).
-const LOCAL_SOURCES=["spk2","osp"];
-const[localDb,setLocalDb]=useState(()=>{try{const s=localStorage.getItem("mavis_local_db");if(s){const d=JSON.parse(s);const empty={};LOCAL_SOURCES.forEach(k=>empty[k]=d[k]||null);return empty}}catch(e){}const e={};LOCAL_SOURCES.forEach(k=>e[k]=null);return e});
+// === Еженедельные снимки реестров (загружаются с сервера приложения) ===
+// Парсинг выполняется локально на рабочем компьютере скриптом scripts/run_weekly.py.
+// Пользователи приложения не открывают сайты реестров и не зависят от расширения Chrome.
+const LOCAL_SOURCES=["spk","spk2","att","attoff","iso","metal","osp","lic","spec"];
+const[localDb,setLocalDb]=useState(()=>{const empty={};LOCAL_SOURCES.forEach(k=>empty[k]=null);return empty});
 const[dbLoading,setDbLoading]=useState(false);
 const[dbErr,setDbErr]=useState("");
 
 const loadLocalDb=async(force=false)=>{
 setDbLoading(true);setDbErr("");
-const errs=[];
-try{
 const base=location.origin+location.pathname.replace(/\/[^/]*$/,"/");
-const newDb={...localDb};
-for(const s of LOCAL_SOURCES){
+const results=await Promise.all(LOCAL_SOURCES.map(async source=>{
 try{
-const url=base+"data/"+s+".json?t="+Date.now();
-const r=await fetch(url);
-if(!r.ok)throw new Error("HTTP "+r.status);
-const d=await r.json();
-// Принимаем только если count > 0 (иначе оставляем предыдущую версию из localStorage)
-if(d&&d.count>0){
-// Защита: если в локальной базе подозрительно много записей (парсер сломался) — обрезаем
-if(d.records&&d.records.length>3000){
-console.warn("[MAVIS] "+s+" имеет "+d.records.length+" записей — это подозрительно много (парсер мог сломаться). Берём первые 2000.");
-d.records=d.records.slice(0,2000);
-d.count=2000;
-d._truncated=true;
-}
-newDb[s]=d;console.log("[MAVIS] "+s+" загружен: "+d.count+" записей")
-}else{console.log("[MAVIS] "+s+" пустой/недоступен (count=0)")}
-}catch(e){console.warn("[MAVIS] не удалось загрузить "+s+":",e.message);errs.push(s+": "+e.message)}
-}
+const response=await fetch(base+"data/"+source+".json?t="+Date.now(),{cache:"no-store"});
+if(!response.ok)throw new Error("HTTP "+response.status);
+const data=await response.json();
+if(!data||!Array.isArray(data.records)||data.count!==data.records.length||data.count<=0)throw new Error("пустая или некорректная база");
+return[source,data,null];
+}catch(error){return[source,null,error.message]}
+}));
+const newDb={};const errs=[];
+for(const[source,data,error]of results){newDb[source]=data;if(error)errs.push(source+": "+error)}
 setLocalDb(newDb);
-try{localStorage.setItem("mavis_local_db",JSON.stringify(newDb))}catch(e){
-console.warn("localStorage переполнен — пробуем сжать (без iso, потом без spec)");
-// Если не влезло — сохраняем без самых больших баз. localStorage обычно ~5MB
-const smaller={...newDb,iso:null};
-try{localStorage.setItem("mavis_local_db",JSON.stringify(smaller))}catch(e2){
-const minimal={spk:newDb.spk,osp:newDb.osp,att:null,spec:null,iso:null};
-try{localStorage.setItem("mavis_local_db",JSON.stringify(minimal))}catch(e3){setDbErr("База слишком большая для localStorage")}
-}
-}
-if(force&&errs.length>0)setDbErr("Ошибки: "+errs.join("; "));
-}finally{setDbLoading(false)}
+if(errs.length)setDbErr("Не загружены: "+errs.join("; "));
+setDbLoading(false);
 };
 
-// Автоматически загружаем базу при открытии раздела (если хотя бы один источник старше 24ч)
-React.useEffect(()=>{
-const hasAny=LOCAL_SOURCES.some(s=>localDb[s]&&localDb[s].records&&localDb[s].records.length>0);
-const isOld=hasAny&&LOCAL_SOURCES.some(s=>localDb[s]&&Date.now()-new Date(localDb[s].updated_at).getTime()>24*60*60*1000);
-if(!hasAny||isOld){loadLocalDb(false)}
-// eslint-disable-next-line
-},[]);
+React.useEffect(()=>{loadLocalDb(false)},[]);
 
 // === Локальный поиск по базе (моментальный) ===
 const searchLocal=(query,source)=>{
@@ -824,35 +636,6 @@ matches=filtered;
 return{count:matches.length,results:matches,source,source_name:db.source_name,url:db.url,query,from_local:true,updated_at:db.updated_at};
 };
 
-// === Детекция расширения через postMessage ===
-React.useEffect(()=>{
-const handler=(ev)=>{
-if(ev.source!==window)return;
-const m=ev.data;
-if(m&&m.type==="MAVIS_EXT_READY"){
-setExtReady(true);
-setExtVersion(m.version||"?");
-}
-};
-window.addEventListener("message",handler);
-// Пингуем расширение через 500мс на случай если оно загрузилось до нас
-const pingId=setTimeout(()=>{
-const reqId="ping_"+Date.now();
-window.postMessage({target:"MAVIS_EXT",action:"PING",requestId:reqId},"*");
-const respHandler=(ev)=>{
-const m=ev.data;
-if(m&&m.type==="MAVIS_EXT_RESPONSE"&&m.requestId===reqId&&m.response?.ok){
-setExtReady(true);
-setExtVersion(m.response.version||"?");
-window.removeEventListener("message",respHandler);
-}
-};
-window.addEventListener("message",respHandler);
-setTimeout(()=>window.removeEventListener("message",respHandler),2000);
-},500);
-return()=>{window.removeEventListener("message",handler);clearTimeout(pingId)};
-},[]);
-
 const daysLeft=(iso)=>{
 if(!iso)return null;
 // Проверка на пустые/невалидные даты
@@ -862,23 +645,6 @@ if(isNaN(d.getTime())||d.getFullYear()<1900)return null;
 const diff=Math.ceil((d-new Date())/(1000*60*60*24));
 return diff
 };
-
-// === Запрос к расширению через postMessage ===
-const callExtension=(action,payload,timeoutMs=60000)=>new Promise((resolve,reject)=>{
-const reqId=action+"_"+Date.now()+"_"+Math.random().toString(36).slice(2,8);
-const t=setTimeout(()=>{window.removeEventListener("message",handler);reject(new Error("Таймаут "+timeoutMs+"мс — расширение не ответило"))},timeoutMs);
-const handler=(ev)=>{
-if(ev.source!==window)return;
-const m=ev.data;
-if(m&&m.type==="MAVIS_EXT_RESPONSE"&&m.requestId===reqId){
-clearTimeout(t);window.removeEventListener("message",handler);
-if(m.response?.ok)resolve(m.response.result);
-else reject(new Error(m.response?.error||"Неизвестная ошибка"));
-}
-};
-window.addEventListener("message",handler);
-window.postMessage({target:"MAVIS_EXT",action,requestId:reqId,...payload},"*");
-});
 
 const search=async()=>{
 const qVal=q.trim();
@@ -895,36 +661,14 @@ try{
 const sourcesAll=enabledSrc.filter(s=>s!=="spec"); // spec — отдельный режим
 if(sourcesAll.length===0){setErr("Выберите хотя бы один реестр для проверки");setLoading(false);return}
 
-// Разделяем: какие источники есть в локальной базе, какие нужно искать через расширение
-const localSources=sourcesAll.filter(s=>LOCAL_SOURCES.includes(s)&&localDb[s]&&localDb[s].records);
-const extSources=sourcesAll.filter(s=>!localSources.includes(s));
-
+// Все проверки выполняются по опубликованным еженедельным снимкам.
 const allResults={query:queryForSearch,unp:unpVal,name:qVal,sources:{}};
-
-// 1) Локальный поиск (моментально)
-for(const s of localSources){
-const r=searchLocal(queryForSearch,s);
-if(r)allResults.sources[s]=r;
-}
-
-// 2) Если есть источники для расширения — спрашиваем у него
-if(extSources.length>0){
-if(!extReady){
-// Если расширения нет, но есть локальные данные — показываем что есть, остальные помечаем как недоступные
-if(localSources.length===0){setErr("Установите расширение MAVIS Registry в Chrome (инструкция в Настройках)");setTab("settings");setLoading(false);return}
-for(const s of extSources){
-allResults.sources[s]={count:0,results:[],source:s,error:"Расширение не установлено — этот реестр недоступен. Установите расширение в Настройках."};
-}
+for(const source of sourcesAll){
+if(localDb[source]&&Array.isArray(localDb[source].records)){
+const result=searchLocal(queryForSearch,source);
+allResults.sources[source]=result||{count:0,results:[],source};
 }else{
-try{
-const extData=await callExtension("SEARCH",{query:queryForSearch,sources:extSources},120000);
-Object.assign(allResults.sources,extData.sources||{});
-}catch(e){
-// Если расширение упало — помечаем все ext-источники как ошибочные, но локальные оставляем
-for(const s of extSources){
-allResults.sources[s]={count:0,results:[],source:s,error:"Расширение: "+e.message};
-}
-}
+allResults.sources[source]={count:0,results:[],source,error:"База реестра ещё не загружена или последнее обновление завершилось ошибкой"};
 }
 }
 
@@ -953,27 +697,6 @@ setResults(allResults);
 setLoading(false);
 };
 
-const saveAsCard=()=>{
-if(!results)return;
-const card={id:Date.now(),name:q.trim(),docs:[],ts:new Date().toISOString(),notes:""};
-// Извлекаем документы из результатов — для всех источников
-REG_SOURCES.forEach(s=>{
-const src=s.id;
-const items=results.sources?.[src]?.results;
-if(Array.isArray(items)){
-items.forEach(it=>{
-const orgName=(it.organization||it.person||"").toLowerCase();
-if(!orgName||orgName.includes(q.toLowerCase().substring(0,Math.min(q.length,10)))){
-card.docs.push({source:src,number:it.cert_number||it.license_number,expiry:it.expiry_date,raw:it.raw_cells||it.raw_text});
-}
-});
-}
-});
-setRegCards(p=>[card,...p]);
-alert("Компания «"+card.name+"» добавлена в картотеку");
-};
-
-const exp=regCards.flatMap(c=>c.docs.map(d=>({...d,company:c.name,days:daysLeft(d.expiry)}))).filter(d=>d.days!==null&&d.days<=60).sort((a,b)=>a.days-b.days);
 
 return(<><style>{CSS}</style>
 <div className="A">
@@ -983,7 +706,6 @@ return(<><style>{CSS}</style>
 <div className={"NI "+(tab==="search"?"on":"")} onClick={()=>setTab("search")}><span className="ic">🔍</span> Поиск</div>
 <div className={"NI "+(tab==="browse"?"on":"")} onClick={()=>setTab("browse")}><span className="ic">📚</span> Реестры</div>
 <div className={"NI "+(tab==="settings"?"on":"")} onClick={()=>setTab("settings")}><span className="ic">⚙</span> Настройки</div>
-{exp.length>0&&<div style={{marginTop:14,padding:"10px 14px",background:"rgba(245,87,79,.12)",border:"1px solid var(--rd)",borderRadius:8,fontSize:12,color:"var(--rd)"}}>⚠ Скоро истекают: {exp.length} док.</div>}
 </div>
 <div style={{padding:"12px 14px",borderTop:"1px solid var(--bd)",display:"flex",alignItems:"center",gap:10,cursor:"pointer"}} onClick={()=>setAppMode(null)}>
 <div style={{width:32,height:32,borderRadius:"50%",background:"var(--ac)",display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontWeight:700}}>←</div>
@@ -996,7 +718,7 @@ return(<><style>{CSS}</style>
 {LOCAL_SOURCES.some(s=>localDb[s])&&<div className="CD" style={{background:"rgba(52,199,123,.08)",borderColor:"var(--gn)",padding:"10px 14px"}}>
 <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,flexWrap:"wrap"}}>
 <div style={{fontSize:12,color:"var(--gn)",fontWeight:600}}>
-⚡ Локальная база (моментальный поиск): {LOCAL_SOURCES.filter(s=>localDb[s]).map(s=>{const labels={spk:"СПК",osp:"ОСП",att:"Аттестаты",spec:"Спецы",iso:"ISO"};return labels[s]+" ("+localDb[s].count+")"}).join(" · ")}
+⚡ Еженедельный снимок (моментальный поиск): {LOCAL_SOURCES.filter(s=>localDb[s]).map(s=>{const labels={spk:"СПК старый",spk2:"СПК новый",att:"Аттестаты",attoff:"Отменённые",iso:"ISO",metal:"Металл",osp:"ОСП",lic:"Лицензии",spec:"Спецы"};return (labels[s]||s)+" ("+localDb[s].count+")"}).join(" · ")}
 <div style={{fontSize:11,color:"var(--t2)",fontWeight:400,marginTop:2}}>Обновлено: {(()=>{const dates=LOCAL_SOURCES.filter(s=>localDb[s]).map(s=>new Date(localDb[s].updated_at));if(dates.length===0)return "—";const oldest=new Date(Math.min(...dates));return oldest.toLocaleString("ru-RU")})()}</div>
 </div>
 <button className="B BS" style={{fontSize:11,padding:"6px 10px"}} onClick={()=>loadLocalDb(true)} disabled={dbLoading}>{dbLoading?"⏳":"🔄 Обновить"}</button>
@@ -1010,11 +732,7 @@ return(<><style>{CSS}</style>
 <div style={{fontSize:12,color:"var(--or)",marginBottom:6}}>⚠ Локальная база недоступна: {dbErr}</div>
 <button className="B BS" style={{fontSize:11,padding:"6px 10px"}} onClick={()=>loadLocalDb(true)}>🔄 Попробовать снова</button>
 </div>}
-{!extReady&&!LOCAL_SOURCES.some(s=>localDb[s])&&<div className="CD" style={{background:"rgba(245,166,35,.08)",borderColor:"var(--or)"}}>
-<div className="CT" style={{color:"var(--or)"}}>⚠ Расширение MAVIS Registry не установлено</div>
-<p style={{fontSize:13,color:"var(--tx)",lineHeight:1.6,marginBottom:10}}>Чтобы заработал автопоиск по реестрам без локальной базы — установите расширение для Chrome.</p>
-<button className="B BP" onClick={()=>setTab("settings")}>📖 Инструкция по установке</button>
-</div>}
+
 <div className="CD">
 <div className="CT" style={{marginBottom:14}}>🔍 Проверка компании по реестрам</div>
 <div style={{display:"grid",gridTemplateColumns:"180px 1fr auto",gap:10,alignItems:"end",marginBottom:10}}>
@@ -1048,12 +766,12 @@ return <button key={key} className={"B "+(isActive?"BP":"BS")} style={{fontSize:
 {showCustomChecks&&<div style={{marginTop:10,paddingTop:10,borderTop:"1px solid var(--bd)",display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:6}}>
 {REG_SOURCES.filter(s=>s.id!=="spec").map(s=>{
 const checked=enabledSrc.includes(s.id);
-const isSlow=["iso","metal","lic"].includes(s.id);
+const isSlow=false;
 return <label key={s.id} style={{display:"flex",alignItems:"center",gap:6,padding:"4px 6px",borderRadius:4,cursor:"pointer",fontSize:12,background:checked?"rgba(79,125,245,.08)":"transparent"}}>
 <input type="checkbox" checked={checked} onChange={()=>{
 setEnabledSrc(p=>checked?p.filter(x=>x!==s.id):[...p,s.id]);
 }} />
-<span>{s.label}{isSlow&&<span style={{color:"var(--or)",fontSize:10,marginLeft:4}}>медленно</span>}</span>
+<span>{s.label}</span>
 </label>;
 })}
 </div>}
@@ -1062,7 +780,7 @@ setEnabledSrc(p=>checked?p.filter(x=>x!==s.id):[...p,s.id]);
 </div>
 </div>
 
-<p style={{fontSize:12,color:"var(--t2)",marginTop:8}}>Заполните хотя бы одно поле — УНП или название. Проверка идёт параллельно по выбранным реестрам.</p>
+<p style={{fontSize:12,color:"var(--t2)",marginTop:8}}>Заполните хотя бы одно поле — УНП или название. Поиск выполняется по последнему опубликованному снимку всех выбранных реестров.</p>
 </div>
 
 {results&&(()=>{
@@ -1743,42 +1461,10 @@ return <div style={{marginTop:8}}>
 
 {tab==="settings"&&(<><div className="MH"><h2>Настройки</h2></div><div className="MC">
 <div className="CD">
-<div className="CT">🧩 Расширение Chrome</div>
-{extReady?<div>
-<div style={{padding:"12px 14px",background:"rgba(52,199,123,.12)",border:"1px solid var(--gn)",borderRadius:8,color:"var(--gn)",fontSize:13,marginBottom:10,fontWeight:600}}>✓ Расширение установлено и работает (версия {extVersion})</div>
-<p style={{fontSize:12,color:"var(--t2)",lineHeight:1.6,marginBottom:10}}>Расширение делает запросы к реестрам через ваш браузер — поэтому белорусские госсайты пропускают их без блокировок. Это бесплатно и работает на 8 реестрах одновременно.</p>
-<div style={{padding:"10px 14px",background:"rgba(79,125,245,.10)",border:"1px solid var(--ac)",borderRadius:8,fontSize:12,color:"var(--tx)",lineHeight:1.6,marginBottom:10}}>
-<div style={{fontWeight:600,marginBottom:4,color:"var(--ac)"}}>💡 Рабочее окно для проверок</div>
-При первой проверке откроется отдельное окно Chrome — все вкладки реестров будут открываться там, не отвлекая вас. Перетащите окно в угол экрана / на второй монитор — и пользуйтесь.
-</div>
-<button className="B BS" style={{fontSize:12,padding:"6px 12px"}} onClick={async()=>{
-try{
-const r=await callExtension("CLOSE_WORK_WINDOW",{},5000);
-alert(r.message||"Готово");
-}catch(e){alert("Ошибка: "+e.message)}
-}}>🗙 Закрыть рабочее окно (если потерялось)</button>
-</div>:<div>
-<div style={{padding:"12px 14px",background:"rgba(245,166,35,.12)",border:"1px solid var(--or)",borderRadius:8,color:"var(--or)",fontSize:13,marginBottom:14,fontWeight:600}}>⚠ Расширение не обнаружено</div>
-<p style={{fontSize:13,color:"var(--tx)",lineHeight:1.6,marginBottom:14,fontWeight:600}}>Чтобы заработала автопроверка по реестрам, нужно установить расширение MAVIS Registry в Chrome:</p>
-<ol style={{fontSize:12,color:"var(--t2)",lineHeight:1.8,paddingLeft:20,marginBottom:14}}>
-<li>Скачайте архив <code style={{color:"var(--ac)"}}>mavis-extension.zip</code> у разработчика</li>
-<li>Распакуйте архив в любую папку</li>
-<li>Откройте Chrome → введите в адресной строке <code style={{color:"var(--ac)"}}>chrome://extensions/</code></li>
-<li>Включите <strong>«Режим разработчика»</strong> в правом верхнем углу</li>
-<li>Нажмите <strong>«Загрузить распакованное расширение»</strong></li>
-<li>Выберите папку с распакованным архивом</li>
-<li>Готово — обновите эту страницу (Ctrl+Shift+R)</li>
-</ol>
-<button className="B BP" onClick={()=>window.location.reload()}>🔄 Я установил, проверить</button>
-</div>}
-</div>
-<div className="CD">
-<div className="CT">💾 Данные</div>
-<div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
-<button className="B BS" onClick={()=>{const data={cards:regCards,hist:regHist};const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download="mavis_registry_"+new Date().toISOString().slice(0,10)+".json";a.click()}}>📥 Экспорт</button>
-<label className="B BS" style={{cursor:"pointer"}}>📤 Импорт<input type="file" accept=".json" style={{display:"none"}} onChange={e=>{if(e.target.files?.[0]){const r=new FileReader();r.onload=ev=>{try{const d=JSON.parse(ev.target.result);if(d.cards)setRegCards(d.cards);if(d.hist)setRegHist(d.hist);alert("Импортировано")}catch(err){alert("Ошибка: "+err.message)}};r.readAsText(e.target.files[0])}}} /></label>
-{regCards.length>0&&<button className="B BR" onClick={()=>{if(window.confirm("Удалить всю картотеку ("+regCards.length+" компаний)?"))setRegCards([])}}>🗑 Очистить картотеку</button>}
-</div>
+<div className="CT">🗓 Еженедельное обновление реестров</div>
+<div style={{padding:"12px 14px",background:"rgba(52,199,123,.12)",border:"1px solid var(--gn)",borderRadius:8,color:"var(--gn)",fontSize:13,marginBottom:12,fontWeight:600}}>✓ Поиск работает без расширения Chrome</div>
+<p style={{fontSize:13,color:"var(--tx)",lineHeight:1.7,marginBottom:10}}>Полные базы реестров один раз в неделю собираются на рабочем компьютере администратора, проходят автоматическую проверку качества и публикуются в приложение.</p>
+<p style={{fontSize:12,color:"var(--t2)",lineHeight:1.6}}>Команда запуска из папки проекта: <code style={{color:"var(--ac)"}}>python3 scripts/run_weekly.py --publish</code>. Если один источник недоступен или вернул пустые данные, приложение сохраняет предыдущую рабочую базу.</p>
 </div>
 </div></>)}
 </div>
@@ -1787,19 +1473,9 @@ alert(r.message||"Готово");
 }
 
 function App(){
-// === НОВОЕ: режим приложения и адрес Worker'а реестров ===
+// Режим приложения. Результаты проверок компаний и история поиска не сохраняются.
 const[appMode,setAppMode]=useState(()=>localStorage.getItem("mavis_app_mode")||null); // null | "kp" | "registry"
-const[regProxy,setRegProxy]=useState(()=>localStorage.getItem("mavis_reg_proxy")||"");
 React.useEffect(()=>{if(appMode)localStorage.setItem("mavis_app_mode",appMode);else localStorage.removeItem("mavis_app_mode")},[appMode]);
-React.useEffect(()=>{if(regProxy)localStorage.setItem("mavis_reg_proxy",regProxy);else localStorage.removeItem("mavis_reg_proxy")},[regProxy]);
-
-// Картотека компаний (для напоминаний об истекающих документах)
-const[regCards,setRegCards]=useState(()=>{try{const s=localStorage.getItem("mavis_reg_cards");return s?JSON.parse(s):[];}catch(e){return[];}});
-React.useEffect(()=>{try{localStorage.setItem("mavis_reg_cards",JSON.stringify(regCards))}catch(e){}},[regCards]);
-
-// История поисков в реестрах
-const[regHist,setRegHist]=useState(()=>{try{const s=localStorage.getItem("mavis_reg_hist");return s?JSON.parse(s):[];}catch(e){return[];}});
-React.useEffect(()=>{try{localStorage.setItem("mavis_reg_hist",JSON.stringify(regHist.slice(0,50)))}catch(e){}},[regHist]);
 
 // Manager selection
 const[mgrs,setMgrs]=useState(INIT_MGRS);
@@ -2313,7 +1989,7 @@ return(<><style>{CSS}</style>
 
 // === РЕЖИМ «РЕЕСТРЫ» — собственный layout ===
 if(appMode==="registry"){
-return <RegistryView regProxy={regProxy} setRegProxy={setRegProxy} regCards={regCards} setRegCards={setRegCards} regHist={regHist} setRegHist={setRegHist} setAppMode={setAppMode} CSS={CSS} />;
+return <RegistryView setAppMode={setAppMode} CSS={CSS} />;
 }
 
 // MANAGER SELECTION SCREEN
