@@ -2,7 +2,7 @@
   "source": "spk2",
   "source_name": "СПК новый",
   "url": "https://spk.bsc.by/cert_register",
-  "updated_at": "2026-08-02T03:29:55.090987+00:00",
+  "updated_at": "2026-08-03T03:30:58.727241+00:00",
   "count": 4362,
   "records": [
     {
@@ -1643,7 +1643,7 @@
       "evaluator": null,
       "issue_date": "2024-11-14",
       "expiry_date": "2026-08-03",
-      "status": "ДЕЙСТВИТЕЛЬНО"
+      "status": "НЕДЕЙСТВИТЕЛЬНО"
     },
     {
       "cert_number": "37372989.5993-2022",
@@ -3793,7 +3793,7 @@
       "evaluator": null,
       "issue_date": "2022-07-26",
       "expiry_date": "2026-08-03",
-      "status": "ДЕЙСТВИТЕЛЬНО"
+      "status": "НЕДЕЙСТВИТЕЛЬНО"
     },
     {
       "cert_number": "37372989.2119-2021",
@@ -4893,7 +4893,7 @@
       "evaluator": null,
       "issue_date": "2021-08-03",
       "expiry_date": "2026-08-03",
-      "status": "ДЕЙСТВИТЕЛЬНО"
+      "status": "НЕДЕЙСТВИТЕЛЬНО"
     },
     {
       "cert_number": "05891370.1302-2021",
@@ -4903,7 +4903,7 @@
       "evaluator": null,
       "issue_date": "2021-08-03",
       "expiry_date": "2026-08-03",
-      "status": "ДЕЙСТВИТЕЛЬНО"
+      "status": "НЕДЕЙСТВИТЕЛЬНО"
     },
     {
       "cert_number": "05891370.1303-2021",
@@ -13673,7 +13673,7 @@
       "evaluator": null,
       "issue_date": "2021-08-03",
       "expiry_date": "2026-08-03",
-      "status": "ДЕЙСТВИТЕЛЬНО"
+      "status": "НЕДЕЙСТВИТЕЛЬНО"
     },
     {
       "cert_number": "05891370.1720-2025",
@@ -17243,7 +17243,7 @@
       "evaluator": null,
       "issue_date": "2021-08-03",
       "expiry_date": "2026-08-03",
-      "status": "ДЕЙСТВИТЕЛЬНО"
+      "status": "НЕДЕЙСТВИТЕЛЬНО"
     },
     {
       "cert_number": "37372989.6309-2024",
@@ -27013,7 +27013,7 @@
       "evaluator": null,
       "issue_date": "2021-08-03",
       "expiry_date": "2026-08-03",
-      "status": "ДЕЙСТВИТЕЛЬНО"
+      "status": "НЕДЕЙСТВИТЕЛЬНО"
     },
     {
       "cert_number": "05890263.1210-2021",
