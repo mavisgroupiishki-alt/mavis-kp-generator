@@ -2,8 +2,8 @@
   "source": "osp",
   "source_name": "ОСП (Орган сварочного производства)",
   "url": "https://stn.by/services/welding/welding_list",
-  "updated_at": "2026-08-17T01:35:10.317364+00:00",
-  "count": 487,
+  "updated_at": "2026-08-18T01:24:41.568693+00:00",
+  "count": 488,
   "records": [
     {
       "cert_number": "12-08-05/003",
@@ -3868,6 +3868,14 @@
       "last_check_date": "2026-08-06",
       "expiry_date": "2028-02-06",
       "activity": "заводские условия (111, 135 процессы сварки) стройплощадка (111 процесс сварки)"
+    },
+    {
+      "cert_number": "12-08-05/767",
+      "organization": "УЧПП \"Либриформ\"",
+      "issue_date": "2026-08-06",
+      "last_check_date": "2026-08-06",
+      "expiry_date": "2028-02-06",
+      "activity": "заводские условия ( 135 процесс)"
     },
     {
       "cert_number": "12-08-05/768",
