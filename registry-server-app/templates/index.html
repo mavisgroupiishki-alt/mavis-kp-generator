@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>MAVIS — Проверка реестров</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <main class="wrap">
+    <header class="hero">
+      <div class="eyebrow">MAVIS GROUP</div>
+      <h1>Проверка реестров</h1>
+      <p>Введите УНП или название компании. Проверка выполняется по последнему опубликованному снимку семи реестров.</p>
+      <div class="searchbar">
+        <input id="query" placeholder="Например: 190123456 или Газстройгомель" autocomplete="off">
+        <button id="searchBtn">Проверить</button>
+      </div>
+      <div id="freshness" class="freshness">Загружаю дату обновления…</div>
+    </header>
+    <div id="state" class="state hidden"></div>
+    <section id="candidates" class="candidates hidden"></section>
+    <section id="result" class="hidden"></section>
+  </main>
+  <script src="/static/app.js"></script>
+</body>
+</html>
