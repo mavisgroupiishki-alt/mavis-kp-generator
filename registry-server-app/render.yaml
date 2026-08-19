@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: mavis-registry
+    runtime: python
+    rootDir: registry-server-app
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app --workers 2 --threads 4 --timeout 120
+    healthCheckPath: /health
+    envVars:
+      - key: REGISTRY_BASE_URL
+        value: https://mavisgroupiishki-alt.github.io/mavis-kp-generator/registry-mvp
+      - key: CACHE_TTL
+        value: "300"
