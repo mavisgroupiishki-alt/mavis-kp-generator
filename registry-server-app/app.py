@@ -29,7 +29,7 @@ SOURCE_LABELS = {
 }
 
 _session = requests.Session()
-_session.headers.update({"User-Agent": "MAVIS-Registry-Server/4.0-cache-safe"})
+_session.headers.update({"User-Agent": "MAVIS-Registry-Server/5.0-deal-tab"})
 _manifest_cache = None
 _shard_cache = {}
 
@@ -222,8 +222,23 @@ def scopes_set():
 
 def bind_deal_tab(domain, auth):
     handler = request.url_root.rstrip("/") + "/deal-tab"
+    # Сначала проверяем факт регистрации, а не доверяем APPLICATION_SCOPE из старого POST.
     try:
-        result = bitrix_call(domain, auth, "placement.bind", {
+        placements = bitrix_call(domain, auth, "placement.get", {}) or []
+        for row in placements:
+            if str(row.get("placement") or "") == "CRM_DEAL_DETAIL_TAB":
+                return {
+                    "ok": True,
+                    "state": "already",
+                    "message": "Вкладка «Проверка реестров» уже зарегистрирована в карточках сделок.",
+                    "handler": row.get("handler"),
+                }
+    except Exception:
+        # Если placement.get недоступен, всё равно пробуем bind и показываем реальную ошибку API.
+        pass
+
+    try:
+        bitrix_call(domain, auth, "placement.bind", {
             "PLACEMENT": "CRM_DEAL_DETAIL_TAB",
             "HANDLER": handler,
             "TITLE": "Проверка реестров",
@@ -232,35 +247,41 @@ def bind_deal_tab(domain, auth):
                 "en": {"TITLE": "Registry check"},
             },
         })
-        return {"ok": True, "state": "bound", "message": "Вкладка «Проверка реестров» подключена к карточкам сделок."}
+        # Контроль сразу после bind.
+        placements = bitrix_call(domain, auth, "placement.get", {}) or []
+        found = [x for x in placements if str(x.get("placement") or "") == "CRM_DEAL_DETAIL_TAB"]
+        if not found:
+            return {
+                "ok": False,
+                "state": "verify_failed",
+                "message": "Bitrix принял placement.bind, но placement.get пока не видит вкладку. Перезагрузите приложение и повторите.",
+            }
+        return {
+            "ok": True,
+            "state": "bound",
+            "message": "Вкладка «Проверка реестров» зарегистрирована. Полностью перезагрузите страницу Bitrix24 и откройте сделку заново.",
+        }
     except Exception as exc:
         text = str(exc)
         upper = text.upper()
         if "PLACEMENT_MAX_COUNT" in upper or "ALREADY" in upper or "УЖЕ" in upper:
-            return {"ok": True, "state": "already", "message": "Вкладка «Проверка реестров» уже подключена."}
-        return {"ok": False, "state": "error", "message": text}
+            return {"ok": True, "state": "already", "message": "Вкладка «Проверка реестров» уже зарегистрирована."}
+        return {"ok": False, "state": "error", "message": f"Не удалось зарегистрировать вкладку: {text}"}
 
 
 def maybe_setup_deal_tab():
     if request.method != "POST":
         return None
     placement = request_value("PLACEMENT")
-    # Не пытаемся регистрировать вкладку при открытии самой вкладки.
     if placement == "CRM_DEAL_DETAIL_TAB":
         return None
     auth = request_value("AUTH_ID")
     domain = request_value("DOMAIN")
     if not auth or not domain:
         return None
-    scopes = scopes_set()
-    missing = [x for x in ("crm", "placement") if scopes and x not in scopes]
-    if missing:
-        return {
-            "ok": False,
-            "state": "missing_scope",
-            "message": "Для вкладки нужны права приложения: CRM и placement (встройки).",
-            "missing": missing,
-        }
+    # В v5 специально не блокируем bind по строке APPLICATION_SCOPE:
+    # после изменения прав локального приложения она может приходить из старого контекста.
+    # Реальное право проверит сам REST placement.get/placement.bind.
     return bind_deal_tab(domain, auth)
 
 
@@ -268,11 +289,24 @@ def get_company_context_from_deal(domain, auth, deal_id):
     deal = bitrix_call(domain, auth, "crm.deal.get", {"id": deal_id}) or {}
     company_id = int(deal.get("COMPANY_ID") or 0)
     deal_title = str(deal.get("TITLE") or "").strip()
+    category_id = int(deal.get("CATEGORY_ID") or 0)
+    category_name = ""
+    try:
+        cat_result = bitrix_call(domain, auth, "crm.category.get", {"entityTypeId": 2, "id": category_id}) or {}
+        category = cat_result.get("category") if isinstance(cat_result, dict) else None
+        if isinstance(category, dict):
+            category_name = str(category.get("name") or "").strip()
+    except Exception:
+        category_name = ""
+    is_sales_funnel = "продаж" in category_name.lower().replace("ё", "е")
 
     if not company_id:
         return {
             "deal_id": deal_id,
             "deal_title": deal_title,
+            "category_id": category_id,
+            "category_name": category_name,
+            "is_sales_funnel": is_sales_funnel,
             "company_id": 0,
             "company_name": deal_title,
             "unp": "",
@@ -303,6 +337,9 @@ def get_company_context_from_deal(domain, auth, deal_id):
     return {
         "deal_id": deal_id,
         "deal_title": deal_title,
+        "category_id": category_id,
+        "category_name": category_name,
+        "is_sales_funnel": is_sales_funnel,
         "company_id": company_id,
         "company_name": company_name,
         "unp": unp,
@@ -318,7 +355,7 @@ def health():
         return jsonify({
             "ok": True,
             "service": "mavis-registry-server",
-            "version": "4.0-cache-safe",
+            "version": "5.0-deal-tab",
             "registry_version": manifest.get("version"),
             "updated_at": manifest.get("updated_at"),
         })
