@@ -4,15 +4,17 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>MAVIS — Проверка реестров</title>
-  <link rel="stylesheet" href="/static/styles.css">
+  <link rel="stylesheet" href="/static/styles.css?v=3">
 </head>
 <body>
   <main class="wrap">
+    <div id="dealContext" class="deal-context hidden"></div>
+    <div id="setupState" class="setup-state hidden"></div>
     <header class="hero">
       <div class="eyebrow">MAVIS GROUP</div>
       <h1>Проверка реестров</h1>
-      <p>Введите УНП или название компании. Проверка выполняется по последнему опубликованному снимку семи реестров.</p>
-      <div class="searchbar">
+      <p id="heroText">Введите УНП или название компании. Проверка выполняется по последнему опубликованному снимку семи реестров.</p>
+      <div class="searchbar" id="searchbar">
         <input id="query" placeholder="Например: 190123456 или Газстройгомель" autocomplete="off">
         <button id="searchBtn">Проверить</button>
       </div>
@@ -22,6 +24,7 @@
     <section id="candidates" class="candidates hidden"></section>
     <section id="result" class="hidden"></section>
   </main>
-  <script src="/static/app.js"></script>
+  <script>window.MAVIS_BOOTSTRAP = {{ bootstrap|tojson }};</script>
+  <script src="/static/app.js?v=3"></script>
 </body>
 </html>
