@@ -1,7 +1,7 @@
+import json
 import os
-import time
 import re
-from functools import lru_cache
+import time
 from urllib.parse import quote
 
 import requests
@@ -28,7 +28,7 @@ SOURCE_LABELS = {
 }
 
 _session = requests.Session()
-_session.headers.update({"User-Agent": "MAVIS-Registry-Server/1.0"})
+_session.headers.update({"User-Agent": "MAVIS-Registry-Server/3.0"})
 _cache = {}
 
 
@@ -159,6 +159,128 @@ def do_search(raw):
     return sorted(filtered, key=sort_key)[:25]
 
 
+def request_value(name, default=""):
+    return (request.form.get(name) or request.args.get(name) or default).strip()
+
+
+def safe_domain(value):
+    value = (value or "").strip().lower()
+    if not re.fullmatch(r"[a-z0-9.-]+", value):
+        return ""
+    return value
+
+
+def bitrix_call(domain, auth, method, params=None):
+    domain = safe_domain(domain)
+    if not domain or not auth:
+        raise RuntimeError("Нет данных авторизации Bitrix24")
+    payload = dict(params or {})
+    payload["auth"] = auth
+    url = f"https://{domain}/rest/{method}.json"
+    r = _session.post(url, json=payload, timeout=HTTP_TIMEOUT)
+    r.raise_for_status()
+    data = r.json()
+    if data.get("error"):
+        raise RuntimeError(f"{data.get('error')}: {data.get('error_description') or 'Ошибка Bitrix24'}")
+    return data.get("result")
+
+
+def scopes_set():
+    raw = request_value("APPLICATION_SCOPE")
+    return {x.strip().lower() for x in raw.split(",") if x.strip()}
+
+
+def bind_deal_tab(domain, auth):
+    handler = request.url_root.rstrip("/") + "/deal-tab"
+    try:
+        result = bitrix_call(domain, auth, "placement.bind", {
+            "PLACEMENT": "CRM_DEAL_DETAIL_TAB",
+            "HANDLER": handler,
+            "TITLE": "Проверка реестров",
+            "LANG_ALL": {
+                "ru": {"TITLE": "Проверка реестров"},
+                "en": {"TITLE": "Registry check"},
+            },
+        })
+        return {"ok": True, "state": "bound", "message": "Вкладка «Проверка реестров» подключена к карточкам сделок."}
+    except Exception as exc:
+        text = str(exc)
+        upper = text.upper()
+        if "PLACEMENT_MAX_COUNT" in upper or "ALREADY" in upper or "УЖЕ" in upper:
+            return {"ok": True, "state": "already", "message": "Вкладка «Проверка реестров» уже подключена."}
+        return {"ok": False, "state": "error", "message": text}
+
+
+def maybe_setup_deal_tab():
+    if request.method != "POST":
+        return None
+    placement = request_value("PLACEMENT")
+    # Не пытаемся регистрировать вкладку при открытии самой вкладки.
+    if placement == "CRM_DEAL_DETAIL_TAB":
+        return None
+    auth = request_value("AUTH_ID")
+    domain = request_value("DOMAIN")
+    if not auth or not domain:
+        return None
+    scopes = scopes_set()
+    missing = [x for x in ("crm", "placement") if scopes and x not in scopes]
+    if missing:
+        return {
+            "ok": False,
+            "state": "missing_scope",
+            "message": "Для вкладки нужны права приложения: CRM и placement (встройки).",
+            "missing": missing,
+        }
+    return bind_deal_tab(domain, auth)
+
+
+def get_company_context_from_deal(domain, auth, deal_id):
+    deal = bitrix_call(domain, auth, "crm.deal.get", {"id": deal_id}) or {}
+    company_id = int(deal.get("COMPANY_ID") or 0)
+    deal_title = str(deal.get("TITLE") or "").strip()
+
+    if not company_id:
+        return {
+            "deal_id": deal_id,
+            "deal_title": deal_title,
+            "company_id": 0,
+            "company_name": deal_title,
+            "unp": "",
+            "query": deal_title,
+            "warning": "К сделке не привязана компания. Поиск выполнен по названию сделки.",
+        }
+
+    company = bitrix_call(domain, auth, "crm.company.get", {"id": company_id}) or {}
+    company_name = str(company.get("TITLE") or deal_title).strip()
+
+    unp = ""
+    try:
+        reqs = bitrix_call(domain, auth, "crm.requisite.list", {
+            "filter": {"ENTITY_TYPE_ID": 4, "ENTITY_ID": company_id},
+            "select": ["ID", "NAME", "RQ_INN", "RQ_COMPANY_NAME", "RQ_COMPANY_FULL_NAME"],
+            "order": {"ID": "ASC"},
+        }) or []
+        for req in reqs:
+            candidate = re.sub(r"\D", "", str(req.get("RQ_INN") or ""))
+            if candidate:
+                unp = candidate
+                if len(candidate) == 9:
+                    break
+    except Exception:
+        # Отсутствие/недоступность реквизитов не должно ломать поиск по названию.
+        unp = ""
+
+    return {
+        "deal_id": deal_id,
+        "deal_title": deal_title,
+        "company_id": company_id,
+        "company_name": company_name,
+        "unp": unp,
+        "query": unp or company_name,
+        "warning": "" if unp else "УНП в реквизитах Bitrix24 не найден — поиск выполнен по названию компании.",
+    }
+
+
 @app.get("/health")
 def health():
     try:
@@ -166,6 +288,7 @@ def health():
         return jsonify({
             "ok": True,
             "service": "mavis-registry-server",
+            "version": "3.0-deal-tab",
             "registry_version": manifest.get("version"),
             "updated_at": manifest.get("updated_at"),
         })
@@ -175,19 +298,48 @@ def health():
 
 @app.route("/install", methods=["GET", "POST"])
 def install():
-    # Для текущего MVP Bitrix REST пока не используется.
-    # Endpoint оставлен для следующего этапа (OAuth/CRM-события).
-    return (
-        "<html><body style='font-family:Arial;padding:24px'>"
-        "<h2>MAVIS — Проверка реестров</h2>"
-        "<p>Сервер приложения доступен. Для текущего MVP отдельная OAuth-установка не требуется.</p>"
-        "</body></html>"
-    )
+    setup = maybe_setup_deal_tab()
+    return render_template("index.html", bootstrap={"mode": "install", "setup": setup or {}})
 
 
 @app.route("/", methods=["GET", "POST"])
 def index():
-    return render_template("index.html")
+    setup = maybe_setup_deal_tab()
+    return render_template("index.html", bootstrap={"mode": "main", "setup": setup or {}})
+
+
+@app.route("/deal-tab", methods=["GET", "POST"])
+def deal_tab():
+    if request.method != "POST":
+        return render_template("index.html", bootstrap={
+            "mode": "deal",
+            "error": "Эта страница должна открываться из карточки сделки Bitrix24.",
+        })
+
+    placement = request_value("PLACEMENT")
+    options_raw = request_value("PLACEMENT_OPTIONS", "{}")
+    try:
+        options = json.loads(options_raw or "{}")
+    except Exception:
+        options = {}
+    deal_id = int(options.get("ID") or 0)
+    auth = request_value("AUTH_ID")
+    domain = request_value("DOMAIN")
+
+    if placement != "CRM_DEAL_DETAIL_TAB" or deal_id <= 0:
+        return render_template("index.html", bootstrap={
+            "mode": "deal",
+            "error": "Не удалось получить ID текущей сделки из Bitrix24.",
+        })
+
+    try:
+        ctx = get_company_context_from_deal(domain, auth, deal_id)
+        return render_template("index.html", bootstrap={"mode": "deal", "deal": ctx})
+    except Exception as exc:
+        return render_template("index.html", bootstrap={
+            "mode": "deal",
+            "error": f"Не удалось получить данные сделки из Bitrix24: {exc}",
+        })
 
 
 @app.get("/api/manifest")
