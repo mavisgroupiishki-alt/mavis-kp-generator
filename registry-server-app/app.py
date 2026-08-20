@@ -15,6 +15,7 @@ REGISTRY_BASE_URL = os.getenv(
 ).rstrip("/")
 HTTP_TIMEOUT = float(os.getenv("HTTP_TIMEOUT", "30"))
 CACHE_TTL = int(os.getenv("CACHE_TTL", "300"))
+MANIFEST_TTL = int(os.getenv("MANIFEST_TTL", "10"))
 
 SOURCE_ORDER = ["spk2", "att", "attoff", "iso", "metal", "osp", "lic"]
 SOURCE_LABELS = {
@@ -28,20 +29,49 @@ SOURCE_LABELS = {
 }
 
 _session = requests.Session()
-_session.headers.update({"User-Agent": "MAVIS-Registry-Server/3.0"})
-_cache = {}
+_session.headers.update({"User-Agent": "MAVIS-Registry-Server/4.0-cache-safe"})
+_manifest_cache = None
+_shard_cache = {}
+
+
+def _get_json(url, params=None):
+    r = _session.get(
+        url, params=params, timeout=HTTP_TIMEOUT,
+        headers={"Cache-Control": "no-cache", "Pragma": "no-cache"},
+    )
+    r.raise_for_status()
+    return r.json()
+
+
+def get_manifest(force=False):
+    global _manifest_cache, _shard_cache
+    now = time.time()
+    if not force and _manifest_cache and now - _manifest_cache[0] < MANIFEST_TTL:
+        return _manifest_cache[1]
+    url = f"{REGISTRY_BASE_URL}/manifest.json"
+    # Query string обходит CDN-кэш GitHub Pages после новой публикации.
+    data = _get_json(url, {"cb": f"{int(now)}"})
+    old_version = (_manifest_cache[1].get("version") if _manifest_cache else None)
+    new_version = data.get("version") or "unknown"
+    if old_version and old_version != new_version:
+        _shard_cache.clear()
+    _manifest_cache = (now, data)
+    return data
 
 
 def cache_get(path):
+    if path == "manifest.json":
+        return get_manifest()
+    manifest = get_manifest()
+    version = manifest.get("version") or "unknown"
+    key = (version, path)
     now = time.time()
-    row = _cache.get(path)
+    row = _shard_cache.get(key)
     if row and now - row[0] < CACHE_TTL:
         return row[1]
     url = f"{REGISTRY_BASE_URL}/{path}"
-    r = _session.get(url, timeout=HTTP_TIMEOUT)
-    r.raise_for_status()
-    data = r.json()
-    _cache[path] = (now, data)
+    data = _get_json(url, {"v": version})
+    _shard_cache[key] = (now, data)
     return data
 
 
@@ -284,11 +314,11 @@ def get_company_context_from_deal(domain, auth, deal_id):
 @app.get("/health")
 def health():
     try:
-        manifest = cache_get("manifest.json")
+        manifest = get_manifest(force=True)
         return jsonify({
             "ok": True,
             "service": "mavis-registry-server",
-            "version": "3.0-deal-tab",
+            "version": "4.0-cache-safe",
             "registry_version": manifest.get("version"),
             "updated_at": manifest.get("updated_at"),
         })
@@ -345,7 +375,7 @@ def deal_tab():
 @app.get("/api/manifest")
 def manifest():
     try:
-        return jsonify(cache_get("manifest.json"))
+        return jsonify(get_manifest(force=True))
     except Exception as exc:
         return jsonify({"error": "registry_unavailable", "message": str(exc)}), 502
 
@@ -356,6 +386,7 @@ def search():
     if not raw:
         return jsonify({"items": [], "message": "Введите УНП или название компании"})
     try:
+        get_manifest(force=True)
         return jsonify({"items": do_search(raw)})
     except Exception as exc:
         return jsonify({"error": "registry_unavailable", "message": str(exc)}), 502
@@ -366,6 +397,7 @@ def entity(entity_id):
     if not re.fullmatch(r"[A-Za-z0-9_-]{2,80}", entity_id):
         return jsonify({"error": "bad_entity_id"}), 400
     try:
+        get_manifest(force=True)
         shard = cache_get(f"entities/{entity_bucket(entity_id)}.json")
         item = shard.get("items", {}).get(entity_id)
         if not item:
@@ -373,6 +405,14 @@ def entity(entity_id):
         return jsonify(item)
     except Exception as exc:
         return jsonify({"error": "registry_unavailable", "message": str(exc)}), 502
+
+
+@app.after_request
+def no_store_api(response):
+    if request.path.startswith("/api/") or request.path == "/health":
+        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+        response.headers["Pragma"] = "no-cache"
+    return response
 
 
 if __name__ == "__main__":
