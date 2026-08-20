@@ -29,7 +29,7 @@ SOURCE_LABELS = {
 }
 
 _session = requests.Session()
-_session.headers.update({"User-Agent": "MAVIS-Registry-Server/5.0-deal-tab"})
+_session.headers.update({"User-Agent": "MAVIS-Registry-Server/7.0-links-issuer"})
 _manifest_cache = None
 _shard_cache = {}
 
@@ -355,7 +355,7 @@ def health():
         return jsonify({
             "ok": True,
             "service": "mavis-registry-server",
-            "version": "5.0-deal-tab",
+            "version": "7.0-links-issuer",
             "registry_version": manifest.get("version"),
             "updated_at": manifest.get("updated_at"),
         })
