@@ -29,9 +29,13 @@ SOURCE_LABELS = {
 }
 
 _session = requests.Session()
-_session.headers.update({"User-Agent": "MAVIS-Registry-Server/7.0-links-issuer"})
+_session.headers.update({"User-Agent": "MAVIS-Registry-Server/9.0-spk-live-preview"})
 _manifest_cache = None
 _shard_cache = {}
+_spk_document_cache = {}
+SPK_BASE_URL = "https://spk.bsc.by"
+SPK_CONTENT_ENDPOINT_RE = re.compile(r"^/RegisterDocument/Get[A-Za-z0-9_]+DocumentContent$")
+SPK_DOCUMENT_CACHE_TTL = 600
 
 
 def _get_json(url, params=None):
@@ -355,7 +359,7 @@ def health():
         return jsonify({
             "ok": True,
             "service": "mavis-registry-server",
-            "version": "7.0-links-issuer",
+            "version": "9.0-spk-live-preview",
             "registry_version": manifest.get("version"),
             "updated_at": manifest.get("updated_at"),
         })
@@ -427,6 +431,50 @@ def search():
         return jsonify({"items": do_search(raw)})
     except Exception as exc:
         return jsonify({"error": "registry_unavailable", "message": str(exc)}), 502
+
+
+@app.get("/api/spk-document")
+def spk_document():
+    raw_id = (request.args.get("id") or "").strip()
+    endpoint = (request.args.get("endpoint") or "").strip()
+    if not raw_id.isdigit():
+        return jsonify({"error": "bad_document_id", "message": "Некорректный ID документа СПК"}), 400
+    if not SPK_CONTENT_ENDPOINT_RE.fullmatch(endpoint):
+        return jsonify({"error": "bad_endpoint", "message": "Некорректный endpoint документа СПК"}), 400
+    doc_id = int(raw_id)
+    key = (endpoint, doc_id)
+    now = time.time()
+    cached = _spk_document_cache.get(key)
+    if cached and now - cached[0] < SPK_DOCUMENT_CACHE_TTL:
+        return jsonify(cached[1])
+    try:
+        url = SPK_BASE_URL + endpoint
+        r = _session.get(
+            url,
+            params={"id": doc_id},
+            timeout=HTTP_TIMEOUT,
+            headers={"Accept": "application/json", "Cache-Control": "no-cache", "Pragma": "no-cache"},
+        )
+        r.raise_for_status()
+        payload = r.json()
+        if not isinstance(payload, dict):
+            raise RuntimeError("СПК вернул неожиданный формат ответа")
+        content = payload.get("content")
+        title = payload.get("title")
+        if not isinstance(content, str) or not content.strip():
+            raise RuntimeError("СПК не вернул содержимое области")
+        if len(content) > 3_000_000:
+            raise RuntimeError("Документ СПК слишком большой для встроенного просмотра")
+        out = {
+            "ok": True,
+            "document_id": doc_id,
+            "title": str(title or "Документ СПК")[:500],
+            "content": content,
+        }
+        _spk_document_cache[key] = (now, out)
+        return jsonify(out)
+    except Exception as exc:
+        return jsonify({"error": "spk_document_unavailable", "message": str(exc)}), 502
 
 
 @app.get("/api/entity/<entity_id>")
