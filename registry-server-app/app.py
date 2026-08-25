@@ -359,7 +359,7 @@ def health():
         return jsonify({
             "ok": True,
             "service": "mavis-registry-server",
-            "version": "9.0-spk-live-preview",
+            "version": "10.0-all-funnels",
             "registry_version": manifest.get("version"),
             "updated_at": manifest.get("updated_at"),
         })
