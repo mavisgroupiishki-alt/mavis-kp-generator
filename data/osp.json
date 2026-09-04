@@ -2,8 +2,8 @@
   "source": "osp",
   "source_name": "ОСП (Орган сварочного производства)",
   "url": "https://stn.by/services/welding/welding_list",
-  "updated_at": "2026-09-03T03:44:25.721242+00:00",
-  "count": 493,
+  "updated_at": "2026-09-04T03:45:46.504888+00:00",
+  "count": 494,
   "records": [
     {
       "cert_number": "12-08-05/003",
@@ -3940,6 +3940,14 @@
       "last_check_date": "2026-08-31",
       "expiry_date": "2028-02-29",
       "activity": "заводские условия ( 111, 135 процессы)"
+    },
+    {
+      "cert_number": "12-08-05/776",
+      "organization": "ООО «ДвинаЭнергоСтрой»",
+      "issue_date": "2026-09-03",
+      "last_check_date": "2026-09-03",
+      "expiry_date": "2028-03-03",
+      "activity": "стройплощадка (111 процесс сварки)"
     },
     {
       "cert_number": "от 30.11.-0001",
